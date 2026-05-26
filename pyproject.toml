@@ -1,0 +1,49 @@
+[project]
+name = "wizard_4155_4156"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Pedro Saraiva", email = "pp.guedessaraiva@gmail.com" }
+]
+requires-python = "==3.12.12"
+dependencies = [
+    "pyside6==6.11.1",
+    "pyvisa==1.16.2",
+]
+
+[project.scripts]
+wizard_4155_4156 = "wizard_4155_4156:main"
+
+[build-system]
+requires = ["uv_build>=0.11.16,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.14",
+    "taskipy>=1.14.1",
+]
+
+[tool.ruff]
+line-length = 79
+extend-exclude = []
+
+[tool.ruff.lint]
+preview = true
+select = ["I", "F", "E", "W", "PL", "PT"]
+
+[tool.ruff.format]
+preview = true
+quote-style = "double"
+
+[tool.taskipy.tasks]
+lint = "ruff check"
+pre_format = "ruff check --fix"
+format = "ruff format"
+run = "uv run wizard_4155_4156"
+pre_test = "task lint"
+test = "pytest -s -x --cov=wizard_4155_4156 -vv"
+post_test = "coverage html"
