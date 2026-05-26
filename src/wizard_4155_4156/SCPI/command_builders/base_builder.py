@@ -3,10 +3,10 @@ from typing import Any, ClassVar, Optional, get_args
 
 
 class SCPICommandBuilder:
-    _BASE_COMMAND: ClassVar[str] = ''
+    _BASE_COMMAND: ClassVar[str] = ""
 
     def __init__(self):
-        self._building_command: str = ''
+        self._building_command: str = ""
         self._is_command_ready: bool = False
         self._is_command_query: bool = False
 
@@ -24,13 +24,15 @@ class SCPICommandBuilder:
             self._BASE_COMMAND if required_base is None else required_base
         )
 
-        if not (self._building_command == base_to_check or
-            fullmatch(base_to_check, self._building_command)):
+        if not (
+            self._building_command == base_to_check
+            or fullmatch(base_to_check, self._building_command)
+        ):
             raise ValueError(
-                'Building command wrongly constructed.\n'
-                f'  Command = {self._building_command}\n'
-                f'  Expected Base = {base_to_check}\n'
-                f'  Wrong segment = {new_segment}'
+                "Building command wrongly constructed.\n"
+                f"  Command = {self._building_command}\n"
+                f"  Expected Base = {base_to_check}\n"
+                f"  Wrong segment = {new_segment}"
             )
 
     def _add_command_segment(
@@ -44,8 +46,8 @@ class SCPICommandBuilder:
         valid_values = get_args(literal_type)
         if value not in valid_values:
             raise ValueError(
-                f'Invalid parameter: {value}' +
-                f'  Valid parameters: \n {valid_values}'
+                f"Invalid parameter: {value}"
+                + f"  Valid parameters: \n {valid_values}"
             )
 
     @property
@@ -59,6 +61,6 @@ class SCPICommandBuilder:
             return command
         else:
             raise ValueError(
-                'Building command is not completed' +
-                f'  Command = {self._building_command}'
+                "Building command is not completed"
+                + f"  Command = {self._building_command}"
             )

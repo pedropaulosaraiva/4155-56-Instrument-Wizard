@@ -39,6 +39,9 @@ select = ["I", "F", "E", "W", "PL", "PT"]
 preview = true
 quote-style = "double"
 
+[tool.ruff.lint.pylint]
+max-public-methods = 60
+
 [tool.taskipy.tasks]
 lint = "ruff check"
 pre_format = "ruff check --fix"
