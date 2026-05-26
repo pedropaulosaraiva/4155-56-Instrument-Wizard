@@ -41,6 +41,9 @@ quote-style = "double"
 
 [tool.ruff.lint.pylint]
 max-public-methods = 60
+max-args = 10
+max-branches = 32
+max-statements = 75
 
 [tool.taskipy.tasks]
 lint = "ruff check"

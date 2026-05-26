@@ -1,4 +1,4 @@
-from .base_builder import SCPICommandBuilder
+from wizard_4155_4156.SCPI.command_builders import SCPICommandBuilder
 
 
 class CommonCommandBuilder(SCPICommandBuilder):
