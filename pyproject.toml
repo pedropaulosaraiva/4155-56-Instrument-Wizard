@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = "==3.12.12"
 dependencies = [
+    "numpy==2.4.6",
     "pyside6==6.11.1",
     "pyvisa==1.16.2",
 ]
@@ -44,6 +45,7 @@ max-public-methods = 60
 max-args = 10
 max-branches = 32
 max-statements = 75
+max-statements-in-try = 10
 
 [tool.taskipy.tasks]
 lint = "ruff check"

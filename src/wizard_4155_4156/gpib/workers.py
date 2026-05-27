@@ -1,0 +1,206 @@
+from re import match as re_match
+from typing import Any, Final, List
+
+from numpy import array as np_array
+from numpy.typing import NDArray
+from PySide6.QtCore import QObject, QRunnable, Signal
+
+from wizard_4155_4156.gpib.controller import (
+    GPIB41xxController,
+)
+from wizard_4155_4156.gui_text.log_messages import ErrorMsg, LogMsg, StatusMsg
+from wizard_4155_4156.SCPI.base_director import CommandPair
+
+
+def is_scpi_error_response(response: str) -> bool:
+    _NO_ERROR_CODE_REGEX: Final[int] = 0
+
+    match = re_match(r'^([-+]?\d+),\s*".*"', response)
+    if match:
+        code = int(match.group(1))
+        return code != _NO_ERROR_CODE_REGEX
+    return False
+
+
+class WorkerSignals(QObject):
+    log_msg = Signal(str)
+    progress_update = Signal(int, int, str)
+    connection_status = Signal(bool, str)
+    scan_results = Signal(dict)
+    worker_error = Signal(str)
+
+    finished_setup = Signal()
+    finished_measurement = Signal()
+    data_fetched = Signal(dict)
+
+
+class ScanTask(QRunnable):
+    def __init__(self, controller: GPIB41xxController):
+        super().__init__()
+        self.controller = controller
+        self.signals = WorkerSignals()
+
+    def run(self):
+        self.signals.log_msg.emit(LogMsg.SCAN_START)
+        self.signals.progress_update.emit(0, 1, StatusMsg.SCAN_BUS)
+
+        try:
+            found_instruments = self.controller.identify_connections()
+
+            self.signals.scan_results.emit(found_instruments)
+            self.signals.progress_update.emit(1, 1, StatusMsg.SCAN_COMPLETE)
+            self.signals.log_msg.emit(
+                LogMsg.SCAN_FOUND.format(count=len(found_instruments))
+            )
+        except Exception as e:
+            self.signals.worker_error.emit(
+                ErrorMsg.SCAN_FAILED.format(error=str(e))
+                )
+
+
+class ConnectTask(QRunnable):
+    def __init__(
+        self, controller: GPIB41xxController, address: str, name: str):
+        super().__init__()
+        self.controller = controller
+        self.address = address
+        self.name = name
+        self.signals = WorkerSignals()
+
+    def run(self):
+        self.signals.log_msg.emit(
+            LogMsg.CONNECTING.format(address=self.address)
+        )
+        try:
+            self.controller.connect(self.address)
+
+            self.signals.connection_status.emit(True, self.name)
+            self.signals.log_msg.emit(
+                LogMsg.CONNECTED.format(idn=self.name)
+            )
+        except Exception as e:
+            self.signals.connection_status.emit(False, "")
+            self.signals.worker_error.emit(
+                ErrorMsg.CONNECT_FAILED.format(error=str(e))
+            )
+
+
+class DisconnectTask(QRunnable):
+    def __init__(self, controller: GPIB41xxController):
+        super().__init__()
+        self.controller = controller
+        self.signals = WorkerSignals()
+
+    def run(self) -> None:
+        try:
+            self.controller.disconnect()
+            self.signals.connection_status.emit(False, "")
+            self.signals.log_msg.emit(LogMsg.DISCONNECTED)
+        except Exception as e:
+            self.signals.worker_error.emit(str(e))
+
+
+class SCPIExecutionTask(QRunnable):
+    def __init__(
+        self, controller: GPIB41xxController, commands: List[CommandPair]):
+        super().__init__()
+        self.controller = controller
+        self.commands = commands
+        self.signals = WorkerSignals()
+        self.results: dict[str, Any] = {}
+
+    def _execute_sequence(
+        self, status_msg_write: str, status_msg_complete: str) -> None:
+        if not self.controller.is_connected:
+            raise ConnectionError()
+
+        total_steps = len(self.commands)
+
+        for idx, pair in enumerate(self.commands, start=1):
+            # 1. Executa Comandos de Escrita (Set)
+            cmd_name = pair.set_command or pair.get_command
+            self.signals.progress_update.emit(
+                idx, total_steps, status_msg_write.format(command=cmd_name)
+            )
+
+            if pair.set_command:
+                self.signals.log_msg.emit(LogMsg.SETUP_SEND.format(command=pair.set_command))
+                self.controller.write(pair.set_command)
+
+            # 2. Executa Comandos de Leitura (Get)
+            if pair.get_command:
+                # Trata extração de arrays binários
+                # (Requer metadado do Director)
+                if getattr(pair, 'is_binary_query', False):
+                    data_array = self.controller.query_binary_values(
+                        pair.get_command,
+                        datatype='d',
+                        is_big_endian=True,
+                        header_fmt='ieee'
+                    )
+                    if getattr(pair, 'result_key', None):
+                        self.results[pair.result_key] = np_array(data_array)  # type: ignore
+
+                    self.signals.log_msg.emit(
+                        LogMsg.FETCH_RECEIVED.format(
+                            var=pair.result_key,
+                            points=len(data_array)
+                        )
+                    )
+
+                else:
+                    resp = self.controller.query(pair.get_command).strip()
+                    self.signals.log_msg.emit(
+                        LogMsg.SETUP_VERIFY.format(
+                            cmd=pair.get_command, resp=resp
+                        )
+                    )
+
+                    if is_scpi_error_response(resp):
+                        raise RuntimeError(
+                            f"Erro reportado pelo hardware: {resp}"
+                        )
+
+        self.signals.progress_update.emit(
+            total_steps, total_steps, status_msg_complete
+        )
+
+
+class SetupTask(SCPIExecutionTask):
+    def run(self) -> None:
+        try:
+            self.signals.log_msg.emit(LogMsg.SETUP_RST)
+            self._execute_sequence(
+                StatusMsg.SETUP_SENDING,
+                StatusMsg.SETUP_COMPLETE)
+            self.signals.finished_setup.emit()
+        except Exception as e:
+            self.signals.worker_error.emit(ErrorMsg.SETUP_SCPI.format(error=str(e)))
+            self.signals.log_msg.emit(LogMsg.SETUP_ABORTED.format(error=str(e)))
+
+
+class MeasurementRunTask(SCPIExecutionTask):
+    def run(self) -> None:
+        try:
+            self.signals.progress_update.emit(0, 0, StatusMsg.MEASURE_RUNNING)
+            self._execute_sequence(
+                StatusMsg.SETUP_SENDING,
+                StatusMsg.MEASURE_COMPLETE)
+            self.signals.finished_measurement.emit()
+        except Exception as e:
+            self.signals.worker_error.emit(ErrorMsg.MEASURE_FAILED.format(error=str(e)))
+
+
+class DataFetchTask(SCPIExecutionTask):
+    def run(self) -> None:
+        try:
+            self.signals.log_msg.emit(LogMsg.FETCH_START)
+            self._execute_sequence(
+                StatusMsg.FETCHING_VAR,
+                StatusMsg.FETCH_SUCCESS
+            )
+            self.results: dict[str, NDArray]
+            self.signals.data_fetched.emit(self.results)
+        except Exception as e:
+            self.signals.worker_error.emit(ErrorMsg.FETCH_FAILED.format(error=str(e)))
+            self.signals.log_msg.emit(LogMsg.FETCH_ERROR.format(error=str(e)))
