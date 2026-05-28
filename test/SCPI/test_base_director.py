@@ -19,8 +19,7 @@ def test_base_director_build_pair_none():
 
 def test_base_director_build_pair_set_only():
     pair = BaseDirector._build_pair(
-        CommonCommandBuilder,
-        setter=CommonCommandBuilder.reset
+        CommonCommandBuilder, setter=CommonCommandBuilder.reset
     )
 
     assert pair.set_command == EXPECTED_RESET_CMD
@@ -29,8 +28,7 @@ def test_base_director_build_pair_set_only():
 
 def test_base_director_build_pair_get_only():
     pair = BaseDirector._build_pair(
-        CommonCommandBuilder,
-        getter=CommonCommandBuilder.identify
+        CommonCommandBuilder, getter=CommonCommandBuilder.identify
     )
 
     assert pair.set_command is None
@@ -43,7 +41,7 @@ def test_base_director_build_pair_both():
         setter=CommonCommandBuilder.reset,
         getter=CommonCommandBuilder.identify,
         is_binary_query=True,
-        result_key=TEST_RESULT_KEY
+        result_key=TEST_RESULT_KEY,
     )
 
     assert pair.set_command == EXPECTED_RESET_CMD

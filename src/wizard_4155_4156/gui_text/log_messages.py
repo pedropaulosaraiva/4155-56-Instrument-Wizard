@@ -45,7 +45,7 @@ class StatusMsg(StrEnum):
     MEASURE_COMPLETE = "Measurement Complete"
 
     # Fetch
-    FETCHING_VAR = "Fetching {var}..."
+    FETCHING_VAR = "Fetching {command}..."
     FETCH_SUCCESS = "Data Fetched Successfully"
 
 

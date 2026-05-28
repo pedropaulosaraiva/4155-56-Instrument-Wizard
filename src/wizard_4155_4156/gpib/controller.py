@@ -7,9 +7,9 @@ from wizard_4155_4156.SCPI.command_builders import CommonCommandBuilder
 
 
 class GPIB41xxController:
-    GPIB_ADRESS_ID: Final[str] = 'GPIB'
-    VALID_MODELS: Final[list[str]] = ['4155C', '4156C', '4155B', '4156B']
-    QUERY_COMMAND_ID: Final[str] = '?'
+    GPIB_ADRESS_ID: Final[str] = "GPIB"
+    VALID_MODELS: Final[list[str]] = ["4155C", "4156C", "4155B", "4156B"]
+    QUERY_COMMAND_ID: Final[str] = "?"
     TEMPORARY_CONN_TIMEOUT_MS: Final[int] = 2000
     CONN_TIMEOUT_MS: Final[int] = 10000
 
@@ -27,12 +27,11 @@ class GPIB41xxController:
             self.disconnect()
 
         self._instrument = cast(
-            MessageBasedResource,
-            self.rm.open_resource(resource_name)
+            MessageBasedResource, self.rm.open_resource(resource_name)
         )
 
-        self._instrument.read_termination = '\n'
-        self._instrument.write_termination = '\n'
+        self._instrument.read_termination = "\n"
+        self._instrument.write_termination = "\n"
 
         self._instrument.timeout = self.CONN_TIMEOUT_MS
 
@@ -50,14 +49,15 @@ class GPIB41xxController:
 
     def identify_connections(self) -> dict | dict[str, str]:
         found_instruments = {}
-        identificator: str = ''
+        identificator: str = ""
         cmd_builder = CommonCommandBuilder()
         cmd_builder.identify()
         identification_query = cmd_builder.build()
 
         resources = self.rm.list_resources()
         gpib_resources = (
-            ressource for ressource in resources
+            ressource
+            for ressource in resources
             if self.GPIB_ADRESS_ID in ressource
         )
 
@@ -67,12 +67,10 @@ class GPIB41xxController:
                     temp_conn = cast(MessageBasedResource, conn)
                     temp_conn.timeout = self.TEMPORARY_CONN_TIMEOUT_MS
 
-                    identificator = temp_conn.query(
-                        identification_query
-                    )
+                    identificator = temp_conn.query(identification_query)
 
                 for model in self.VALID_MODELS:
-                    if model in identificator.strip(' \t\n\r'):
+                    if model in identificator.strip(" \t\n\r"):
                         found_instruments[ressource] = f"{model} - {ressource}"
                         break
             except VisaIOError:
@@ -95,13 +93,11 @@ class GPIB41xxController:
         return self._instrument.query(message)
 
     def query_binary_values(
-        self, message: str, **kwargs) -> Sequence[int | float]:
+        self, message: str, **kwargs
+    ) -> Sequence[int | float]:
         if self._instrument is None:
             raise ConnectionError(
                 "No instrument connected. Impossible to send command."
             )
 
-        return self._instrument.query_binary_values(
-            message,
-            **kwargs
-        )
+        return self._instrument.query_binary_values(message, **kwargs)

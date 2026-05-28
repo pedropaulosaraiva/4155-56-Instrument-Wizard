@@ -53,10 +53,13 @@ def test_setup_channels(setup_director):
     config = {
         "SMU1": {"disable": True},
         "SMU2": {
-            "v_name": "V2", "i_name": "I2", "function": "VAR1",
-            "smu_mode": "V", "standby": "ON"
+            "v_name": "V2",
+            "i_name": "I2",
+            "function": "VAR1",
+            "smu_mode": "V",
+            "standby": "ON",
         },
-        "VMU1": {"vu_mode": "V"}
+        "VMU1": {"vu_mode": "V"},
     }
 
     expected_set_commands = [
@@ -66,7 +69,7 @@ def test_setup_channels(setup_director):
         ":PAGE:CHAN:SMU2:FUNC VAR1",
         ":PAGE:CHAN:SMU2:MODE V",
         ":PAGE:CHAN:SMU2:STAN ON",
-        ":PAGE:CHAN:VMU1:MODE V"
+        ":PAGE:CHAN:VMU1:MODE V",
     ]
 
     seq = setup_director._setup_channels(config)
@@ -82,7 +85,7 @@ def test_setup_general_measurement(setup_director):
         "short_time": SHORT_TIME_VAL,
         "long_time_cycles": LONG_CYCLES_VAL,
         "wait_time": WAIT_TIME_VAL,
-        "ranges": {"SMU1": {"mode": "FIX", "value": RANGE_VAL}}
+        "ranges": {"SMU1": {"mode": "FIX", "value": RANGE_VAL}},
     }
 
     cmd_itim, cmd_shor, cmd_long, cmd_wait, cmd_rang_mode, cmd_rang = (
@@ -92,8 +95,8 @@ def test_setup_general_measurement(setup_director):
     assert cmd_itim.set_command == ":PAGE:MEAS:MSET:ITIM  LONG"
 
     assert (
-        cmd_shor.set_command ==
-        f":PAGE:MEAS:MSET:ITIM:SHOR  {SHORT_TIME_VAL:e}"
+        cmd_shor.set_command
+        == f":PAGE:MEAS:MSET:ITIM:SHOR  {SHORT_TIME_VAL:e}"
     )
     assert (
         cmd_long.set_command == f":PAGE:MEAS:MSET:ITIM:LONG {LONG_CYCLES_VAL}"
@@ -105,32 +108,43 @@ def test_setup_general_measurement(setup_director):
 
 def test_setup_sweep_full(setup_director):
     config = {
-        "delay": DELAY_TIME, "hold_time": HOLD_TIME,
+        "delay": DELAY_TIME,
+        "hold_time": HOLD_TIME,
         "sweep_stop": "COMPLIANCE",
         "var1": {
-            "mode": "SINGLE", "spacing": "LINEAR",
-            "start": SWEEP_START, "stop": SWEEP_STOP,
-            "step": SWEEP_STEP, "compliance": COMPLIANCE,
+            "mode": "SINGLE",
+            "spacing": "LINEAR",
+            "start": SWEEP_START,
+            "stop": SWEEP_STOP,
+            "step": SWEEP_STEP,
+            "compliance": COMPLIANCE,
             "pcompliance": PCOMPLIANCE,
-            "pcompliance_state": "ON"
+            "pcompliance_state": "ON",
         },
         "var2": {
-            "start": SWEEP_START, "step": SWEEP_STEP, "points": SWEEP_POINTS,
+            "start": SWEEP_START,
+            "step": SWEEP_STEP,
+            "points": SWEEP_POINTS,
             "compliance": COMPLIANCE,
-            "pcompliance": PCOMPLIANCE, "pcompliance_state": "ON"
+            "pcompliance": PCOMPLIANCE,
+            "pcompliance_state": "ON",
         },
         "vard": {
-            "offset": VARD_OFFSET, "ratio": VARD_RATIO,
+            "offset": VARD_OFFSET,
+            "ratio": VARD_RATIO,
             "compliance": COMPLIANCE,
-            "pcompliance": PCOMPLIANCE, "pcompliance_state": "ON"
+            "pcompliance": PCOMPLIANCE,
+            "pcompliance_state": "ON",
         },
         "pulse": {
-            "base": PULSE_BASE, "period": PULSE_PERIOD, "width": PULSE_WIDTH
+            "base": PULSE_BASE,
+            "period": PULSE_PERIOD,
+            "width": PULSE_WIDTH,
         },
         "constants": {
             "SMU3": {"source": CONST_SMU_SOURCE, "compliance": COMPLIANCE},
-            "VSU1": {"source": CONST_VSU_SOURCE}
-        }
+            "VSU1": {"source": CONST_VSU_SOURCE},
+        },
     }
 
     expected_set_commands = [
@@ -173,20 +187,28 @@ def test_setup_sweep_full(setup_director):
 
 def test_setup_sampling_full(setup_director):
     config = {
-        "mode": "LINEAR", "hold_time": SAMP_HOLD_TIME,
+        "mode": "LINEAR",
+        "hold_time": SAMP_HOLD_TIME,
         "initial_interval": SAMP_INITIAL_INTERVAL,
-        "period": SAMP_PERIOD, "period_auto": "ON",
-        "points": SAMP_POINTS, "filter": "ON",
+        "period": SAMP_PERIOD,
+        "period_auto": "ON",
+        "points": SAMP_POINTS,
+        "filter": "ON",
         "scon": {
             "event_count": SCON_COUNT,
-            "enable_delay": SCON_DELAY, "event": "HIGH",
-            "name": "VAR1", "state": "ON", "threshold": SCON_THRESH
+            "enable_delay": SCON_DELAY,
+            "event": "HIGH",
+            "name": "VAR1",
+            "state": "ON",
+            "threshold": SCON_THRESH,
         },
         "constants": {
-            "SMU1": {"source": CONST_SAMP_SMU_SOURCE,
-                    "compliance": COMPLIANCE},
-            "VSU1": {"source": CONST_SAMP_VSU_SOURCE}
-        }
+            "SMU1": {
+                "source": CONST_SAMP_SMU_SOURCE,
+                "compliance": COMPLIANCE,
+            },
+            "VSU1": {"source": CONST_SAMP_VSU_SOURCE},
+        },
     }
 
     expected_set_commands = [
@@ -221,7 +243,7 @@ def test_setup_measurement_orchestrator(setup_director):
         "channels": {"SMU1": {"disable": True}},
         "measurement_setup": {"integration_mode": "SHOR"},
         "sweep_setup": {"delay": DELAY_TIME},
-        "display_vars": ["V1", "I1"]
+        "display_vars": ["V1", "I1"],
     }
     cmd_mode, cmd_chan, cmd_meas, cmd_swe, cmd_disp = (
         setup_director.setup_measurement(config_sweep)
@@ -233,10 +255,7 @@ def test_setup_measurement_orchestrator(setup_director):
     assert cmd_swe.set_command == f":PAGE:MEAS:SWE:DEL {DELAY_TIME}"
     assert cmd_disp.set_command == ":PAGE:DISP:LIST 'V1','I1'"
 
-    config_samp = {
-        "mode": "SAMP",
-        "sampling_setup": {"points": SAMP_POINTS}
-    }
+    config_samp = {"mode": "SAMP", "sampling_setup": {"points": SAMP_POINTS}}
     cmd_mode, cmd_samp = setup_director.setup_measurement(config_samp)
 
     assert cmd_mode.set_command == ":PAGE:CHAN:MODE SAMP"

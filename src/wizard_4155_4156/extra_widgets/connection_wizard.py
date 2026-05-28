@@ -27,8 +27,12 @@ from wizard_4155_4156.gui_text.log_messages import LogMsg
 from wizard_4155_4156.SCPI.base_director import CommandPair
 
 AnyWorkerTask = (
-    ScanTask | ConnectTask | DisconnectTask | SetupTask |
-    MeasurementRunTask | DataFetchTask
+    ScanTask
+    | ConnectTask
+    | DisconnectTask
+    | SetupTask
+    | MeasurementRunTask
+    | DataFetchTask
 )
 
 
@@ -37,6 +41,7 @@ class ConnectorWizardModal(QDialog):
     Modal dialog providing a detailed interface for scanning the GPIB bus,
     selecting an instrument, and monitoring low-level connection logs.
     """
+
     def __init__(self, parent: "CompactConnectorWidget"):
         super().__init__(parent)
         self.setWindowTitle(tr_ui(CommandWizardText.WIZARD_TITLE))
@@ -79,8 +84,7 @@ class ConnectorWizardModal(QDialog):
         self.text_log = QTextEdit()
         self.text_log.setReadOnly(True)
         self.text_log.setStyleSheet(
-            "background-color: #1e1e1e; color: #d4d4d4;"
-            "font-family: monospace;"
+            "background-color: #1e1e1e; color: #d4d4d4;font-family: monospace;"
         )
         v_log.addWidget(self.text_log)
         group_log.setLayout(v_log)
@@ -236,7 +240,8 @@ class CompactConnectorWidget(QFrame):
         self.gpib_pool.start(setup_task)
 
     def trigger_run_only(
-        self, run_cmds: list[CommandPair], fetch_cmds: list[CommandPair]):
+        self, run_cmds: list[CommandPair], fetch_cmds: list[CommandPair]
+    ):
         """
         Queues measurement execution and subsequent data extraction.
         """
@@ -258,7 +263,7 @@ class CompactConnectorWidget(QFrame):
         self,
         setup_cmds: list[CommandPair],
         run_cmds: list[CommandPair],
-        fetch_cmds: list[CommandPair]
+        fetch_cmds: list[CommandPair],
     ):
         """
         Queues a complete cycle:
@@ -266,9 +271,7 @@ class CompactConnectorWidget(QFrame):
         """
         self.hardware_busy.emit(True)
 
-        setup_task = self._wire_signals(
-            SetupTask(self.controller, setup_cmds)
-        )
+        setup_task = self._wire_signals(SetupTask(self.controller, setup_cmds))
         run_task = self._wire_signals(
             MeasurementRunTask(self.controller, run_cmds)
         )
@@ -307,7 +310,11 @@ class CompactConnectorWidget(QFrame):
         self.modal.update_connection_status(connected)
 
         if connected:
-            self.lbl_model.setText(tr_ui(CommandWizardText.CONNECTED_MODEL).format(model=instrument_name))
+            self.lbl_model.setText(
+                tr_ui(CommandWizardText.CONNECTED_MODEL).format(
+                    model=instrument_name
+                )
+            )
             self.lbl_status.setText(tr_ui(CommandWizardText.STATUS_IDLE))
         else:
             self.lbl_model.setText(tr_ui(CommandWizardText.DISCONNECTED_LBL))
@@ -320,7 +327,9 @@ class CompactConnectorWidget(QFrame):
     def on_progress_update(self, current: int, total: int, status: str):
         self.progress_bar.setMaximum(total)
         self.progress_bar.setValue(current)
-        self.lbl_status.setText(tr_ui(CommandWizardText.STATUS_PREFIX).format(status=status))
+        self.lbl_status.setText(
+            tr_ui(CommandWizardText.STATUS_PREFIX).format(status=status)
+        )
         self.modal.update_progress(current, total, status)
 
     @Slot(str)
