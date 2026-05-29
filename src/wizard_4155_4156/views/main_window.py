@@ -1,0 +1,306 @@
+"""
+views/main_window.py
+--------------------
+Root QMainWindow.
+
+Layout
+------
+|               QMenu                              | fixed height
+┌──────────────────────────────────────────────────┐
+│               ConnectionTopBar                   │  fixed height
+├──────┬───────────────────────────────────────────┤
+│      │                                           │
+│ Nav  │          QStackedWidget                   │  expands
+│ Bar  │          (one BasePage per index)         │
+│      │                                           │
+└──────┴───────────────────────────────────────────┘
+│               QStatusBar                         │  fixed height
+
+Responsibilities
+----------------
+- Instantiate all pages and register them in QStackedWidget.
+- Own the NavigationBar and connect page_changed → stack navigation.
+- Own HomePresenter and wire its output signals.
+- Own the menu bar with Recent Projects submenu.
+- Delegate all styling to stylesheets.py.
+- Expose on_data_ready / on_hardware_busy for connector widget signals.
+"""
+
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QStackedWidget,
+    QStatusBar,
+    QVBoxLayout,
+    QWidget,
+)
+
+from wizard_4155_4156.models.project import RecentProjectsManager
+from wizard_4155_4156.presenters.home_presenter import HomePresenter
+from wizard_4155_4156.styles.stylesheets import (
+    application_stylesheet,
+    status_bar_stylesheet,
+    status_indicator_busy_stylesheet,
+    status_indicator_ready_stylesheet,
+)
+from wizard_4155_4156.styles.theme import PALETTE as P
+from wizard_4155_4156.views.connection_top_bar import ConnectionTopBar
+from wizard_4155_4156.views.demo_connector import DemoCompactConnectorWidget
+from wizard_4155_4156.views.navigation_bar import NavigationBar
+from wizard_4155_4156.views.pages import (
+    BasePage,
+    ChannelsPage,
+    GraphPage,
+    HomePageView,
+    MeasurementsPage,
+    Page,
+    SweepConfigPage,
+    TablePage,
+)
+
+
+class MainWindow(QMainWindow):
+    def __init__(self) -> None:
+        super().__init__()
+        self.setWindowTitle("Wizard 4155/4156 — Semiconductor Analyzer")
+        self.setMinimumSize(1280, 720)
+
+        # ── Core models ──────────────────────────────────────────────────────
+        self._recent_manager = RecentProjectsManager()
+
+        # ── Build UI ─────────────────────────────────────────────────────────
+        self._build_menu()
+        self._build_central_widget()
+        self._build_status_bar()
+
+        # ── Presenters ───────────────────────────────────────────────────────
+        self._home_presenter = HomePresenter(
+            view=self._home_page,
+            model=self._recent_manager,
+            parent=self,
+        )
+        self._home_presenter.project_file_opened.connect(
+            self._on_project_file_opened
+        )
+        self._home_presenter.new_project_triggered.connect(
+            self._on_new_project
+        )
+
+        # ── Connector widget signals ─────────────────────────────────────────
+        # Replace DemoCompactConnectorWidget with your real widget and keep
+        # these two connections.
+        self._connector.data_ready.connect(self.on_data_ready)
+        self._connector.hardware_busy.connect(self.on_hardware_busy)
+
+        # ── Global stylesheet ────────────────────────────────────────────────
+        self.setStyleSheet(application_stylesheet())
+
+    # =========================================================================
+    # Build helpers
+    # =========================================================================
+
+    def _build_central_widget(self) -> None:
+        root = QWidget()
+        root_layout = QVBoxLayout(root)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # Top bar ─────────────────────────────────────────────────────────────
+        # INTEGRATION: swap DemoCompactConnectorWidget for your real widget.
+        self._connector = DemoCompactConnectorWidget()
+        self._top_bar = ConnectionTopBar(self._connector)
+        root_layout.addWidget(self._top_bar)
+
+        # Horizontal content area: NavBar | PageStack ─────────────────────────
+        content = QWidget()
+        content_layout = QHBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+
+        self._nav_bar = NavigationBar()
+        self._nav_bar.page_changed.connect(self._navigate_to)
+        content_layout.addWidget(self._nav_bar)
+
+        # Thin separator between nav and stack
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setStyleSheet(
+            f"color: {P.BORDER}; max-width: 1px; background: {P.BORDER};"
+        )
+        content_layout.addWidget(sep)
+
+        self._stack = self._build_page_stack()
+        content_layout.addWidget(self._stack, stretch=1)
+
+        root_layout.addWidget(content, stretch=1)
+        self.setCentralWidget(root)
+
+    def _build_page_stack(self) -> QStackedWidget:
+        """
+        Widgets are inserted at the integer value of their Page enum member.
+        The order MUST match Page(IntEnum).
+        """
+        stack = QStackedWidget()
+
+        self._home_page = HomePageView()        # Page.HOME  = 0
+        stack.addWidget(self._home_page)
+
+        stack.addWidget(ChannelsPage())         # Page.CHANNELS     = 1
+        stack.addWidget(SweepConfigPage())      # Page.SWEEP_CONFIG = 2
+        stack.addWidget(MeasurementsPage())     # Page.MEASUREMENTS = 3
+        stack.addWidget(GraphPage())            # Page.GRAPH        = 4
+        stack.addWidget(TablePage())            # Page.TABLE        = 5
+
+        return stack
+
+    def _build_status_bar(self) -> None:
+        bar = QStatusBar()
+        bar.setStyleSheet(status_bar_stylesheet())
+        self.setStatusBar(bar)
+
+        self._status_indicator = QLabel(" ● Ready ")
+        self._status_indicator.setStyleSheet(status_indicator_ready_stylesheet())
+        bar.addWidget(self._status_indicator)
+
+        bar.showMessage(
+            "Semiconductor Parameter Analyzer — GPIB Controller Ready"
+        )
+        self._status_bar = bar
+
+    def _build_menu(self) -> None:
+        mb = self.menuBar()
+
+        # File ────────────────────────────────────────────────────────────────
+        file_menu = mb.addMenu("File")
+
+        new_act = QAction("New Project", self)
+        new_act.setShortcut("Ctrl+N")
+        new_act.triggered.connect(self._on_new_project)
+        file_menu.addAction(new_act)
+
+        open_act = QAction("Open Project…", self)
+        open_act.setShortcut("Ctrl+O")
+        open_act.triggered.connect(self._on_open_project_menu)
+        file_menu.addAction(open_act)
+
+        file_menu.addSeparator()
+
+        self._recent_menu = QMenu("Recent Projects", self)
+        file_menu.addMenu(self._recent_menu)
+        self._update_recent_menu()
+
+        file_menu.addSeparator()
+
+        save_act = QAction("Save", self)
+        save_act.setShortcut("Ctrl+S")
+        file_menu.addAction(save_act)
+
+        save_as_act = QAction("Save As…", self)
+        save_as_act.setShortcut("Ctrl+Shift+S")
+        file_menu.addAction(save_as_act)
+
+        file_menu.addSeparator()
+
+        exit_act = QAction("Exit", self)
+        exit_act.setShortcut("Ctrl+Q")
+        exit_act.triggered.connect(self.close)
+        file_menu.addAction(exit_act)
+
+        # Options ─────────────────────────────────────────────────────────────
+        opt_menu = mb.addMenu("Options")
+
+        conn_act = QAction("Connection Wizard…", self)
+        conn_act.setShortcut("Ctrl+Shift+C")
+        conn_act.triggered.connect(self._show_connection_wizard)
+        opt_menu.addAction(conn_act)
+
+        pref_act = QAction("Preferences…", self)
+        pref_act.setShortcut("Ctrl+,")
+        pref_act.triggered.connect(
+            lambda: self._status_bar.showMessage(
+                "Preferences not yet implemented.", 3000
+            )
+        )
+        opt_menu.addAction(pref_act)
+
+    # =========================================================================
+    # Navigation
+    # =========================================================================
+
+    def _navigate_to(self, page: Page) -> None:
+        self._stack.setCurrentIndex(int(page))
+        # Let the page react to becoming visible
+        widget = self._stack.currentWidget()
+        if isinstance(widget, BasePage):
+            widget.on_activate()
+        # Keep nav bar in sync when navigation is triggered programmatically
+        self._nav_bar.set_active_page(page)
+        self._status_bar.showMessage(
+            f"Navigated to: {page.name.replace('_', ' ').title()}", 2000
+        )
+
+    # =========================================================================
+    # Presenter output handlers
+    # =========================================================================
+
+    def _on_project_file_opened(self, path: str) -> None:
+        self._update_recent_menu()
+        self._status_bar.showMessage(f"Opened: {path}", 5000)
+        # TODO: switch to project editor page and load file
+
+    def _on_new_project(self) -> None:
+        self._status_bar.showMessage("New project requested…", 3000)
+        # TODO: switch to project editor / wizard page
+
+    # =========================================================================
+    # Menu handlers (delegate to presenter where possible)
+    # =========================================================================
+
+    def _on_open_project_menu(self) -> None:
+        """Delegate file dialog to HomePresenter."""
+        self._home_presenter._on_open_project()  # noqa: SLF001
+
+    def _show_connection_wizard(self) -> None:
+        self._connector.modal.show()
+        self._connector.modal.raise_()
+        self._connector.modal.activateWindow()
+        self._status_bar.showMessage("Connection wizard opened.", 3000)
+
+    def _update_recent_menu(self) -> None:
+        self._recent_menu.clear()
+        projects = self._recent_manager.get_projects()[:8]
+        if not projects:
+            placeholder = QAction("No recent projects", self)
+            placeholder.setEnabled(False)
+            self._recent_menu.addAction(placeholder)
+            return
+        for proj in projects:
+            act = QAction(proj.name, self)
+            act.setData(proj.path)
+            act.triggered.connect(
+                lambda _checked,
+                p=proj.path: self._home_presenter.register_opened_file(p)
+            )
+            self._recent_menu.addAction(act)
+
+    # =========================================================================
+    # Hardware signal handlers  (connected to connector widget)
+    # =========================================================================
+
+    def on_data_ready(self, data: dict) -> None:
+        self._status_bar.showMessage(
+            f"Data received — {len(data)} record(s).", 5000
+        )
+
+    def on_hardware_busy(self, busy: bool) -> None:
+        self._status_indicator.setText(" ● Busy " if busy else " ● Ready ")
+        self._status_indicator.setStyleSheet(
+            status_indicator_busy_stylesheet()
+            if busy
+            else status_indicator_ready_stylesheet()
+        )
+        self._top_bar.set_system_status(not busy)
