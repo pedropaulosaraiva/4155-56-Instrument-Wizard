@@ -10,29 +10,46 @@ from wizard_4155_4156.SCPI.command_builders import (
     MeasureSweepCommandBuilder,
 )
 
+SCPI_TRUE_STRINGS = ("TRUE", "1", "YES", "ON")
+SCPI_FALSE_STRINGS = ("FALSE", "0", "NO", "OFF")
+
 
 class MeasurementSetupDirector(BaseDirector):
+    @staticmethod
+    def _parse_bool(val: Any) -> bool:
+        """Converts strings like 'True', 'False' or 1/0 to Python boolean."""
+        if isinstance(val, str):
+            return val.strip().upper() in SCPI_TRUE_STRINGS
+        return bool(val)
+
+    @staticmethod
+    def _parse_bool_to_scpi_state(val: Any) -> str:
+        """
+        Converts Python bools or string representations of bools to 'ON'/'OFF'.
+        """
+        if isinstance(val, str):
+            val_upper = val.strip().upper()
+            if val_upper in SCPI_TRUE_STRINGS:
+                return "ON"
+            elif val_upper in SCPI_FALSE_STRINGS:
+                return "OFF"
+            return val_upper
+        return "ON" if val else "OFF"
+
     def reset_instrument(self) -> list[CommandPair]:
         scpi_sequence: list[CommandPair] = []
 
-        scpi_sequence.append(
-            self._build_pair(
-                CommonCommandBuilder, CommonCommandBuilder.reset, ()
-            )
-        )
-        scpi_sequence.append(
-            self._build_pair(
-                CommonCommandBuilder, CommonCommandBuilder.clear, ()
-            )
-        )
+        scpi_sequence.append(self._build_pair(
+            CommonCommandBuilder, CommonCommandBuilder.reset, ()
+        ))
+        scpi_sequence.append(self._build_pair(
+            CommonCommandBuilder, CommonCommandBuilder.clear, ()
+        ))
 
-        scpi_sequence.append(
-            self._build_pair(
-                MeasureRunCommandBuilder,
-                MeasureRunCommandBuilder.delete_all_display_list,
-                (),
-            )
-        )
+        scpi_sequence.append(self._build_pair(
+            MeasureRunCommandBuilder,
+            MeasureRunCommandBuilder.delete_all_display_list, ()
+        ))
 
         return scpi_sequence
 
@@ -67,16 +84,13 @@ class MeasurementSetupDirector(BaseDirector):
                 self._setup_sampling(config["sampling_setup"])
             )
 
-        if "display_vars" in config and config["display_vars"]:
-            scpi_sequence.append(
-                self._build_pair(
-                    MeasureRunCommandBuilder,
-                    MeasureRunCommandBuilder.set_display_list_select,
-                    tuple(config["display_vars"]),
-                    MeasureRunCommandBuilder.get_display_list_select,
-                    (),
-                )
-            )
+        if 'display_vars' in config and config['display_vars']:
+            scpi_sequence.append(self._build_pair(
+                MeasureRunCommandBuilder,
+                MeasureRunCommandBuilder.set_display_list_select,
+                tuple(config['display_vars']),
+                MeasureRunCommandBuilder.get_display_list_select, ()
+            ))
 
         return scpi_sequence
 
@@ -87,7 +101,7 @@ class MeasurementSetupDirector(BaseDirector):
         builder = ChannelsCommandBuilder
 
         for unit, settings in channels_config.items():
-            if "disable" in settings and settings["disable"]:
+            if "disable" in settings and self._parse_bool(settings["disable"]):
                 commands.append(
                     self._build_pair(
                         builder, builder.set_disable, (unit,), None, ()
@@ -150,7 +164,10 @@ class MeasurementSetupDirector(BaseDirector):
                     self._build_pair(
                         builder,
                         builder.set_standby_mode,
-                        (unit, settings["standby"]),
+                        (
+                            unit,
+                            self._parse_bool_to_scpi_state(settings["standby"])
+                        ),
                         builder.get_standby_mode,
                         (unit,),
                     )
@@ -342,7 +359,7 @@ class MeasurementSetupDirector(BaseDirector):
                 self._build_pair(
                     builder,
                     builder.set_var1_pcompliance_state,
-                    (var1["pcompliance_state"],),
+                    (self._parse_bool_to_scpi_state(var1["pcompliance_state"]),),
                     builder.get_var1_pcompliance_state,
                     (),
                 )
@@ -405,7 +422,7 @@ class MeasurementSetupDirector(BaseDirector):
                 self._build_pair(
                     builder,
                     builder.set_var2_pcompliance_state,
-                    (var2["pcompliance_state"],),
+                    (self._parse_bool_to_scpi_state(var2["pcompliance_state"]),),
                     builder.get_var2_pcompliance_state,
                     (),
                 )
@@ -452,13 +469,14 @@ class MeasurementSetupDirector(BaseDirector):
                     (),
                 )
             )
+
         # ! Not sure if pcompliance_state is necessary
         if "pcompliance_state" in vard:
             commands.append(
                 self._build_pair(
                     builder,
                     builder.set_vard_pcompliance_state,
-                    (vard["pcompliance_state"],),
+                    (self._parse_bool_to_scpi_state(vard["pcompliance_state"]),),
                     builder.get_vard_pcompliance_state,
                     (),
                 )
@@ -584,7 +602,7 @@ class MeasurementSetupDirector(BaseDirector):
                 self._build_pair(
                     builder,
                     builder.set_period_auto,
-                    (samp_config["period_auto"],),
+                    (self._parse_bool_to_scpi_state(samp_config["period_auto"]),),
                     builder.get_period_auto,
                     (),
                 )
@@ -604,7 +622,7 @@ class MeasurementSetupDirector(BaseDirector):
                 self._build_pair(
                     builder,
                     builder.set_filter,
-                    (samp_config["filter"],),
+                    (self._parse_bool_to_scpi_state(samp_config["filter"]),),
                     builder.get_filter,
                     (),
                 )
@@ -656,7 +674,7 @@ class MeasurementSetupDirector(BaseDirector):
                 self._build_pair(
                     builder,
                     builder.set_scon_state,
-                    (scon["state"],),
+                    (self._parse_bool_to_scpi_state(scon["state"]),),
                     builder.get_scon_state,
                     (),
                 )

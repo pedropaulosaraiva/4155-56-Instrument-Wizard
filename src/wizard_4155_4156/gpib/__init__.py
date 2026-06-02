@@ -28,7 +28,6 @@ from wizard_4155_4156.gpib.workers import (
     ScanTask,
     SetupTask,
     WorkerSignals,
-    is_scpi_error_response,
 )
 
 __all__ = [
@@ -43,5 +42,4 @@ __all__ = [
     "DataFetchTask",
     # Shared primitives
     "WorkerSignals",
-    "is_scpi_error_response",
 ]

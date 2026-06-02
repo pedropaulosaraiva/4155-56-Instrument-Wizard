@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Wizard 4155/4156 — Semiconductor Analyzer")
-        self.setMinimumSize(1280, 720)
+        self.setMinimumSize(1300, 760)
 
         # ── Core models ──────────────────────────────────────────────────────
         self._recent_manager = RecentProjectsManager()
