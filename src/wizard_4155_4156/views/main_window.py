@@ -5,13 +5,12 @@ Root QMainWindow.
 
 Layout
 ------
-|               QMenu                              | fixed height
 ┌──────────────────────────────────────────────────┐
 │               ConnectionTopBar                   │  fixed height
 ├──────┬───────────────────────────────────────────┤
 │      │                                           │
 │ Nav  │          QStackedWidget                   │  expands
-│ Bar  │          (one BasePage per index)         │
+│ Bar  │          (one BasePage per index)          │
 │      │                                           │
 └──────┴───────────────────────────────────────────┘
 │               QStatusBar                         │  fixed height
@@ -25,21 +24,18 @@ Responsibilities
 - Delegate all styling to stylesheets.py.
 - Expose on_data_ready / on_hardware_busy for connector widget signals.
 """
+from pathlib import Path
+from typing import Optional
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QMainWindow,
-    QMenu,
-    QStackedWidget,
-    QStatusBar,
-    QVBoxLayout,
-    QWidget,
+    QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu,
+    QStackedWidget, QStatusBar, QVBoxLayout, QWidget,
 )
 
 from wizard_4155_4156.models.project import RecentProjectsManager
+from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
 from wizard_4155_4156.presenters.home_presenter import HomePresenter
 from wizard_4155_4156.styles.stylesheets import (
     application_stylesheet,
@@ -49,7 +45,7 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.connection_top_bar import ConnectionTopBar
-from wizard_4155_4156.views.demo_connector import DemoCompactConnectorWidget
+from wizard_4155_4156.views.connector_widget import CompactConnectorWidget
 from wizard_4155_4156.views.navigation_bar import NavigationBar
 from wizard_4155_4156.views.pages import (
     BasePage,
@@ -69,15 +65,15 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Wizard 4155/4156 — Semiconductor Analyzer")
         self.setMinimumSize(1280, 720)
 
-        # ── Core models ──────────────────────────────────────────────────────
+        # ── Core models ───────────────────────────────────────────────────────
         self._recent_manager = RecentProjectsManager()
 
-        # ── Build UI ─────────────────────────────────────────────────────────
+        # ── Build UI ──────────────────────────────────────────────────────────
         self._build_menu()
         self._build_central_widget()
         self._build_status_bar()
 
-        # ── Presenters ───────────────────────────────────────────────────────
+        # ── Presenters ────────────────────────────────────────────────────────
         self._home_presenter = HomePresenter(
             view=self._home_page,
             model=self._recent_manager,
@@ -90,13 +86,19 @@ class MainWindow(QMainWindow):
             self._on_new_project
         )
 
-        # ── Connector widget signals ─────────────────────────────────────────
-        # Replace DemoCompactConnectorWidget with your real widget and keep
-        # these two connections.
-        self._connector.data_ready.connect(self.on_data_ready)
-        self._connector.hardware_busy.connect(self.on_hardware_busy)
+        # ── ConnectorPresenter ────────────────────────────────────────────────
+        # Owns GPIB41xxController + single-thread QThreadPool.
+        # _connector (CompactConnectorWidget) is the View; this is its Presenter.
+        self._connector_presenter = ConnectorPresenter(
+            view=self._connector, parent=self
+        )
+        self._connector_presenter.data_ready.connect(self.on_data_ready)
+        self._connector_presenter.hardware_busy.connect(self.on_hardware_busy)
+        # Trigger initial bus scan AFTER signal wiring so scan_results
+        # reaches the modal's combo box via the connected Slot.
+        self._connector_presenter.start()
 
-        # ── Global stylesheet ────────────────────────────────────────────────
+        # ── Global stylesheet ─────────────────────────────────────────────────
         self.setStyleSheet(application_stylesheet())
 
     # =========================================================================
@@ -110,8 +112,7 @@ class MainWindow(QMainWindow):
         root_layout.setSpacing(0)
 
         # Top bar ─────────────────────────────────────────────────────────────
-        # INTEGRATION: swap DemoCompactConnectorWidget for your real widget.
-        self._connector = DemoCompactConnectorWidget()
+        self._connector = CompactConnectorWidget()
         self._top_bar = ConnectionTopBar(self._connector)
         root_layout.addWidget(self._top_bar)
 
@@ -128,9 +129,7 @@ class MainWindow(QMainWindow):
         # Thin separator between nav and stack
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setStyleSheet(
-            f"color: {P.BORDER}; max-width: 1px; background: {P.BORDER};"
-        )
+        sep.setStyleSheet(f"color: {P.BORDER}; max-width: 1px; background: {P.BORDER};")
         content_layout.addWidget(sep)
 
         self._stack = self._build_page_stack()
@@ -174,7 +173,7 @@ class MainWindow(QMainWindow):
     def _build_menu(self) -> None:
         mb = self.menuBar()
 
-        # File ────────────────────────────────────────────────────────────────
+        # File ─────────────────────────────────────────────────────────────────
         file_menu = mb.addMenu("File")
 
         new_act = QAction("New Project", self)
@@ -210,7 +209,7 @@ class MainWindow(QMainWindow):
         exit_act.triggered.connect(self.close)
         file_menu.addAction(exit_act)
 
-        # Options ─────────────────────────────────────────────────────────────
+        # Options ──────────────────────────────────────────────────────────────
         opt_menu = mb.addMenu("Options")
 
         conn_act = QAction("Connection Wizard…", self)
@@ -282,8 +281,7 @@ class MainWindow(QMainWindow):
             act = QAction(proj.name, self)
             act.setData(proj.path)
             act.triggered.connect(
-                lambda _checked,
-                p=proj.path: self._home_presenter.register_opened_file(p)
+                lambda _checked, p=proj.path: self._home_presenter.register_opened_file(p)
             )
             self._recent_menu.addAction(act)
 
@@ -304,3 +302,12 @@ class MainWindow(QMainWindow):
             else status_indicator_ready_stylesheet()
         )
         self._top_bar.set_system_status(not busy)
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        """
+        Drain the GPIB thread pool before the window is destroyed.
+        Without this, background tasks may attempt to access Qt objects
+        that are already being torn down, causing a segfault.
+        """
+        self._connector_presenter.cleanup()
+        super().closeEvent(event)

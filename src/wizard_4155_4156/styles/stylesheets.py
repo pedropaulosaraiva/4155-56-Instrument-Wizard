@@ -197,16 +197,16 @@ def top_bar_sys_status_stylesheet() -> str:
 def compact_connector_stylesheet() -> str:
     """
     Dark-theme override for CompactConnectorWidget.
-    Apply via setStyleSheet on the widget instance after construction
-    to replace the widget's default white background.
+    Replaces the widget's default light background.
+    Applied once in CompactConnectorWidget._apply_styles().
     """
     return f"""
-        CompactConnectorWidget, DemoCompactConnectorWidget {{
+        CompactConnectorWidget {{
             background-color: {P.BG_PANEL};
             border: 1px solid {P.BORDER};
             border-radius: {P.RADIUS_LG};
         }}
-        CompactConnectorWidget:hover, DemoCompactConnectorWidget:hover {{
+        CompactConnectorWidget:hover {{
             background-color: {P.BG_ELEVATED};
             border: 1px solid {P.ACCENT};
         }}
@@ -231,8 +231,18 @@ def connector_label_status_connected_stylesheet() -> str:
 
 def connector_label_status_disconnected_stylesheet() -> str:
     return (
-        f"font-size: {P.FONT_SIZE_SM}; color: {P.STATUS_ERROR};"
-        f" background: transparent;"
+        f"font-size: {P.FONT_SIZE_SM}; color: {P.STATUS_ERROR}; "
+        f"background: transparent;"
+    )
+
+
+def connector_label_status_idle_stylesheet() -> str:
+    """
+    Applied when connected but idle (after setup finishes or on progress reset)
+    """
+    return (
+        f"font-size: {P.FONT_SIZE_SM}; color: {P.TEXT_MUTED}; "
+        f"background: transparent;"
     )
 
 
