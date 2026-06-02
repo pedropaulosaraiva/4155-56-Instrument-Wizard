@@ -118,6 +118,16 @@ class GPIB41xxController:
         self._require_connection()
         return self._instrument.query(message)  # type: ignore[union-attr]
 
+    def query_without_timeout(self, message: str) -> str:
+        self._require_connection()
+
+        original_timeout = self._instrument.timeout  # type: ignore
+        try:
+            self._instrument.timeout = None  # type: ignore
+            return self._instrument.query(message)  # type: ignore[union-attr]
+        finally:
+            self._instrument.timeout = original_timeout  # type: ignore
+
     def query_binary_values(
         self, message: str, **kwargs
     ) -> Sequence[int | float]:

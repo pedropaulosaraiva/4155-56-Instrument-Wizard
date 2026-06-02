@@ -24,14 +24,18 @@ Responsibilities
 - Delegate all styling to stylesheets.py.
 - Expose on_data_ready / on_hardware_busy for connector widget signals.
 """
-from pathlib import Path
-from typing import Optional
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu,
-    QStackedWidget, QStatusBar, QVBoxLayout, QWidget,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QStackedWidget,
+    QStatusBar,
+    QVBoxLayout,
+    QWidget,
 )
 
 from wizard_4155_4156.models.project import RecentProjectsManager
@@ -65,15 +69,15 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Wizard 4155/4156 — Semiconductor Analyzer")
         self.setMinimumSize(1280, 720)
 
-        # ── Core models ───────────────────────────────────────────────────────
+        # ── Core models ──────────────────────────────────────────────────────
         self._recent_manager = RecentProjectsManager()
 
-        # ── Build UI ──────────────────────────────────────────────────────────
+        # ── Build UI ─────────────────────────────────────────────────────────
         self._build_menu()
         self._build_central_widget()
         self._build_status_bar()
 
-        # ── Presenters ────────────────────────────────────────────────────────
+        # ── Presenters ───────────────────────────────────────────────────────
         self._home_presenter = HomePresenter(
             view=self._home_page,
             model=self._recent_manager,
@@ -86,9 +90,10 @@ class MainWindow(QMainWindow):
             self._on_new_project
         )
 
-        # ── ConnectorPresenter ────────────────────────────────────────────────
+        # ── ConnectorPresenter ───────────────────────────────────────────────
         # Owns GPIB41xxController + single-thread QThreadPool.
-        # _connector (CompactConnectorWidget) is the View; this is its Presenter.
+        # _connector (CompactConnectorWidget) is the View;
+        # this is its Presenter.
         self._connector_presenter = ConnectorPresenter(
             view=self._connector, parent=self
         )
@@ -98,7 +103,7 @@ class MainWindow(QMainWindow):
         # reaches the modal's combo box via the connected Slot.
         self._connector_presenter.start()
 
-        # ── Global stylesheet ─────────────────────────────────────────────────
+        # ── Global stylesheet ────────────────────────────────────────────────
         self.setStyleSheet(application_stylesheet())
 
     # =========================================================================
@@ -129,7 +134,9 @@ class MainWindow(QMainWindow):
         # Thin separator between nav and stack
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setStyleSheet(f"color: {P.BORDER}; max-width: 1px; background: {P.BORDER};")
+        sep.setStyleSheet(
+            f"color: {P.BORDER}; max-width: 1px; background: {P.BORDER};"
+        )
         content_layout.addWidget(sep)
 
         self._stack = self._build_page_stack()
@@ -173,7 +180,7 @@ class MainWindow(QMainWindow):
     def _build_menu(self) -> None:
         mb = self.menuBar()
 
-        # File ─────────────────────────────────────────────────────────────────
+        # File ────────────────────────────────────────────────────────────────
         file_menu = mb.addMenu("File")
 
         new_act = QAction("New Project", self)
@@ -209,7 +216,7 @@ class MainWindow(QMainWindow):
         exit_act.triggered.connect(self.close)
         file_menu.addAction(exit_act)
 
-        # Options ──────────────────────────────────────────────────────────────
+        # Options ─────────────────────────────────────────────────────────────
         opt_menu = mb.addMenu("Options")
 
         conn_act = QAction("Connection Wizard…", self)
@@ -281,7 +288,8 @@ class MainWindow(QMainWindow):
             act = QAction(proj.name, self)
             act.setData(proj.path)
             act.triggered.connect(
-                lambda _checked, p=proj.path: self._home_presenter.register_opened_file(p)
+                lambda _checked,
+                p=proj.path: self._home_presenter.register_opened_file(p)
             )
             self._recent_menu.addAction(act)
 

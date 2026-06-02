@@ -131,16 +131,19 @@ class ConnectorPresenter(QObject):
     ) -> None:
         """Queue measurement execution followed by data extraction."""
         self.hardware_busy.emit(True)
-        run_task = self._wire_task(
+        self.run_task = self._wire_task(
             MeasurementRunTask(self._controller, run_cmds)
         )
-        fetch_task = self._wire_task(
+        self.fetch_task = self._wire_task(
             DataFetchTask(self._controller, fetch_cmds)
         )
-        fetch_task.signals.data_fetched.connect(self._on_data_fetched)
+        self.fetch_task.signals.data_fetched.connect(self._on_data_fetched)
+
         # Submission order == execution order (single-thread FIFO guarantee)
-        self._pool.start(run_task)
-        self._pool.start(fetch_task)
+        self.run_task.signals.finished_measurement.connect(
+            lambda: self._pool.start(self.fetch_task)
+        )
+        self._pool.start(self.run_task)
 
     def trigger_full_sequence(
         self,
@@ -150,19 +153,24 @@ class ConnectorPresenter(QObject):
     ) -> None:
         """Queue a complete cycle: Setup → Run → Fetch."""
         self.hardware_busy.emit(True)
-        setup_task = self._wire_task(
+        self.setup_task = self._wire_task(
             SetupTask(self._controller, setup_cmds)
         )
-        run_task = self._wire_task(
+        self.run_task = self._wire_task(
             MeasurementRunTask(self._controller, run_cmds)
         )
-        fetch_task = self._wire_task(
+        self.fetch_task = self._wire_task(
             DataFetchTask(self._controller, fetch_cmds)
         )
-        fetch_task.signals.data_fetched.connect(self._on_data_fetched)
-        self._pool.start(setup_task)
-        self._pool.start(run_task)
-        self._pool.start(fetch_task)
+        self.fetch_task.signals.data_fetched.connect(self._on_data_fetched)
+
+        self.setup_task.signals.finished_setup.connect(
+            lambda: self._pool.start(self.run_task)
+        )
+        self.run_task.signals.finished_measurement.connect(
+            lambda: self._pool.start(self.fetch_task)
+        )
+        self._pool.start(self.setup_task)
 
     # ── Private wiring ───────────────────────────────────────────────────────
 
