@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
@@ -52,6 +53,7 @@ from wizard_4155_4156.styles.stylesheets import (
     config_combo_stylesheet,
     config_panel_stylesheet,
     config_section_label_stylesheet,
+    configure_measure_button_stylesheet,
     global_option_checkbox_stylesheet,
     unit_card_combo_stylesheet,
     unit_card_disabled_stylesheet,
@@ -162,6 +164,9 @@ class SMUCard(QFrame):
     def __init__(self, index: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._index = index
+        self._enabled = True
+        self._hovered = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setObjectName("unit_card")
         self.setFixedWidth(_CARD_WIDTH)
         self.setSizePolicy(
@@ -181,6 +186,7 @@ class SMUCard(QFrame):
         voltage_name: str,
         current_name: str,
     ) -> None:
+        self._enabled = enabled
         _set_check(self._enable_cb, enabled)
         self._content.setEnabled(enabled)
         _set_combo(self._mode_combo, mode)
@@ -188,6 +194,10 @@ class SMUCard(QFrame):
         _set_text(self._vname_edit, voltage_name)
         _set_text(self._iname_edit, current_name)
         self._refresh_card_style(enabled)
+        if enabled:
+            self._enable_cb.setText(f"SMU{self._index}")
+        else:
+            self._enable_cb.setText(f"SMU{self._index} (disabled)")
 
     def display_available_functions(self, functions: List[str]) -> None:
         current = self._func_combo.currentData() or ""
@@ -265,16 +275,39 @@ class SMUCard(QFrame):
         self._iname_edit.textChanged.connect(self.iname_changed)
 
     def _on_enable_toggled(self, checked: bool) -> None:
+        self._enabled = checked
         self._content.setEnabled(checked)
         self._refresh_card_style(checked)
+        if checked:
+            self._enable_cb.setText(f"SMU{self._index}")
+        else:
+            self._enable_cb.setText(f"SMU{self._index} (disabled)")
         self.enabled_toggled.emit(checked)
 
     def _refresh_card_style(self, enabled: bool) -> None:
         self.setStyleSheet(
-            unit_card_enabled_stylesheet()
+            unit_card_enabled_stylesheet(self._hovered)
             if enabled
-            else unit_card_disabled_stylesheet()
+            else unit_card_disabled_stylesheet(self._hovered)
         )
+
+    def enterEvent(self, event) -> None:  # noqa: N802
+        self._hovered = True
+        self._refresh_card_style(self._enabled)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        self._hovered = False
+        self._refresh_card_style(self._enabled)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and not self._enable_cb.underMouse()
+        ):
+            self._enable_cb.setChecked(not self._enabled)
+        super().mousePressEvent(event)
 
 
 class VMUCard(QFrame):
@@ -287,6 +320,9 @@ class VMUCard(QFrame):
     def __init__(self, index: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._index = index
+        self._enabled = True
+        self._hovered = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setObjectName("unit_card")
         self.setFixedWidth(_CARD_WIDTH)
         self.setSizePolicy(
@@ -302,11 +338,16 @@ class VMUCard(QFrame):
         mode: str,
         voltage_name: str,
     ) -> None:
+        self._enabled = enabled
         _set_check(self._enable_cb, enabled)
         self._content.setEnabled(enabled)
         _set_combo(self._mode_combo, mode)
         _set_text(self._vname_edit, voltage_name)
         self._refresh_card_style(enabled)
+        if enabled:
+            self._enable_cb.setText(f"VMU{self._index}")
+        else:
+            self._enable_cb.setText(f"VMU{self._index} (disabled)")
 
     def display_mode_usable(self, usable: bool) -> None:
         """Called when measurement mode disables VMU (Sampling / QSCV)."""
@@ -366,16 +407,39 @@ class VMUCard(QFrame):
         self._vname_edit.textChanged.connect(self.vname_changed)
 
     def _on_enable_toggled(self, checked: bool) -> None:
+        self._enabled = checked
         self._content.setEnabled(checked)
         self._refresh_card_style(checked)
+        if checked:
+            self._enable_cb.setText(f"VMU{self._index}")
+        else:
+            self._enable_cb.setText(f"VMU{self._index} (disabled)")
         self.enabled_toggled.emit(checked)
 
     def _refresh_card_style(self, enabled: bool) -> None:
         self.setStyleSheet(
-            unit_card_enabled_stylesheet()
+            unit_card_enabled_stylesheet(self._hovered)
             if enabled
-            else unit_card_disabled_stylesheet()
+            else unit_card_disabled_stylesheet(self._hovered)
         )
+
+    def enterEvent(self, event) -> None:  # noqa: N802
+        self._hovered = True
+        self._refresh_card_style(self._enabled)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        self._hovered = False
+        self._refresh_card_style(self._enabled)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and not self._enable_cb.underMouse()
+        ):
+            self._enable_cb.setChecked(not self._enabled)
+        super().mousePressEvent(event)
 
 
 class VSUCard(QFrame):
@@ -388,6 +452,9 @@ class VSUCard(QFrame):
     def __init__(self, index: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._index = index
+        self._enabled = True
+        self._hovered = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setObjectName("unit_card")
         self.setFixedWidth(_CARD_WIDTH)
         self.setSizePolicy(
@@ -403,11 +470,16 @@ class VSUCard(QFrame):
         function: str,
         voltage_name: str,
     ) -> None:
+        self._enabled = enabled
         _set_check(self._enable_cb, enabled)
         self._content.setEnabled(enabled)
         _set_combo(self._func_combo, function)
         _set_text(self._vname_edit, voltage_name)
         self._refresh_card_style(enabled)
+        if enabled:
+            self._enable_cb.setText(f"VSU{self._index}")
+        else:
+            self._enable_cb.setText(f"VSU{self._index} (disabled)")
 
     def display_available_functions(self, functions: List[str]) -> None:
         current = self._func_combo.currentData() or ""
@@ -469,16 +541,39 @@ class VSUCard(QFrame):
         self._vname_edit.textChanged.connect(self.vname_changed)
 
     def _on_enable_toggled(self, checked: bool) -> None:
+        self._enabled = checked
         self._content.setEnabled(checked)
         self._refresh_card_style(checked)
+        if checked:
+            self._enable_cb.setText(f"VSU{self._index}")
+        else:
+            self._enable_cb.setText(f"VSU{self._index} (disabled)")
         self.enabled_toggled.emit(checked)
 
     def _refresh_card_style(self, enabled: bool) -> None:
         self.setStyleSheet(
-            unit_card_enabled_stylesheet()
+            unit_card_enabled_stylesheet(self._hovered)
             if enabled
-            else unit_card_disabled_stylesheet()
+            else unit_card_disabled_stylesheet(self._hovered)
         )
+
+    def enterEvent(self, event) -> None:  # noqa: N802
+        self._hovered = True
+        self._refresh_card_style(self._enabled)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        self._hovered = False
+        self._refresh_card_style(self._enabled)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and not self._enable_cb.underMouse()
+        ):
+            self._enable_cb.setChecked(not self._enabled)
+        super().mousePressEvent(event)
 
 
 # ── Configuration panel ──────────────────────────────────────────────────────
@@ -662,6 +757,7 @@ class ChannelsPageView(BasePage):
     vsu_enabled_changed = Signal(int, bool)
     vsu_function_changed = Signal(int, str)
     vsu_vname_changed = Signal(int, str)
+    configure_measure_clicked = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -698,12 +794,17 @@ class ChannelsPageView(BasePage):
 
     def display_validation_status(self, is_valid: bool, message: str) -> None:
         """Update the bottom panel validation status label."""
+        self._configure_btn.setEnabled(is_valid)
         if is_valid:
             self._validation_lbl.setText(f"✅ {message}")
-            self._validation_lbl.setStyleSheet(validation_status_stylesheet("valid"))
+            self._validation_lbl.setStyleSheet(
+                validation_status_stylesheet("valid")
+            )
         else:
             self._validation_lbl.setText(f"⚠️ {message}")
-            self._validation_lbl.setStyleSheet(validation_status_stylesheet("warning"))
+            self._validation_lbl.setStyleSheet(
+                validation_status_stylesheet("warning")
+            )
 
     def display_available_modes(self, modes: List[str]) -> None:
         self._config_panel.display_available_modes(modes)
@@ -808,6 +909,14 @@ class ChannelsPageView(BasePage):
 
         bp_layout.addStretch()
 
+        self._configure_btn = QPushButton("⚙️  Configure Measure")
+        self._configure_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._configure_btn.setStyleSheet(
+            configure_measure_button_stylesheet()
+        )
+        self._configure_btn.setFixedHeight(36)
+        bp_layout.addWidget(self._configure_btn)
+
         root.addWidget(self._bottom_panel)
 
     def _wire_cards(self) -> None:
@@ -863,3 +972,5 @@ class ChannelsPageView(BasePage):
             card.vname_changed.connect(
                 lambda v, i=idx: self.vsu_vname_changed.emit(i, v)
             )
+
+        self._configure_btn.clicked.connect(self.configure_measure_clicked)

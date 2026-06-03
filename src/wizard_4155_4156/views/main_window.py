@@ -25,6 +25,8 @@ Responsibilities
 - Expose on_data_ready / on_hardware_busy for connector widget signals.
 """
 
+import json
+
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFrame,
@@ -97,6 +99,9 @@ class MainWindow(QMainWindow):
         # names.
         self._channels_presenter = ChannelsPresenter(
             view=self._channels_page, parent=self
+        )
+        self._channels_presenter.measure_configured.connect(
+            self._on_measure_configured
         )
 
         # ── ConnectorPresenter ───────────────────────────────────────────────
@@ -273,6 +278,14 @@ class MainWindow(QMainWindow):
     def _on_new_project(self) -> None:
         self._status_bar.showMessage("New project requested…", 3000)
         # TODO: switch to project editor / wizard page
+
+    def _on_measure_configured(self, config_dict: dict) -> None:
+        json_str = json.dumps(config_dict, indent=4)
+        print(json_str)
+        self._status_bar.showMessage(
+            "Measurement configuration generated.", 5000
+        )
+        # TODO: Save this dict in a persistent variable of the main window
 
     # =========================================================================
     # Menu handlers (delegate to presenter where possible)

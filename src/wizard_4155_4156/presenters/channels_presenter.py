@@ -41,9 +41,13 @@ from __future__ import annotations
 
 import copy
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, Signal
 
 from wizard_4155_4156.models.channels import (
+    MEASUREMENT_MODE_SCPI_MAP,
+    SMU_MODE_SCPI_MAP,
+    UNIT_FUNCTION_SCPI_MAP,
+    VMU_MODE_SCPI_MAP,
     ChannelsConfig,
     ChannelsConstraints,
     InstrumentModel,
@@ -62,6 +66,8 @@ class ChannelsPresenter(QObject):
     """
     Mediates between ChannelsPageView (View) and ChannelsConfig (Model).
     """
+
+    measure_configured = Signal(dict)
 
     def __init__(
         self,
@@ -238,6 +244,7 @@ class ChannelsPresenter(QObject):
         v.vsu_enabled_changed.connect(self._on_vsu_enabled)
         v.vsu_function_changed.connect(self._on_vsu_function)
         v.vsu_vname_changed.connect(self._on_vsu_vname)
+        v.configure_measure_clicked.connect(self._on_configure_measure)
 
     def _push_full_state(self) -> None:
         """
@@ -325,9 +332,65 @@ class ChannelsPresenter(QObject):
     def _update_validation(self) -> None:
         errors = ChannelsConstraints.validate_config(self._config)
         if not errors:
-            self._view.display_validation_status(True, "Configuration is valid")
+            self._view.display_validation_status(
+                True, "Configuration is valid"
+            )
         else:
             first_err = errors[0]
             if len(errors) > 1:
                 first_err += f" +{len(errors) - 1}"
             self._view.display_validation_status(False, first_err)
+
+    def _on_configure_measure(self) -> None:
+        cfg = self._config
+
+        channels = {}
+
+        # SMUs
+        for i in range(1, 5):
+            smu = cfg.smu[i]
+            unit_key = f"SMU{i}"
+            if smu.enabled:
+                channels[unit_key] = {
+                    "v_name": smu.voltage_name,
+                    "i_name": smu.current_name,
+                    "function": UNIT_FUNCTION_SCPI_MAP[smu.function],
+                    "smu_mode": SMU_MODE_SCPI_MAP[smu.mode],
+                }
+            else:
+                channels[unit_key] = {"disable": 1}
+
+        # VMUs
+        has_vmu = cfg.instrument_model.has_vmu()
+        vmu_usable = ChannelsConstraints.vmu_usable_in_mode(
+            cfg.measurement_mode
+        )
+        for i in range(1, 3):
+            vmu = cfg.vmu[i]
+            unit_key = f"VMU{i}"
+            if has_vmu and vmu_usable and vmu.enabled:
+                channels[unit_key] = {
+                    "v_name": vmu.voltage_name,
+                    "vu_mode": VMU_MODE_SCPI_MAP[vmu.mode],
+                }
+            else:
+                channels[unit_key] = {"disable": 1}
+
+        # VSUs
+        for i in range(1, 3):
+            vsu = cfg.vsu[i]
+            unit_key = f"VSU{i}"
+            if vsu.enabled:
+                channels[unit_key] = {
+                    "v_name": vsu.voltage_name,
+                    "function": UNIT_FUNCTION_SCPI_MAP[vsu.function],
+                }
+            else:
+                channels[unit_key] = {"disable": 1}
+
+        config_dict = {
+            "mode": MEASUREMENT_MODE_SCPI_MAP[cfg.measurement_mode],
+            "channels": channels,
+        }
+
+        self.measure_configured.emit(config_dict)

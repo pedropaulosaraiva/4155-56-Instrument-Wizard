@@ -624,21 +624,23 @@ def unit_group_separator_stylesheet() -> str:
     return f"background-color: {P.BORDER}; max-height: 1px;"
 
 
-def unit_card_enabled_stylesheet() -> str:
+def unit_card_enabled_stylesheet(hover: bool = False) -> str:
+    border_color = P.ACCENT if hover else P.BORDER
     return f"""
         QFrame#unit_card {{
             background-color: {P.BG_PANEL};
-            border: 1px solid {P.BORDER};
+            border: 1px solid {border_color};
             border-radius: {P.RADIUS_LG};
         }}
     """
 
 
-def unit_card_disabled_stylesheet() -> str:
+def unit_card_disabled_stylesheet(hover: bool = False) -> str:
+    border_color = P.ACCENT if hover else P.BG_ELEVATED
     return f"""
         QFrame#unit_card {{
             background-color: {P.BG_DEEP};
-            border: 1px solid {P.BG_ELEVATED};
+            border: 1px solid {border_color};
             border-radius: {P.RADIUS_LG};
         }}
     """
@@ -746,5 +748,31 @@ def validation_status_stylesheet(state: str) -> str:
             font-size: {P.FONT_SIZE_MD};
             font-weight: bold;
             background: transparent;
+        }}
+    """
+
+
+def configure_measure_button_stylesheet() -> str:
+    return f"""
+        QPushButton {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_LG};
+            padding: 0px 16px;
+            font-size: {P.FONT_SIZE_MD};
+            font-weight: bold;
+        }}
+        QPushButton:hover {{
+            background-color: {P.BG_ELEVATED};
+            border: 1px solid {P.ACCENT};
+        }}
+        QPushButton:pressed {{
+            background-color: {P.ACCENT_MUTED};
+        }}
+        QPushButton:disabled {{
+            background-color: {P.BG_DEEP};
+            color: {P.TEXT_DISABLED};
+            border: 1px solid {P.BORDER};
         }}
     """

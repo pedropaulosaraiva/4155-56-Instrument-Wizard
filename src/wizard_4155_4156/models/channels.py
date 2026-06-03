@@ -407,3 +407,32 @@ class ChannelsConstraints:
                 )
 
         return errors
+
+
+# ── SCPI Mapping Dictionaries ───────────────────────────────────────────────
+
+MEASUREMENT_MODE_SCPI_MAP = {
+    MeasurementMode.SWEEP: "SWEEP",
+    MeasurementMode.SAMPLING: "SAMP",
+    MeasurementMode.QSCV: "QSCV",
+}
+
+SMU_MODE_SCPI_MAP = {
+    SMUMode.V: "V",
+    SMUMode.I: "I",
+    SMUMode.VPULSE: "VPUL",
+    SMUMode.IPULSE: "IPUL",
+    SMUMode.COMM: "COMM",
+}
+
+VMU_MODE_SCPI_MAP = {
+    VMUMode.V: "V",
+    VMUMode.DVOLT: "DVOL",
+}
+
+UNIT_FUNCTION_SCPI_MAP = {
+    UnitFunction.CONST: "CONS",
+    UnitFunction.VAR1: "VAR1",
+    UnitFunction.VAR2: "VAR2",
+    UnitFunction.VAR1_PRIME: "VARD",
+}
