@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 )
 
 from wizard_4155_4156.models.project import RecentProjectsManager
+from wizard_4155_4156.presenters.channels_presenter import ChannelsPresenter
 from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
 from wizard_4155_4156.presenters.home_presenter import HomePresenter
 from wizard_4155_4156.styles.stylesheets import (
@@ -53,7 +54,7 @@ from wizard_4155_4156.views.connector_widget import CompactConnectorWidget
 from wizard_4155_4156.views.navigation_bar import NavigationBar
 from wizard_4155_4156.views.pages import (
     BasePage,
-    ChannelsPage,
+    ChannelsPageView,
     GraphPage,
     HomePageView,
     MeasurementsPage,
@@ -88,6 +89,14 @@ class MainWindow(QMainWindow):
         )
         self._home_presenter.new_project_triggered.connect(
             self._on_new_project
+        )
+
+        # ── ChannelsPresenter ────────────────────────────────────────────────
+        # Call self._channels_presenter.get_config() from SweepConfigPresenter
+        # MeasurementsPresenter to read active channel layout and variable
+        # names.
+        self._channels_presenter = ChannelsPresenter(
+            view=self._channels_page, parent=self
         )
 
         # ── ConnectorPresenter ───────────────────────────────────────────────
@@ -152,14 +161,15 @@ class MainWindow(QMainWindow):
         """
         stack = QStackedWidget()
 
-        self._home_page = HomePageView()        # Page.HOME  = 0
+        self._home_page = HomePageView()  # Page.HOME  = 0
         stack.addWidget(self._home_page)
 
-        stack.addWidget(ChannelsPage())         # Page.CHANNELS     = 1
-        stack.addWidget(SweepConfigPage())      # Page.SWEEP_CONFIG = 2
-        stack.addWidget(MeasurementsPage())     # Page.MEASUREMENTS = 3
-        stack.addWidget(GraphPage())            # Page.GRAPH        = 4
-        stack.addWidget(TablePage())            # Page.TABLE        = 5
+        self._channels_page = ChannelsPageView()  # Page.CHANNELS = 1
+        stack.addWidget(self._channels_page)
+        stack.addWidget(SweepConfigPage())  # Page.SWEEP_CONFIG = 2
+        stack.addWidget(MeasurementsPage())  # Page.MEASUREMENTS = 3
+        stack.addWidget(GraphPage())  # Page.GRAPH        = 4
+        stack.addWidget(TablePage())  # Page.TABLE        = 5
 
         return stack
 
@@ -169,7 +179,9 @@ class MainWindow(QMainWindow):
         self.setStatusBar(bar)
 
         self._status_indicator = QLabel(" ● Ready ")
-        self._status_indicator.setStyleSheet(status_indicator_ready_stylesheet())
+        self._status_indicator.setStyleSheet(
+            status_indicator_ready_stylesheet()
+        )
         bar.addWidget(self._status_indicator)
 
         bar.showMessage(
@@ -288,8 +300,9 @@ class MainWindow(QMainWindow):
             act = QAction(proj.name, self)
             act.setData(proj.path)
             act.triggered.connect(
-                lambda _checked,
-                p=proj.path: self._home_presenter.register_opened_file(p)
+                lambda _checked, p=proj.path: (
+                    self._home_presenter.register_opened_file(p)
+                )
             )
             self._recent_menu.addAction(act)
 

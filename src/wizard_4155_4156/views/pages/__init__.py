@@ -15,7 +15,7 @@ uses a single, stable import path:
         Page,
         BasePage,
         HomePageView,
-        ChannelsPage,
+        ChannelsPageView,
         SweepConfigPage,
         MeasurementsPage,
         GraphPage,
@@ -34,6 +34,7 @@ Architectural rules enforced here
    import it here, and add it to __all__.  No other file changes
    are required by the architecture.
 """
+
 from enum import IntEnum
 
 from PySide6.QtWidgets import QWidget
@@ -51,6 +52,7 @@ class Page(IntEnum):
     members must be numbered contiguously starting at 0 and their order
     must match the widget-insertion order in MainWindow._build_page_stack().
     """
+
     HOME = 0
     CHANNELS = 1
     SWEEP_CONFIG = 2
@@ -62,6 +64,7 @@ class Page(IntEnum):
 # ---------------------------------------------------------------------------
 # Base contract
 # ---------------------------------------------------------------------------
+
 
 class BasePage(QWidget):
     """
@@ -91,9 +94,11 @@ class BasePage(QWidget):
 # Imported after Page and BasePage are defined to avoid circular imports
 # (the modules below import BasePage from this file).
 
+from wizard_4155_4156.views.pages.channels_page import (  # noqa: E402
+    ChannelsPageView,
+)
 from wizard_4155_4156.views.pages.home_page import HomePageView  # noqa: E402
 from wizard_4155_4156.views.pages.stub_pages import (  # noqa: E402
-    ChannelsPage,
     GraphPage,
     MeasurementsPage,
     SweepConfigPage,
@@ -110,7 +115,7 @@ __all__ = [
     "BasePage",
     # Concrete pages (insertion order mirrors Page enum)
     "HomePageView",
-    "ChannelsPage",
+    "ChannelsPageView",
     "SweepConfigPage",
     "MeasurementsPage",
     "GraphPage",

@@ -9,6 +9,7 @@ Rules:
     - Views call these functions once in their _apply_styles() method.
     - Strings are kept as f-strings so PALETTE changes propagate globally.
 """
+
 from wizard_4155_4156.styles.theme import PALETTE as P
 
 # ── Application-wide ─────────────────────────────────────────────────────────
@@ -106,6 +107,7 @@ def status_indicator_busy_stylesheet() -> str:
 
 # ── Navigation Bar ───────────────────────────────────────────────────────────
 
+
 def navigation_bar_stylesheet() -> str:
     return f"""
         NavigationBar {{
@@ -153,6 +155,7 @@ def nav_button_stylesheet() -> str:
 
 # ── Connection Top Bar ───────────────────────────────────────────────────────
 
+
 def connection_top_bar_stylesheet() -> str:
     return f"""
         ConnectionTopBar {{
@@ -193,6 +196,7 @@ def top_bar_sys_status_stylesheet() -> str:
 
 
 # ── Compact Connector Widget ─────────────────────────────────────────────────
+
 
 def compact_connector_stylesheet() -> str:
     """
@@ -261,6 +265,7 @@ def connector_progress_bar_stylesheet() -> str:
 
 # ── Quick Actions Panel ──────────────────────────────────────────────────────
 
+
 def quick_actions_panel_stylesheet() -> str:
     return f"background-color: {P.BG_DEEP};"
 
@@ -328,6 +333,7 @@ def version_label_stylesheet() -> str:
 
 # ── Recent Projects Panel ────────────────────────────────────────────────────
 
+
 def recent_panel_header_stylesheet() -> str:
     return f"""
         color: {P.TEXT_PRIMARY};
@@ -362,6 +368,7 @@ def empty_projects_label_stylesheet() -> str:
 
 
 # ── Project Card ─────────────────────────────────────────────────────────────
+
 
 def project_card_stylesheet(hover: bool = False) -> str:
     if hover:
@@ -424,6 +431,7 @@ def card_remove_button_stylesheet() -> str:
 
 
 # ── Connector Modal ──────────────────────────────────────────────────────────
+
 
 def connector_modal_stylesheet() -> str:
     return f"""
@@ -496,6 +504,7 @@ def connector_modal_stylesheet() -> str:
 
 # ── Splitter ─────────────────────────────────────────────────────────────────
 
+
 def splitter_stylesheet() -> str:
     return f"""
         QSplitter::handle {{
@@ -505,6 +514,7 @@ def splitter_stylesheet() -> str:
 
 
 # ── Stub / Placeholder Pages ─────────────────────────────────────────────────
+
 
 def stub_page_stylesheet() -> str:
     return f"background-color: {P.BG_DEEP};"
@@ -523,3 +533,218 @@ def stub_page_subtitle_stylesheet() -> str:
     return (
         f"color: {P.TEXT_DISABLED}; font-size: 14px; background: transparent;"
     )
+
+
+# ── Channels Page ────────────────────────────────────────────────────────────
+
+
+def channels_page_stylesheet() -> str:
+    return f"background-color: {P.BG_DEEP};"
+
+
+def config_panel_stylesheet() -> str:
+    return f"""
+        QFrame#config_panel {{
+            background-color: {P.BG_PANEL};
+            border-bottom: 1px solid {P.BORDER};
+        }}
+    """
+
+
+def bottom_panel_stylesheet() -> str:
+    return f"""
+        QFrame#bottom_panel {{
+            background-color: {P.BG_PANEL};
+            border-top: 1px solid {P.BORDER};
+        }}
+    """
+
+
+def config_section_label_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_XS}; "
+        f"letter-spacing: 1px; background: transparent;"
+    )
+
+
+def config_combo_stylesheet() -> str:
+    return f"""
+        QComboBox {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 6px 12px;
+            font-size: {P.FONT_SIZE_MD};
+            font-weight: bold;
+            min-width: 160px;
+        }}
+        QComboBox:focus {{ border-color: {P.ACCENT}; }}
+        QComboBox::drop-down {{ border: none; width: 24px; }}
+        QComboBox QAbstractItemView {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_SECONDARY};
+            selection-background-color: {P.ACCENT_MUTED};
+            border: 1px solid {P.BORDER};
+            padding: 2px;
+        }}
+    """
+
+
+def global_option_checkbox_stylesheet() -> str:
+    return f"""
+        QCheckBox {{
+            color: {P.TEXT_SECONDARY};
+            font-size: {P.FONT_SIZE_MD};
+            spacing: 8px;
+            background: transparent;
+        }}
+        QCheckBox::indicator {{
+            width: 15px; height: 15px;
+            border-radius: {P.RADIUS_SM};
+            border: 1px solid {P.BORDER};
+        }}
+        QCheckBox::indicator:checked {{
+            background-color: {P.ACCENT};
+            border-color: {P.ACCENT};
+        }}
+        QCheckBox::indicator:unchecked {{ background-color: {P.BG_DEEP}; }}
+        QCheckBox::indicator:hover {{ border-color: {P.ACCENT_HOVER}; }}
+    """
+
+
+def unit_group_header_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_XS}; "
+        f"font-weight: bold; letter-spacing: 2px; background: transparent;"
+    )
+
+
+def unit_group_separator_stylesheet() -> str:
+    return f"background-color: {P.BORDER}; max-height: 1px;"
+
+
+def unit_card_enabled_stylesheet() -> str:
+    return f"""
+        QFrame#unit_card {{
+            background-color: {P.BG_PANEL};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_LG};
+        }}
+    """
+
+
+def unit_card_disabled_stylesheet() -> str:
+    return f"""
+        QFrame#unit_card {{
+            background-color: {P.BG_DEEP};
+            border: 1px solid {P.BG_ELEVATED};
+            border-radius: {P.RADIUS_LG};
+        }}
+    """
+
+
+def unit_card_title_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_PRIMARY}; font-weight: bold; "
+        f"font-size: {P.FONT_SIZE_MD}; background: transparent;"
+    )
+
+
+def unit_card_row_label_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_SM}; "
+        "background: transparent;"
+    )
+
+
+def unit_card_separator_stylesheet() -> str:
+    return f"background-color: {P.BORDER}; max-height: 1px;"
+
+
+def unit_enable_checkbox_stylesheet() -> str:
+    return f"""
+        QCheckBox {{
+            color: {P.TEXT_PRIMARY};
+            font-weight: bold;
+            font-size: {P.FONT_SIZE_MD};
+            spacing: 8px;
+            background: transparent;
+        }}
+        QCheckBox::indicator {{
+            width: 13px; height: 13px;
+            border-radius: 7px;
+            border: 1px solid {P.TEXT_DISABLED};
+        }}
+        QCheckBox::indicator:checked {{
+            background-color: {P.STATUS_OK};
+            border-color: {P.STATUS_OK};
+        }}
+        QCheckBox::indicator:unchecked {{
+            background-color: {P.BG_DEEP};
+            border-color: {P.TEXT_DISABLED};
+        }}
+        QCheckBox::indicator:disabled {{
+            background-color: {P.BORDER};
+            border-color: {P.BORDER};
+        }}
+    """
+
+
+def unit_card_combo_stylesheet() -> str:
+    return f"""
+        QComboBox {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 4px 8px;
+            font-size: {P.FONT_SIZE_SM};
+        }}
+        QComboBox:focus {{ border-color: {P.ACCENT}; }}
+        QComboBox::drop-down {{ border: none; width: 18px; }}
+        QComboBox QAbstractItemView {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_SECONDARY};
+            selection-background-color: {P.ACCENT_MUTED};
+            border: 1px solid {P.BORDER};
+        }}
+        QComboBox:disabled {{
+            color: {P.TEXT_DISABLED};
+            border-color: {P.BG_ELEVATED};
+        }}
+    """
+
+
+def unit_card_line_edit_stylesheet() -> str:
+    return f"""
+        QLineEdit {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 4px 8px;
+            font-size: {P.FONT_SIZE_SM};
+            font-family: {P.FONT_FAMILY_MONO};
+        }}
+        QLineEdit:focus {{ border-color: {P.ACCENT}; }}
+        QLineEdit:disabled {{
+            color: {P.TEXT_DISABLED};
+            border-color: {P.BG_ELEVATED};
+        }}
+    """
+
+
+def validation_status_stylesheet(state: str) -> str:
+    """
+    state can be 'valid' (green) or 'warning' (yellow).
+    """
+    color = P.STATUS_OK if state == "valid" else P.STATUS_WARN
+    return f"""
+        QLabel {{
+            color: {color};
+            font-size: {P.FONT_SIZE_MD};
+            font-weight: bold;
+            background: transparent;
+        }}
+    """
