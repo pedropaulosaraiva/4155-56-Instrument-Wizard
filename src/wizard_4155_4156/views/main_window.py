@@ -44,6 +44,9 @@ from wizard_4155_4156.models.project import RecentProjectsManager
 from wizard_4155_4156.presenters.channels_presenter import ChannelsPresenter
 from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
 from wizard_4155_4156.presenters.home_presenter import HomePresenter
+from wizard_4155_4156.presenters.sweep_config_presenter import (
+    SweepConfigPresenter,
+)
 from wizard_4155_4156.styles.stylesheets import (
     application_stylesheet,
     status_bar_stylesheet,
@@ -61,7 +64,7 @@ from wizard_4155_4156.views.pages import (
     HomePageView,
     MeasurementsPage,
     Page,
-    SweepConfigPage,
+    SweepConfigPageView,
     TablePage,
 )
 
@@ -102,6 +105,17 @@ class MainWindow(QMainWindow):
         )
         self._channels_presenter.measure_configured.connect(
             self._on_measure_configured
+        )
+
+        # ── SweepConfigPresenter ─────────────────────────────────────────────
+        # Reads ChannelsPresenter.get_config() on every page_activated so the
+        # channel context (VAR assignments, units) is always fresh.
+        # Call self._sweep_presenter.get_json() from MeasurementsPresenter
+        # when triggering a measurement sequence.
+        self._sweep_presenter = SweepConfigPresenter(
+            view=self._sweep_page,
+            channels_presenter=self._channels_presenter,
+            parent=self,
         )
 
         # ── ConnectorPresenter ───────────────────────────────────────────────
@@ -171,7 +185,8 @@ class MainWindow(QMainWindow):
 
         self._channels_page = ChannelsPageView()  # Page.CHANNELS = 1
         stack.addWidget(self._channels_page)
-        stack.addWidget(SweepConfigPage())  # Page.SWEEP_CONFIG = 2
+        self._sweep_page = SweepConfigPageView()  # Page.SWEEP_CONFIG = 2
+        stack.addWidget(self._sweep_page)
         stack.addWidget(MeasurementsPage())  # Page.MEASUREMENTS = 3
         stack.addWidget(GraphPage())  # Page.GRAPH        = 4
         stack.addWidget(TablePage())  # Page.TABLE        = 5

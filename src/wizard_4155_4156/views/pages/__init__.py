@@ -101,8 +101,10 @@ from wizard_4155_4156.views.pages.home_page import HomePageView  # noqa: E402
 from wizard_4155_4156.views.pages.stub_pages import (  # noqa: E402
     GraphPage,
     MeasurementsPage,
-    SweepConfigPage,
     TablePage,
+)
+from wizard_4155_4156.views.pages.sweep_config_page import (  # noqa: E402
+    SweepConfigPageView,
 )
 
 # ---------------------------------------------------------------------------
@@ -116,7 +118,7 @@ __all__ = [
     # Concrete pages (insertion order mirrors Page enum)
     "HomePageView",
     "ChannelsPageView",
-    "SweepConfigPage",
+    "SweepConfigPageView",
     "MeasurementsPage",
     "GraphPage",
     "TablePage",

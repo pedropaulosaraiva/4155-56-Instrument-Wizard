@@ -776,3 +776,140 @@ def configure_measure_button_stylesheet() -> str:
             border: 1px solid {P.BORDER};
         }}
     """
+
+
+# ── Sweep Config Page ────────────────────────────────────────────────────────
+
+
+def sweep_page_stylesheet() -> str:
+    return f"background-color: {P.BG_DEEP};"
+
+
+def sweep_section_card_stylesheet() -> str:
+    return f"""
+        QFrame#section_card {{
+            background-color: {P.BG_PANEL};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_LG};
+        }}
+    """
+
+
+def channel_row_badge_stylesheet(color: str) -> str:
+    return (
+        f"color: {color}; font-size: {P.FONT_SIZE_XS}; font-weight: bold; "
+        f"background: transparent; padding: 2px 8px; "
+        f"border: 1px solid {color}; border-radius: {P.RADIUS_SM};"
+    )
+
+
+def input_error_stylesheet() -> str:
+    """Applied to a _SciDoubleEdit or QSpinBox when its value is out of range."""
+    return f"""
+        QLineEdit {{
+            background-color: rgba(244, 135, 113, 0.12);
+            border: 1px solid {P.STATUS_ERROR};
+            border-radius: {P.RADIUS_SM};
+            color: {P.STATUS_ERROR};
+            padding: 4px 8px;
+            font-size: {P.FONT_SIZE_SM};
+            font-family: {P.FONT_FAMILY_MONO};
+        }}
+        QSpinBox {{
+            background-color: rgba(244, 135, 113, 0.12);
+            border: 1px solid {P.STATUS_ERROR};
+            color: {P.STATUS_ERROR};
+        }}
+    """
+
+
+def sweep_form_label_stylesheet() -> str:
+    return f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_SM}; background: transparent;"
+
+
+def sweep_unit_label_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_SM}; "
+        f"font-family: {P.FONT_FAMILY_MONO}; background: transparent; min-width: 26px;"
+    )
+
+
+def segmented_btn_checked_stylesheet() -> str:
+    return f"""
+        QPushButton {{
+            background-color: {P.ACCENT};
+            color: {P.TEXT_WHITE};
+            border: 1px solid {P.ACCENT};
+            padding: 5px 16px;
+            font-size: {P.FONT_SIZE_SM};
+            font-weight: bold;
+            border-radius: 0;
+        }}
+    """
+
+
+def segmented_btn_unchecked_stylesheet() -> str:
+    return f"""
+        QPushButton {{
+            background-color: {P.BG_DEEP};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            padding: 5px 16px;
+            font-size: {P.FONT_SIZE_SM};
+            border-radius: 0;
+        }}
+        QPushButton:hover {{
+            background-color: {P.BG_ELEVATED};
+            color: {P.TEXT_WHITE};
+        }}
+    """
+
+
+def export_btn_stylesheet() -> str:
+    return f"""
+        QPushButton {{
+            background-color: {P.ACCENT};
+            color: {P.TEXT_WHITE};
+            border: none;
+            border-radius: {P.RADIUS_MD};
+            padding: 8px 22px;
+            font-weight: bold;
+            font-size: {P.FONT_SIZE_MD};
+        }}
+        QPushButton:hover {{ background-color: {P.ACCENT_HOVER}; }}
+        QPushButton:pressed {{ background-color: {P.ACCENT_PRESSED}; }}
+    """
+
+
+def error_bar_stylesheet() -> str:
+    return f"""
+        QLabel {{
+            background-color: rgba(244, 135, 113, 0.15);
+            color: {P.STATUS_ERROR};
+            border: 1px solid {P.STATUS_ERROR};
+            border-radius: {P.RADIUS_SM};
+            padding: 6px 14px;
+            font-size: {P.FONT_SIZE_SM};
+        }}
+    """
+
+
+def sweep_spinbox_stylesheet() -> str:
+    return f"""
+        QSpinBox {{
+            background-color: {P.BG_DEEP};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 4px 8px;
+            font-size: {P.FONT_SIZE_SM};
+            font-family: {P.FONT_FAMILY_MONO};
+        }}
+        QSpinBox:focus {{ border-color: {P.ACCENT}; }}
+        QSpinBox::up-button, QSpinBox::down-button {{
+            width: 16px;
+            border: none;
+            background: {P.BG_ELEVATED};
+        }}
+        QSpinBox:disabled {{ color: {P.TEXT_DISABLED}; border-color: {P.BG_ELEVATED}; }}
+    """
