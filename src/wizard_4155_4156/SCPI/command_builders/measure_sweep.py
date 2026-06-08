@@ -30,7 +30,7 @@ class MeasureSweepCommandBuilder(SCPICommandBuilder):
     MIN_PULSE_WID: Final[float] = 5e-4
     MAX_PULSE_WID: Final[float] = 1e-1
     MIN_PCOMP: Final[float] = 1e-3
-    MAX_PCOMP: Final[float] = 20.0
+    MAX_PCOMP: Final[float] = 2.0
     MIN_VAR2_PTS: Final[int] = 1
     MAX_VAR2_PTS: Final[int] = 128
 
