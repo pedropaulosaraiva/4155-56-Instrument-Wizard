@@ -11,7 +11,7 @@ Validation philosophy (simplified)
    - update_bounds(min_v, max_v) lets the section update limits when the
      sweep type changes (voltage ↔ current, or VAR1 source changes).
 
-2. Cross-parameter rules (step count, matrix total) are computed locally
+2. Cross-parameter rules (step count, total points) are computed locally
    in _update_matrix_status() using values read directly from the widgets.
    A single QLabel at the top of the right column shows the result —
    green ✓ or red ⚠ with a plain-English description.
@@ -107,6 +107,7 @@ from wizard_4155_4156.styles.stylesheets import (
     unit_enable_checkbox_stylesheet,
     unit_group_header_stylesheet,
     unit_group_separator_stylesheet,
+    validation_status_stylesheet,
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
@@ -217,11 +218,8 @@ class SciDoubleValidator(QValidator):
 
 class _SciDoubleEdit(QWidget):
     """
-    QLineEdit with scientific-notation support and self-contained range
-    validation.  Emits value_committed(float) only when the value is valid.
-
-    update_bounds(min_v, max_v) lets parent sections change the accepted
-    range when the sweep type switches (e.g. V ↔ I mode).
+    QLineEdit with scientific-notation support. Emits value_committed(float)
+    whenever a valid float is parsed upon editingFinished.
     """
 
     value_committed = Signal(float)
@@ -246,8 +244,11 @@ class _SciDoubleEdit(QWidget):
 
         self._edit = QLineEdit()
         self._edit.setStyleSheet(unit_card_line_edit_stylesheet())
-        self._validator = SciDoubleValidator(min_v, max_v, self._edit)
+
+        # Use SciDoubleValidator with wide bounds to accept all float values
+        self._validator = SciDoubleValidator(-1e300, 1e300, self._edit)
         self._edit.setValidator(self._validator)
+
         self._set_text(default)
         h.addWidget(self._edit, stretch=1)
 
@@ -266,59 +267,36 @@ class _SciDoubleEdit(QWidget):
     def set_value(self, val: float) -> None:
         self._edit.blockSignals(True)
         self._set_text(val)
-        self._clear_error()
         self._edit.blockSignals(False)
 
     def get_value(self) -> Optional[float]:
-        """Returns the float if in bounds (and non-zero when required), else None."""
+        """Returns the float if it can be parsed, else None."""
         try:
-            # Replace comma with dot to handle native locale formatting
-            text = self._edit.text().replace(",", ".")
-            v = float(text)
+            text = self._edit.text().replace(",", ".").strip()
+            if not text:
+                return None
+            return float(text)
         except ValueError:
             return None
-        if not (self._min <= v <= self._max):
-            return None
-        if self._disallow_zero and v == 0.0:
-            return None
-        return v
 
     def update_bounds(
         self, min_v: float, max_v: float, unit: str = ""
     ) -> None:
-        """Dynamically update validator range when sweep type changes."""
+        """Dynamically update bounds context when sweep type changes."""
         self._min = min_v
         self._max = max_v
-        self._validator.min_val = min_v
-        self._validator.max_val = max_v
         if unit and self._unit_lbl:
             self._unit_lbl.setText(unit)
-        # Re-evaluate current value with new bounds
-        if self.get_value() is None and self._edit.text().strip():
-            self.set_error(f"{min_v:.3g} – {max_v:.3g}")
-        else:
-            self._clear_error()
 
     def set_error(self, msg: str = "") -> None:
-        self._edit.setStyleSheet(input_error_stylesheet())
-        self._edit.setToolTip(f"Valid range: {msg}" if msg else "")
+        pass
 
     def clear_error(self) -> None:
-        self._clear_error()
+        pass
 
     def validate_value(self) -> bool:
-        """Force validation check and update style/tooltip. Returns True if valid."""
-        v = self.get_value()
-        if v is not None:
-            self._clear_error()
-            return True
-        else:
-            text = self._edit.text().strip()
-            if self._disallow_zero and text in ("0", "0.0", "0e+00"):
-                self.set_error("Cannot be zero")
-            else:
-                self.set_error(f"{self._min:.3g} – {self._max:.3g}")
-            return False
+        """Always returns True if a float can be parsed."""
+        return self.get_value() is not None
 
     # ── Private ───────────────────────────────────────────────────────────────
 
@@ -328,13 +306,10 @@ class _SciDoubleEdit(QWidget):
         else:
             self._edit.setText(f"{val:.6g}")
 
-    def _clear_error(self) -> None:
-        self._edit.setStyleSheet(unit_card_line_edit_stylesheet())
-        self._edit.setToolTip("")
-
     def _on_finish(self) -> None:
-        if self.validate_value():
-            self.value_committed.emit(self.get_value())
+        v = self.get_value()
+        if v is not None:
+            self.value_committed.emit(v)
 
 
 # ── _SegmentedGroup ────────────────────────────────────────────────────────────
@@ -472,12 +447,12 @@ class _ChannelSummarySection(_SectionFrame):
         hh.setContentsMargins(0, 0, 0, 4)
         hh.setSpacing(0)
         for text, w in [
-            ("Channel", 80),
-            ("Function", 80),
-            ("Mode", 80),
-            ("V-Name", 70),
-            ("I-Name", 70),
-            ("Standby", 70),
+            ("Channel", 65),
+            ("Function", 70),
+            ("Mode", 75),
+            ("V-Name", 55),
+            ("I-Name", 55),
+            ("Standby", 55),
         ]:
             l = QLabel(text)
             l.setStyleSheet(
@@ -485,6 +460,7 @@ class _ChannelSummarySection(_SectionFrame):
                 "font-weight: bold; letter-spacing: 1px; background: transparent;"
             )
             l.setFixedWidth(w)
+            l.setAlignment(Qt.AlignmentFlag.AlignCenter)
             hh.addWidget(l)
         hh.addStretch()
         self.body().addWidget(hdr)
@@ -507,57 +483,134 @@ class _ChannelSummarySection(_SectionFrame):
             ch_id = ch["id"]
             is_smu = ch.get("unit_type") == "SMU"
             fn = ch.get("function", "CONST")
+            mode = ch.get("mode", "")
+
+            # Apply display aliases
+            fn_display = "MONIT" if fn == "MONITOR" else fn
+
+            mode_display = mode
+            if mode == "VPULSE":
+                mode_display = "VPUL"
+            elif mode == "IPULSE":
+                mode_display = "IPUL"
 
             row = QWidget()
             rh = QHBoxLayout(row)
             rh.setContentsMargins(0, 2, 0, 2)
             rh.setSpacing(0)
 
-            for text, w, style in [
-                (ch_id, 80, channel_row_badge_stylesheet(P.ACCENT_HOVER)),
-                (
-                    fn,
-                    80,
-                    channel_row_badge_stylesheet(
-                        fn_colors.get(fn, P.TEXT_MUTED)
-                    ),
-                ),
-                (ch.get("mode", ""), 80, sweep_form_label_stylesheet()),
-                (
-                    ch.get("v_name", ""),
-                    70,
-                    f"color:{P.TEXT_SECONDARY};font-size:{P.FONT_SIZE_SM};"
-                    f"font-family:{P.FONT_FAMILY_MONO};background:transparent;",
-                ),
-                (
-                    ch.get("i_name", "") if is_smu else "—",
-                    70,
-                    f"color:{P.TEXT_SECONDARY};font-size:{P.FONT_SIZE_SM};"
-                    f"font-family:{P.FONT_FAMILY_MONO};background:transparent;",
-                ),
-            ]:
-                lbl = QLabel(text)
-                lbl.setFixedWidth(w)
-                lbl.setStyleSheet(style)
-                rh.addWidget(lbl)
+            # 1. Channel (Unity Name) column: container of width 65, badge of width 48
+            ch_container = QWidget()
+            ch_container.setFixedWidth(65)
+            ch_layout = QHBoxLayout(ch_container)
+            ch_layout.setContentsMargins(0, 0, 0, 0)
+            ch_layout.setSpacing(0)
 
+            ch_lbl = QLabel(ch_id)
+            ch_lbl.setFixedWidth(48)
+            ch_lbl.setStyleSheet(channel_row_badge_stylesheet(P.ACCENT_HOVER))
+            ch_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            ch_layout.addStretch()
+            ch_layout.addWidget(ch_lbl)
+            ch_layout.addStretch()
+            rh.addWidget(ch_container)
+
+            # 2. Function column: container of width 70, badge of width 60
+            fn_container = QWidget()
+            fn_container.setFixedWidth(70)
+            fn_layout = QHBoxLayout(fn_container)
+            fn_layout.setContentsMargins(0, 0, 0, 0)
+            fn_layout.setSpacing(0)
+
+            fn_lbl = QLabel(fn_display)
+            fn_lbl.setFixedWidth(60)
+            fn_lbl.setStyleSheet(
+                channel_row_badge_stylesheet(fn_colors.get(fn, P.TEXT_MUTED))
+            )
+            fn_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            fn_layout.addStretch()
+            fn_layout.addWidget(fn_lbl)
+            fn_layout.addStretch()
+            rh.addWidget(fn_container)
+
+            # 3. Mode column: container of width 75, badge of width 65
+            mode_container = QWidget()
+            mode_container.setFixedWidth(75)
+            mode_layout = QHBoxLayout(mode_container)
+            mode_layout.setContentsMargins(0, 0, 0, 0)
+            mode_layout.setSpacing(0)
+
+            mode_lbl = QLabel(mode_display)
+            mode_lbl.setFixedWidth(65)
+            mode_lbl.setStyleSheet(
+                channel_row_badge_stylesheet(fn_colors.get(fn, P.TEXT_MUTED))
+            )
+            mode_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            mode_layout.addStretch()
+            mode_layout.addWidget(mode_lbl)
+            mode_layout.addStretch()
+            rh.addWidget(mode_container)
+
+            # 4. V-Name column: label of width 55
+            v_name_lbl = QLabel(ch.get("v_name", ""))
+            v_name_lbl.setFixedWidth(55)
+            v_name_lbl.setStyleSheet(
+                f"color:{P.TEXT_SECONDARY};font-size:{P.FONT_SIZE_SM};"
+                f"font-family:{P.FONT_FAMILY_MONO};background:transparent;"
+            )
+            v_name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            rh.addWidget(v_name_lbl)
+
+            # 5. I-Name column: label of width 55
+            i_name_lbl = QLabel(ch.get("i_name", "") if is_smu else "—")
+            i_name_lbl.setFixedWidth(55)
+            i_name_lbl.setStyleSheet(
+                f"color:{P.TEXT_SECONDARY};font-size:{P.FONT_SIZE_SM};"
+                f"font-family:{P.FONT_FAMILY_MONO};background:transparent;"
+            )
+            i_name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            rh.addWidget(i_name_lbl)
+
+            # 6. Standby column: container of width 55, checkbox/spacer inside
             if is_smu:
+                cb_container = QWidget()
+                cb_container.setFixedWidth(55)
+                cb_layout = QHBoxLayout(cb_container)
+                cb_layout.setContentsMargins(0, 0, 0, 0)
+                cb_layout.setSpacing(0)
+
                 cb = QCheckBox()
                 cb.setChecked(ch.get("standby", False))
                 cb.setStyleSheet(unit_enable_checkbox_stylesheet())
-                cb.setFixedWidth(70)
+                cb.setFixedWidth(16)
+
+                cb_layout.addStretch()
+                cb_layout.addWidget(cb)
+                cb_layout.addStretch()
+
                 cb.toggled.connect(
                     lambda checked, cid=ch_id: self.smu_standby_changed.emit(
                         cid, checked
                     )
                 )
                 self._standby_cbs[ch_id] = cb
-                rh.addWidget(cb)
+                rh.addWidget(cb_container)
             else:
+                spacer_container = QWidget()
+                spacer_container.setFixedWidth(55)
+                sc_layout = QHBoxLayout(spacer_container)
+                sc_layout.setContentsMargins(0, 0, 0, 0)
+                sc_layout.setSpacing(0)
+
                 spacer = QLabel("—")
-                spacer.setFixedWidth(70)
                 spacer.setStyleSheet(sweep_form_label_stylesheet())
-                rh.addWidget(spacer)
+                spacer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+                sc_layout.addWidget(spacer)
+                rh.addWidget(spacer_container)
 
             rh.addStretch()
             self.body().addWidget(row)
@@ -632,11 +685,15 @@ class _MeasSetupSection(_SectionFrame):
 
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
-        if not self._wait_edit.validate_value():
-            errors["wait_multiplier"] = f"Wait Multiplier: invalid value (range: {WAIT_MULT_MIN:.3g} – {WAIT_MULT_MAX:.3g})"
+        if self._wait_edit.get_value() is None:
+            errors["wait_multiplier"] = (
+                "Wait Multiplier: value is empty or invalid"
+            )
         if self._mode_seg.current_value() == "SHORT":
-            if not self._short_edit.validate_value():
-                errors["short_time"] = f"Short Aperture: invalid value (range: {SHORT_TIME_MIN:.3g} – {SHORT_TIME_MAX:.3g} s)"
+            if self._short_edit.get_value() is None:
+                errors["short_time"] = (
+                    "Short Aperture: value is empty or invalid"
+                )
         return errors
 
 
@@ -678,10 +735,10 @@ class _SweepTimingSection(_SectionFrame):
 
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
-        if not self._delay_edit.validate_value():
-            errors["delay"] = f"Delay: invalid value (range: {DELAY_MIN:.3g} – {DELAY_MAX:.3g} s)"
-        if not self._hold_edit.validate_value():
-            errors["hold_time"] = f"Hold Time: invalid value (range: {HOLD_TIME_MIN:.3g} – {HOLD_TIME_MAX:.3g} s)"
+        if self._delay_edit.get_value() is None:
+            errors["delay"] = "Delay: value is empty or invalid"
+        if self._hold_edit.get_value() is None:
+            errors["hold_time"] = "Hold Time: value is empty or invalid"
         return errors
 
 
@@ -804,45 +861,18 @@ class _VAR1Section(_SectionFrame):
 
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
-        if not self._start_edit.validate_value():
-            errors["var1_start"] = (
-                f"VAR1 Start: invalid value (range: "
-                f"{self._start_edit._min:.3g} – {self._start_edit._max:.3g})"
-            )
-        if not self._stop_edit.validate_value():
-            errors["var1_stop"] = (
-                f"VAR1 Stop: invalid value (range: "
-                f"{self._stop_edit._min:.3g} – {self._stop_edit._max:.3g})"
-            )
-
-        # Only validate step if spacing is LINEAR
+        if self._start_edit.get_value() is None:
+            errors["var1_start"] = "VAR1 Start: value is empty or invalid"
+        if self._stop_edit.get_value() is None:
+            errors["var1_stop"] = "VAR1 Stop: value is empty or invalid"
         if self._spacing_seg.current_value() == "LINEAR":
-            if not self._step_edit.validate_value():
-                is_zero = self._step_edit._edit.text().strip() in (
-                    "0",
-                    "0.0",
-                    "0e+00",
-                )
-                if self._step_edit._disallow_zero and is_zero:
-                    errors["var1_step"] = "VAR1 Step: cannot be zero"
-                else:
-                    errors["var1_step"] = (
-                        f"VAR1 Step: invalid value (range: "
-                        f"{self._step_edit._min:.3g} – "
-                        f"{self._step_edit._max:.3g})"
-                    )
-        else:
-            self._step_edit.clear_error()
-
-        if not self._comp_edit.validate_value():
-            errors["var1_comp"] = (
-                f"VAR1 Compliance: invalid value (range: "
-                f"{self._comp_edit._min:.3g} – {self._comp_edit._max:.3g})"
-            )
-        if not self._pcomp_edit.validate_value():
+            if self._step_edit.get_value() is None:
+                errors["var1_step"] = "VAR1 Step: value is empty or invalid"
+        if self._comp_edit.get_value() is None:
+            errors["var1_comp"] = "VAR1 Compliance: value is empty or invalid"
+        if self._pcomp_edit.get_value() is None:
             errors["var1_pcomp"] = (
-                f"VAR1 Power Compliance: invalid value (range: "
-                f"{self._pcomp_edit._min:.3g} – {self._pcomp_edit._max:.3g})"
+                "VAR1 Power Compliance: value is empty or invalid"
             )
         return errors
 
@@ -924,17 +954,16 @@ class _VAR2Section(_SectionFrame):
 
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
-        if not self._start_edit.validate_value():
-            errors["var2_start"] = f"VAR2 Start: invalid value (range: {self._start_edit._min:.3g} – {self._start_edit._max:.3g})"
-        if not self._step_edit.validate_value():
-            if self._step_edit._disallow_zero and self._step_edit._edit.text().strip() in ("0", "0.0", "0e+00"):
-                errors["var2_step"] = "VAR2 Step: cannot be zero"
-            else:
-                errors["var2_step"] = f"VAR2 Step: invalid value (range: {self._step_edit._min:.3g} – {self._step_edit._max:.3g})"
-        if not self._comp_edit.validate_value():
-            errors["var2_comp"] = f"VAR2 Compliance: invalid value (range: {self._comp_edit._min:.3g} – {self._comp_edit._max:.3g})"
-        if not self._pcomp_edit.validate_value():
-            errors["var2_pcomp"] = f"VAR2 Power Compliance: invalid value (range: {self._pcomp_edit._min:.3g} – {self._pcomp_edit._max:.3g})"
+        if self._start_edit.get_value() is None:
+            errors["var2_start"] = "VAR2 Start: value is empty or invalid"
+        if self._step_edit.get_value() is None:
+            errors["var2_step"] = "VAR2 Step: value is empty or invalid"
+        if self._comp_edit.get_value() is None:
+            errors["var2_comp"] = "VAR2 Compliance: value is empty or invalid"
+        if self._pcomp_edit.get_value() is None:
+            errors["var2_pcomp"] = (
+                "VAR2 Power Compliance: value is empty or invalid"
+            )
         return errors
 
 
@@ -1007,14 +1036,16 @@ class _VARDSection(_SectionFrame):
 
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
-        if not self._offset_edit.validate_value():
-            errors["vard_offset"] = f"VARD Offset: invalid value (range: {self._offset_edit._min:.3g} – {self._offset_edit._max:.3g})"
-        if not self._ratio_edit.validate_value():
-            errors["vard_ratio"] = f"VARD Ratio: invalid value (range: {RATIO_MIN:.3g} – {RATIO_MAX:.3g})"
-        if not self._comp_edit.validate_value():
-            errors["vard_comp"] = f"VARD Compliance: invalid value (range: {self._comp_edit._min:.3g} – {self._comp_edit._max:.3g})"
-        if not self._pcomp_edit.validate_value():
-            errors["vard_pcomp"] = f"VARD Power Compliance: invalid value (range: {self._pcomp_edit._min:.3g} – {self._pcomp_edit._max:.3g})"
+        if self._offset_edit.get_value() is None:
+            errors["vard_offset"] = "VARD Offset: value is empty or invalid"
+        if self._ratio_edit.get_value() is None:
+            errors["vard_ratio"] = "VARD Ratio: value is empty or invalid"
+        if self._comp_edit.get_value() is None:
+            errors["vard_comp"] = "VARD Compliance: value is empty or invalid"
+        if self._pcomp_edit.get_value() is None:
+            errors["vard_pcomp"] = (
+                "VARD Power Compliance: value is empty or invalid"
+            )
         return errors
 
 
@@ -1205,7 +1236,6 @@ class SweepConfigPageView(BasePage):
         self._var1_sec.setVisible(has_var1)
         self._var2_sec.setVisible(has_var2)
         self._vard_sec.setVisible(has_vard)
-        self._update_matrix_status()
 
     def display_var1_context(
         self, channel_label: str, is_voltage: bool, is_vsu: bool = False
@@ -1230,13 +1260,19 @@ class SweepConfigPageView(BasePage):
     ) -> None:
         self._display_vars_sec.display_available(var_names, selected)
 
-    def display_validation_errors(self, errors: Dict[str, str]) -> None:
-        """Only used for export-blocking cross-param errors shown in the error bar."""
-        if not errors:
-            self._error_bar.setVisible(False)
+    def display_validation_status(self, is_valid: bool, message: str) -> None:
+        """Update the validation status label in the header."""
+        self._export_btn.setEnabled(is_valid)
+        if is_valid:
+            self._validation_lbl.setText(f"✅ {message}")
+            self._validation_lbl.setStyleSheet(
+                validation_status_stylesheet("valid")
+            )
         else:
-            self._error_bar.setVisible(True)
-            self._error_bar.setText("⚠  " + ";  ".join(errors.values()))
+            self._validation_lbl.setText(f"⚠️ {message}")
+            self._validation_lbl.setStyleSheet(
+                validation_status_stylesheet("warning")
+            )
 
     def display_json(self, json_str: str) -> None:
         dlg = _JsonPreviewDialog(json_str, self)
@@ -1255,53 +1291,6 @@ class SweepConfigPageView(BasePage):
         if self._vard_sec.isVisible():
             errors.update(self._vard_sec.get_input_errors())
         return errors
-
-    # ── Private — cross-parameter status (computed locally) ───────────────────
-
-    def _update_matrix_status(self) -> None:
-        """
-        Read VAR1 step count and VAR2 points directly from the widgets and
-        compute the matrix.  No presenter involvement needed for this display.
-        """
-        has_var1 = self._var1_sec.isVisible()
-        has_var2 = self._var2_sec.isVisible()
-
-        if not has_var1:
-            self._matrix_lbl.setVisible(False)
-            return
-
-        self._matrix_lbl.setVisible(True)
-        count = self._var1_sec.get_step_count()
-
-        if count is None:
-            self._matrix_lbl.setText(
-                "⚠  VAR1: step cannot be zero or parameters invalid"
-            )
-            self._matrix_lbl.setStyleSheet(_matrix_label_style(ok=False))
-            return
-
-        v1_ok = VAR1_POINTS_MIN <= count <= VAR1_POINTS_MAX
-        v2_pts = self._var2_sec.get_points() if has_var2 else 1
-        total = count * v2_pts
-        tot_ok = total <= TOTAL_POINTS_MAX
-
-        if v1_ok and tot_ok:
-            if has_var2:
-                txt = f"✓  {count} × {v2_pts} = {total:,} total points"
-            else:
-                txt = f"✓  VAR1: {count} points"
-            self._matrix_lbl.setText(txt)
-            self._matrix_lbl.setStyleSheet(_matrix_label_style(ok=True))
-        else:
-            parts = []
-            if not v1_ok:
-                parts.append(f"VAR1: {count} points (max {VAR1_POINTS_MAX})")
-            if not tot_ok:
-                parts.append(
-                    f"matrix {count}×{v2_pts}={total:,} (max {TOTAL_POINTS_MAX:,})"
-                )
-            self._matrix_lbl.setText("⚠  " + ";  ".join(parts))
-            self._matrix_lbl.setStyleSheet(_matrix_label_style(ok=False))
 
     # ── Private — layout ──────────────────────────────────────────────────────
 
@@ -1325,19 +1314,17 @@ class SweepConfigPageView(BasePage):
             "font-weight: bold; background: transparent;"
         )
         hh.addWidget(title)
+
+        # Validation status label
+        self._validation_lbl = QLabel()
+        hh.addWidget(self._validation_lbl)
+
         hh.addStretch()
         self._export_btn = QPushButton("Generate JSON")
         self._export_btn.setStyleSheet(export_btn_stylesheet())
         self._export_btn.clicked.connect(self.export_requested)
         hh.addWidget(self._export_btn)
         root.addWidget(header)
-
-        # Export-blocking error bar (hidden by default)
-        self._error_bar = QLabel("")
-        self._error_bar.setStyleSheet(error_bar_stylesheet())
-        self._error_bar.setWordWrap(True)
-        self._error_bar.setVisible(False)
-        root.addWidget(self._error_bar)
 
         # Scrollable body
         scroll = QScrollArea()
@@ -1374,12 +1361,6 @@ class SweepConfigPageView(BasePage):
         right_v.setContentsMargins(0, 0, 0, 0)
         right_v.setSpacing(12)
         right_v.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        # Matrix status label — sits above all VAR sections
-        self._matrix_lbl = QLabel("")
-        self._matrix_lbl.setVisible(False)
-        self._matrix_lbl.setWordWrap(True)
-        right_v.addWidget(self._matrix_lbl)
 
         self._var1_sec = _VAR1Section()
         self._var2_sec = _VAR2Section()
@@ -1424,23 +1405,12 @@ class SweepConfigPageView(BasePage):
         v1.comp_committed.connect(self.var1_comp_committed)
         v1.pcomp_committed.connect(self.var1_pcomp_committed)
 
-        # Matrix status updates on VAR1 parameter commits and spacing changes
-        for sig in (
-            v1.start_committed,
-            v1.stop_committed,
-            v1.step_committed,
-            v1.spacing_changed,
-        ):
-            sig.connect(self._update_matrix_status)
-
         v2 = self._var2_sec
         v2.start_committed.connect(self.var2_start_committed)
         v2.step_committed.connect(self.var2_step_committed)
         v2.points_changed.connect(self.var2_points_changed)
         v2.comp_committed.connect(self.var2_comp_committed)
         v2.pcomp_committed.connect(self.var2_pcomp_committed)
-        # Matrix status updates on VAR2 points change
-        v2.points_changed.connect(self._update_matrix_status)
 
         vd = self._vard_sec
         vd.offset_committed.connect(self.vard_offset_committed)

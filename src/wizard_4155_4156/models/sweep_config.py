@@ -8,7 +8,7 @@ Layer contract
 - No Qt imports.
 - All enum values are the SCPI-legal strings.
 - SweepConstraints is now intentionally LEAN: it only contains
-  cross-parameter validation rules (step count, matrix total).
+  cross-parameter validation rules (step count, total points).
   Per-widget bounds are enforced directly by _SciDoubleEdit in the view
   using the constants exported from this module.
 
@@ -29,7 +29,7 @@ Compliance (V)         : 1 mV – 100 V   (when sweeping I)
 Power compliance       : 1 mW – 20 W
 VAR2 points            : 1 – 128
 VAR1 points            : 1 – 1001  (cross-rule)
-Total matrix           : VAR1 × VAR2 ≤ 10 001  (cross-rule)
+Total points           : VAR1 × VAR2 ≤ 10 001  (cross-rule)
 VARD ratio             : ±1000
 """
 
@@ -269,37 +269,208 @@ class SweepConstraints:
             return round(decades * n_per_decade) + 1
 
     @staticmethod
-    def validate_cross_params(
-        var1_count: Optional[int],
-        var2_points: int,
+    def validate_config(
+        cfg: SweepConfig,
+        has_var1: bool,
         has_var2: bool,
-    ) -> Dict[str, str]:
+        has_vard: bool,
+        var1_is_voltage: bool = True,
+        var1_is_vsu: bool = False,
+        var2_is_voltage: bool = True,
+        var2_is_vsu: bool = False,
+    ) -> List[str]:
         """
-        Returns {rule_key: error_message} for every failing cross-rule.
-        Empty dict = fully valid.
-
-        Per-widget bounds are NOT checked here — they are handled
-        independently by _SciDoubleEdit widgets in the view.
+        Runs rigorous logic validation checks on the SweepConfig configuration.
+        Returns a list of error message strings. An empty list indicates configuration is valid.
         """
-        errors: Dict[str, str] = {}
+        errors: List[str] = []
 
-        if var1_count is None:
-            errors["var1_step_count"] = "VAR1 step cannot be zero."
-            return errors
-
-        if not (VAR1_POINTS_MIN <= var1_count <= VAR1_POINTS_MAX):
-            errors["var1_step_count"] = (
-                f"VAR1: {var1_count} points "
-                f"(must be {VAR1_POINTS_MIN}-{VAR1_POINTS_MAX})"
+        # 1. Measurement Setup
+        ms = cfg.measurement_setup
+        if not (WAIT_MULT_MIN <= ms.wait_multiplier <= WAIT_MULT_MAX):
+            errors.append(
+                f"Wait Multiplier: invalid value (range: {WAIT_MULT_MIN:.3g} – {WAIT_MULT_MAX:.3g})"
             )
-            return errors
-
-        if has_var2:
-            total = var1_count * var2_points
-            if total > TOTAL_POINTS_MAX:
-                errors["total_matrix"] = (
-                    f"Matrix {var1_count} x {var2_points} = {total:,} "
-                    f"(max {TOTAL_POINTS_MAX:,})"
+        if ms.integration_mode == IntegrationMode.SHORT:
+            if not (SHORT_TIME_MIN <= ms.short_time <= SHORT_TIME_MAX):
+                errors.append(
+                    f"Short Aperture: invalid value (range: {SHORT_TIME_MIN:.3g} – {SHORT_TIME_MAX:.3g} s)"
                 )
+        elif ms.integration_mode == IntegrationMode.LONG:
+            if not (LONG_CYCLES_MIN <= ms.long_time_cycles <= LONG_CYCLES_MAX):
+                errors.append(
+                    f"Integration Cycles: invalid value (range: {LONG_CYCLES_MIN} – {LONG_CYCLES_MAX} PLC)"
+                )
+
+        # 2. Sweep Timing
+        if not (DELAY_MIN <= cfg.delay <= DELAY_MAX):
+            errors.append(
+                f"Delay: invalid value (range: {DELAY_MIN:.3g} – {DELAY_MAX:.3g} s)"
+            )
+        if not (HOLD_TIME_MIN <= cfg.hold_time <= HOLD_TIME_MAX):
+            errors.append(
+                f"Hold Time: invalid value (range: {HOLD_TIME_MIN:.3g} – {HOLD_TIME_MAX:.3g} s)"
+            )
+
+        # Range determination helpers
+        def get_src_range(
+            is_v: bool, is_vsu_flag: bool
+        ) -> Tuple[float, float]:
+            if is_vsu_flag:
+                return VSU_VOLTAGE_MIN, VSU_VOLTAGE_MAX
+            return (
+                (VOLTAGE_MIN, VOLTAGE_MAX)
+                if is_v
+                else (CURRENT_MIN, CURRENT_MAX)
+            )
+
+        def get_step_range(
+            is_v: bool, is_var2_or_offset: bool
+        ) -> Tuple[float, float]:
+            if is_v:
+                return (
+                    (VAR2_V_STEP_MIN, VAR2_V_STEP_MAX)
+                    if is_var2_or_offset
+                    else (VOLTAGE_STEP_MIN, VOLTAGE_STEP_MAX)
+                )
+            return (CURRENT_STEP_MIN, CURRENT_STEP_MAX)
+
+        def get_comp_range(is_v: bool) -> Tuple[float, float]:
+            return (
+                (COMP_I_MIN, COMP_I_MAX) if is_v else (COMP_V_MIN, COMP_V_MAX)
+            )
+
+        # 3. VAR1
+        if has_var1:
+            v1 = cfg.var1
+            src_min, src_max = get_src_range(var1_is_voltage, var1_is_vsu)
+            if not (src_min <= v1.start <= src_max):
+                errors.append(
+                    f"VAR1 Start: invalid value (range: {src_min:.3g} – {src_max:.3g})"
+                )
+            if not (src_min <= v1.stop <= src_max):
+                errors.append(
+                    f"VAR1 Stop: invalid value (range: {src_min:.3g} – {src_max:.3g})"
+                )
+
+            if v1.spacing == SweepSpacing.LINEAR:
+                stp_min, stp_max = get_step_range(
+                    var1_is_voltage, is_var2_or_offset=False
+                )
+                if v1.step <= 0:
+                    errors.append("VAR1 Step: cannot be zero or negative")
+                elif not (stp_min <= v1.step <= stp_max):
+                    errors.append(
+                        f"VAR1 Step: invalid value (range: {stp_min:.3g} – {stp_max:.3g})"
+                    )
+            else:
+                # Log spacing constraints
+                if v1.start <= 0:
+                    errors.append(
+                        "VAR1: Start must be greater than zero for logarithmic sweeps."
+                    )
+                if v1.stop <= v1.start:
+                    errors.append("VAR1: Stop must be greater than Start.")
+
+            if v1.spacing == SweepSpacing.LINEAR and v1.stop <= v1.start:
+                errors.append("VAR1: Stop must be greater than Start.")
+
+            comp_min, comp_max = get_comp_range(var1_is_voltage or var1_is_vsu)
+            if not (comp_min <= v1.compliance <= comp_max):
+                errors.append(
+                    f"VAR1 Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+                )
+            if not (PCOMP_MIN <= v1.power_compliance <= PCOMP_MAX):
+                errors.append(
+                    f"VAR1 Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                )
+
+            # Point count & total points checks
+            # (only if basic VAR1 parameters are logical)
+            has_var1_errs = any(e.startswith("VAR1") for e in errors)
+            if not has_var1_errs:
+                step_val = (
+                    v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
+                )
+                v1_count = SweepConstraints.var1_step_count(
+                    v1.start, v1.stop, step_val, v1.spacing
+                )
+                if v1_count is None or not (
+                    VAR1_POINTS_MIN <= v1_count <= VAR1_POINTS_MAX
+                ):
+                    errors.append(
+                        f"VAR1: {v1_count if v1_count is not None else 0} points (must be {VAR1_POINTS_MIN}-{VAR1_POINTS_MAX})"
+                    )
+                elif has_var2:
+                    v2 = cfg.var2
+                    total = v1_count * v2.points
+                    if total > TOTAL_POINTS_MAX:
+                        errors.append(
+                            f"Total points: {v1_count} x {v2.points} = {total:,} (max {TOTAL_POINTS_MAX:,})"
+                        )
+
+        # 4. VAR2
+        if has_var2:
+            v2 = cfg.var2
+            src_min, src_max = get_src_range(var2_is_voltage, var2_is_vsu)
+            if not (src_min <= v2.start <= src_max):
+                errors.append(
+                    f"VAR2 Start: invalid value (range: {src_min:.3g} – {src_max:.3g})"
+                )
+            stp_min, stp_max = get_step_range(
+                var2_is_voltage, is_var2_or_offset=True
+            )
+            if v2.step == 0:
+                errors.append("VAR2 Step: cannot be zero")
+            elif not (stp_min <= v2.step <= stp_max):
+                errors.append(
+                    f"VAR2 Step: invalid value (range: {stp_min:.3g} – {stp_max:.3g})"
+                )
+            if not (VAR2_POINTS_MIN <= v2.points <= VAR2_POINTS_MAX):
+                errors.append(
+                    f"VAR2 Points: invalid value (range: {VAR2_POINTS_MIN} – {VAR2_POINTS_MAX})"
+                )
+            comp_min, comp_max = get_comp_range(var2_is_voltage or var2_is_vsu)
+            if not (comp_min <= v2.compliance <= comp_max):
+                errors.append(
+                    f"VAR2 Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+                )
+            if not (PCOMP_MIN <= v2.power_compliance <= PCOMP_MAX):
+                errors.append(
+                    f"VAR2 Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                )
+
+        # 5. VARD
+        if has_vard:
+            vd = cfg.vard
+            if var1_is_vsu:
+                off_min, off_max = VARD_OFFSET_V_MIN, VARD_OFFSET_V_MAX
+            elif var1_is_voltage:
+                off_min, off_max = VARD_OFFSET_V_MIN, VARD_OFFSET_V_MAX
+            else:
+                off_min, off_max = VARD_OFFSET_I_MIN, VARD_OFFSET_I_MAX
+            if not (off_min <= vd.offset <= off_max):
+                errors.append(
+                    f"VARD Offset: invalid value (range: {off_min:.3g} – {off_max:.3g})"
+                )
+            if not (RATIO_MIN <= vd.ratio <= RATIO_MAX):
+                errors.append(
+                    f"VARD Ratio: invalid value (range: {RATIO_MIN:.3g} – {RATIO_MAX:.3g})"
+                )
+            comp_min, comp_max = get_comp_range(var1_is_voltage or var1_is_vsu)
+            if not (comp_min <= vd.compliance <= comp_max):
+                errors.append(
+                    f"VARD Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+                )
+            if not (PCOMP_MIN <= vd.power_compliance <= PCOMP_MAX):
+                errors.append(
+                    f"VARD Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                )
+
+        # 6. Display variables limit
+        if len(cfg.display_vars) > DISPLAY_VARS_MAX:
+            errors.append(
+                f"Too many display variables selected: {len(cfg.display_vars)} (maximum is {DISPLAY_VARS_MAX})."
+            )
 
         return errors

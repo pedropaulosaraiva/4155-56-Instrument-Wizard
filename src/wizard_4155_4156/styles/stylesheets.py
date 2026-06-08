@@ -878,6 +878,10 @@ def export_btn_stylesheet() -> str:
         }}
         QPushButton:hover {{ background-color: {P.ACCENT_HOVER}; }}
         QPushButton:pressed {{ background-color: {P.ACCENT_PRESSED}; }}
+        QPushButton:disabled {{
+            background-color: {P.BORDER};
+            color: {P.TEXT_DISABLED};
+        }}
     """
 
 

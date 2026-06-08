@@ -15,7 +15,7 @@ What changed from the previous version
    and sets var1_is_vsu / var2_is_vsu accordingly (VSU → always voltage,
    ±20 V range).
 5. _run_validation is now lean: it only checks cross-parameter rules
-   (VAR1 step count, total matrix points).  Per-widget bounds are enforced
+   (VAR1 step count, total points).  Per-widget bounds are enforced
    by _SciDoubleEdit in the view — no need to re-validate them here.
 6. JSON output key "wait_time" is kept for backward compatibility with
    the user's JSON specification, even though the internal field is
@@ -161,6 +161,7 @@ class SweepConfigPresenter(QObject):
     def _on_page_activated(self) -> None:
         self._rebuild_channel_context()
         self._push_full_state()
+        self._update_validation()
 
     def _rebuild_channel_context(self) -> None:
         """
@@ -316,8 +317,7 @@ class SweepConfigPresenter(QObject):
         self._view.display_available_vars(
             ctx["available_vars"], cfg.display_vars
         )
-        # Clear stale export-blocking errors from a previous session
-        self._view.display_validation_errors({})
+        self._update_validation()
 
     # ── Signal handlers ────────────────────────────────────────────────────────
 
@@ -328,147 +328,171 @@ class SweepConfigPresenter(QObject):
             )
         except ValueError:
             pass
+        self._update_validation()
 
     def _on_short_time(self, val: float) -> None:
         self._config.measurement_setup.short_time = val
+        self._update_validation()
 
     def _on_long_cycles(self, val: int) -> None:
         self._config.measurement_setup.long_time_cycles = val
+        self._update_validation()
 
     def _on_wait_multiplier(self, val: float) -> None:
         self._config.measurement_setup.wait_multiplier = val
+        self._update_validation()
 
     def _on_delay(self, val: float) -> None:
         self._config.delay = val
+        self._update_validation()
 
     def _on_hold_time(self, val: float) -> None:
         self._config.hold_time = val
+        self._update_validation()
 
     def _on_sweep_stop(self, val: str) -> None:
         try:
             self._config.sweep_stop = SweepStop(val)
         except ValueError:
             pass
+        self._update_validation()
 
     def _on_var1_mode(self, val: str) -> None:
         try:
             self._config.var1.mode = VAR1Mode(val)
         except ValueError:
             pass
+        self._update_validation()
 
     def _on_var1_spacing(self, val: str) -> None:
         try:
             self._config.var1.spacing = SweepSpacing(val)
         except ValueError:
             pass
+        self._update_validation()
 
     def _on_var1_start(self, val: float) -> None:
         self._config.var1.start = val
+        self._update_validation()
 
     def _on_var1_stop(self, val: float) -> None:
         self._config.var1.stop = val
+        self._update_validation()
 
     def _on_var1_step(self, val: float) -> None:
         self._config.var1.step = val
+        self._update_validation()
 
     def _on_var1_comp(self, val: float) -> None:
         self._config.var1.compliance = val
+        self._update_validation()
 
     def _on_var1_pcomp(self, val: float) -> None:
         self._config.var1.power_compliance = val
+        self._update_validation()
 
     def _on_var2_start(self, val: float) -> None:
         self._config.var2.start = val
+        self._update_validation()
 
     def _on_var2_step(self, val: float) -> None:
         self._config.var2.step = val
+        self._update_validation()
 
     def _on_var2_points(self, val: int) -> None:
         self._config.var2.points = val
+        self._update_validation()
 
     def _on_var2_comp(self, val: float) -> None:
         self._config.var2.compliance = val
+        self._update_validation()
 
     def _on_var2_pcomp(self, val: float) -> None:
         self._config.var2.power_compliance = val
+        self._update_validation()
 
     def _on_vard_offset(self, val: float) -> None:
         self._config.vard.offset = val
+        self._update_validation()
 
     def _on_vard_ratio(self, val: float) -> None:
         self._config.vard.ratio = val
+        self._update_validation()
 
     def _on_vard_comp(self, val: float) -> None:
         self._config.vard.compliance = val
+        self._update_validation()
 
     def _on_vard_pcomp(self, val: float) -> None:
         self._config.vard.power_compliance = val
+        self._update_validation()
 
     def _on_smu_standby(self, ch_id: str, on: bool) -> None:
         self._config.channel_standby[ch_id] = on
+        self._update_validation()
 
     def _on_display_var_toggled(self, var_name: str, selected: bool) -> None:
         if selected and var_name not in self._config.display_vars:
             self._config.display_vars.append(var_name)
         elif not selected and var_name in self._config.display_vars:
             self._config.display_vars.remove(var_name)
+        self._update_validation()
 
     def _on_export_requested(self) -> None:
         errors = self._run_validation()
-        self._view.display_validation_errors(errors)
         if not errors:
             result = self._build_json()
             self._view.display_json(json.dumps(result, indent=4))
 
-    # ── Validation (cross-parameter only) ─────────────────────────────────────
+    # ── Validation (model driven) ──────────────────────────────────────────────
 
     def _run_validation(self) -> Dict[str, str]:
         """
         Query input-level validation errors from the view, and combine them
-        with the model's cross-parameter validation constraints.
+        with the model's validation constraints.
         """
-        # 1. Ask the view to validate its fields and return any input errors
         errors = self._view.get_input_errors()
 
-        # 2. Only check cross-parameter rules if there are no basic input errors
-        # that would make count calculations invalid
-        if not errors:
-            if self._ctx.get("has_var1"):
-                v1 = self._config.var1
-                if v1.stop <= v1.start:
-                    errors["var1_range"] = (
-                        "VAR1: Stop must be greater than Start."
-                    )
-                if v1.spacing != "LINEAR" and v1.start <= 0:
-                    errors["var1_log_start"] = (
-                        "VAR1: Start must be greater than zero "
-                        "for logarithmic sweeps."
-                    )
+        model_errors = SweepConstraints.validate_config(
+            cfg=self._config,
+            has_var1=self._ctx.get("has_var1", False),
+            has_var2=self._ctx.get("has_var2", False),
+            has_vard=self._ctx.get("has_vard", False),
+            var1_is_voltage=self._ctx.get("var1_is_voltage", True),
+            var1_is_vsu=self._ctx.get("var1_is_vsu", False),
+            var2_is_voltage=self._ctx.get("var2_is_voltage", True),
+            var2_is_vsu=self._ctx.get("var2_is_vsu", False),
+        )
 
-            if not errors:
-                v1_count: Optional[int] = None
-                if self._ctx.get("has_var1"):
-                    v1 = self._config.var1
-                    v1_count = SweepConstraints.var1_step_count(
-                        v1.start, v1.stop, v1.step, v1.spacing
-                    )
-
-                cross_errors = SweepConstraints.validate_cross_params(
-                    var1_count=v1_count,
-                    var2_points=self._config.var2.points,
-                    has_var2=self._ctx.get("has_var2", False),
-                )
-                errors.update(cross_errors)
-
-        # 3. Validate displayed variables limit (maximum 8)
-        num_selected = len(self._config.display_vars)
-        if num_selected > DISPLAY_VARS_MAX:
-            errors["display_vars"] = (
-                f"Too many display variables selected: {num_selected} "
-                f"(maximum is {DISPLAY_VARS_MAX})."
-            )
+        for i, err in enumerate(model_errors):
+            errors[f"model_err_{i}"] = err
 
         return errors
+
+    def _update_validation(self) -> None:
+        errors = self._run_validation()
+        if not errors:
+            msg = "Configuration is valid"
+            if self._ctx.get("has_var1"):
+                v1 = self._config.var1
+                step_val = (
+                    v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
+                )
+                v1_count = SweepConstraints.var1_step_count(
+                    v1.start, v1.stop, step_val, v1.spacing
+                )
+                if v1_count is not None:
+                    if self._ctx.get("has_var2"):
+                        total = v1_count * self._config.var2.points
+                        msg += f" ({v1_count} x {self._config.var2.points} = {total} points)"
+                    else:
+                        msg += f" ({v1_count} points)"
+            self._view.display_validation_status(True, msg)
+        else:
+            first_err = list(errors.values())[0]
+            if len(errors) > 1:
+                first_err += f" +{len(errors) - 1}"
+            self._view.display_validation_status(False, first_err)
 
     # ── JSON builder ───────────────────────────────────────────────────────────
 
