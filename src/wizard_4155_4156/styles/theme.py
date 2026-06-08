@@ -53,8 +53,8 @@ class _Palette:
     # ── Typography ───────────────────────────────────────────────────────────
     FONT_FAMILY_UI: str = "Segoe UI, Arial, sans-serif"
     FONT_FAMILY_MONO: str = "Consolas, Monaco, monospace"
-    FONT_SIZE_XS: str = "10px"
-    FONT_SIZE_SM: str = "11px"
+    FONT_SIZE_XS: str = "11px"
+    FONT_SIZE_SM: str = "12px"
     FONT_SIZE_MD: str = "13px"
     FONT_SIZE_LG: str = "15px"
     FONT_SIZE_XL: str = "20px"

@@ -584,6 +584,7 @@ class _ChannelSummarySection(_SectionFrame):
 
                 cb = QCheckBox()
                 cb.setChecked(ch.get("standby", False))
+                cb.setCursor(Qt.CursorShape.PointingHandCursor)
                 cb.setStyleSheet(unit_enable_checkbox_stylesheet())
                 cb.setFixedWidth(16)
 
@@ -1072,6 +1073,7 @@ class _DisplayVarsSection(_SectionFrame):
         for i, name in enumerate(var_names):
             cb = QCheckBox(name)
             cb.setChecked(name in sel)
+            cb.setCursor(Qt.CursorShape.PointingHandCursor)
             cb.setStyleSheet(unit_enable_checkbox_stylesheet())
             cb.toggled.connect(
                 lambda checked, n=name: self.var_toggled.emit(n, checked)
@@ -1339,9 +1341,9 @@ class SweepConfigPageView(BasePage):
         body_h.setSpacing(20)
         body_h.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Left column (fixed 400 px)
+        # Left column (fixed 425 px)
         left = QWidget()
-        left.setFixedWidth(400)
+        left.setFixedWidth(425)
         left_v = QVBoxLayout(left)
         left_v.setContentsMargins(0, 0, 0, 0)
         left_v.setSpacing(20)
@@ -1350,8 +1352,14 @@ class SweepConfigPageView(BasePage):
         self._summary_sec = _ChannelSummarySection()
         self._meas_sec = _MeasSetupSection()
         self._timing_sec = _SweepTimingSection()
+        self._display_vars_sec = _DisplayVarsSection()
 
-        for w in (self._summary_sec, self._meas_sec, self._timing_sec):
+        for w in (
+            self._summary_sec,
+            self._meas_sec,
+            self._timing_sec,
+            self._display_vars_sec,
+        ):
             left_v.addWidget(w)
         left_v.addStretch()
 
@@ -1365,13 +1373,11 @@ class SweepConfigPageView(BasePage):
         self._var1_sec = _VAR1Section()
         self._var2_sec = _VAR2Section()
         self._vard_sec = _VARDSection()
-        self._display_vars_sec = _DisplayVarsSection()
 
         for w in (
             self._var1_sec,
             self._var2_sec,
             self._vard_sec,
-            self._display_vars_sec,
         ):
             right_v.addWidget(w)
         right_v.addStretch()
