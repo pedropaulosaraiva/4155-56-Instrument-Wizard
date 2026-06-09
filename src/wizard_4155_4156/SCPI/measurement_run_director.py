@@ -79,7 +79,13 @@ class MeasurementRunDirector(BaseDirector):
         for var in variables:
             scpi_sequence.append(
                 self._build_pair(
-                    builder, None, (), builder.get_trace_data, (var,)
+                    builder,
+                    None,
+                    (),
+                    builder.get_trace_data,
+                    (var,),
+                    is_binary_query=True,
+                    result_key=var,
                 )
             )
 
