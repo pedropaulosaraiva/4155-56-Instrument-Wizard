@@ -128,6 +128,54 @@ VAR2_POINTS_MIN: int = 1
 VAR2_POINTS_MAX: int = 128  # strictly defined in measure_sweep.py
 TOTAL_POINTS_MAX: int = 10_001  # VAR1 × VAR2 cross-rule
 DISPLAY_VARS_MAX: int = 8
+# Range values for SMU and VMU measurement modes
+# 4155 (MPSMU) Current ranges (Current mode)
+RANGE_VALUES_MPSMU_CURRENT: Tuple[Tuple[str, float], ...] = (
+    ("1 nA", 1e-9),
+    ("10 nA", 10e-9),
+    ("100 nA", 100e-9),
+    ("1 uA", 1e-6),
+    ("10 uA", 10e-6),
+    ("100 uA", 100e-6),
+    ("1 mA", 1e-3),
+    ("10 mA", 10e-3),
+    ("100 mA", 100e-3),
+)
+
+# 4156 (HRSMU) Current ranges (Current mode)
+RANGE_VALUES_HRSMU_CURRENT: Tuple[Tuple[str, float], ...] = (
+    ("10 pA", 10e-12),
+    ("100 pA", 100e-12),
+    ("1 nA", 1e-9),
+    ("10 nA", 10e-9),
+    ("100 nA", 100e-9),
+    ("1 uA", 1e-6),
+    ("10 uA", 10e-6),
+    ("100 uA", 100e-6),
+    ("1 mA", 1e-3),
+    ("10 mA", 10e-3),
+    ("100 mA", 100e-3),
+)
+
+# SMU Voltage ranges (Voltage modes)
+RANGE_VALUES_SMU_VOLTAGE: Tuple[Tuple[str, float], ...] = (
+    ("2 V", 2.0),
+    ("20 V", 20.0),
+    ("40 V", 40.0),
+    ("100 V", 100.0),
+)
+
+# VMU Voltage ranges (V mode)
+RANGE_VALUES_VMU_V: Tuple[Tuple[str, float], ...] = (
+    ("2 V", 2.0),
+    ("20 V", 20.0),
+)
+
+# VMU DVOL ranges (DVOLT mode)
+RANGE_VALUES_VMU_DVOL: Tuple[Tuple[str, float], ...] = (
+    ("0.2 V", 0.2),
+    ("2 V", 2.0),
+)
 
 
 # ── Per-section dataclasses ───────────────────────────────────────────────────
@@ -139,6 +187,7 @@ class MeasurementSetup:
     short_time: float = 2e-4  # s — only when SHORT
     long_time_cycles: int = 50  # PLC — only when LONG
     wait_multiplier: float = 1.0  # 0.0–10.0, dimensionless
+    ranges: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -291,6 +340,15 @@ class SweepConstraints:
             errors.append(
                 f"Wait Multiplier: invalid value (range: {WAIT_MULT_MIN:.3g} – {WAIT_MULT_MAX:.3g})"
             )
+
+        # Ranges validation
+        for unit, r_cfg in ms.ranges.items():
+            mode = r_cfg.get("mode")
+            if mode in ("LIM", "FIX") and "value" not in r_cfg:
+                errors.append(
+                    f"Range value for {unit} must be specified when mode is {mode}"
+                )
+
         if ms.integration_mode == IntegrationMode.SHORT:
             if not (SHORT_TIME_MIN <= ms.short_time <= SHORT_TIME_MAX):
                 errors.append(

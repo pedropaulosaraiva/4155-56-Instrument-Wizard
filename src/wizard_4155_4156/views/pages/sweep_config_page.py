@@ -24,7 +24,7 @@ Validation philosophy (simplified)
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from PySide6.QtCore import QLocale, Qt, Signal
 from PySide6.QtGui import QDoubleValidator, QValidator
@@ -89,6 +89,11 @@ from wizard_4155_4156.models.sweep_config import (
     WAIT_MULT_MAX,
     WAIT_MULT_MIN,
     SweepConstraints,
+    RANGE_VALUES_MPSMU_CURRENT,
+    RANGE_VALUES_HRSMU_CURRENT,
+    RANGE_VALUES_SMU_VOLTAGE,
+    RANGE_VALUES_VMU_V,
+    RANGE_VALUES_VMU_DVOL,
 )
 from wizard_4155_4156.styles.stylesheets import (
     channel_row_badge_stylesheet,
@@ -697,6 +702,208 @@ class _MeasSetupSection(_SectionFrame):
                 )
         return errors
 
+_MODE_DISPLAY_TO_INTERNAL = {
+    "Automatic": "AUTO",
+    "Automatic with limitation": "LIM",
+    "Fixed": "FIX",
+}
+_MODE_INTERNAL_TO_DISPLAY = {v: k for k, v in _MODE_DISPLAY_TO_INTERNAL.items()}
+
+
+class _RangeRow(QWidget):
+    changed = Signal(str, object)  # (mode, value)
+
+    def __init__(
+        self,
+        unit_id: str,
+        unit_type: str,
+        unit_mode: str,
+        instrument_model: str,
+        initial_mode: str = "AUTO",
+        initial_value: Optional[float] = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.unit_id = unit_id
+        self.unit_type = unit_type
+        self.unit_mode = unit_mode
+        self.instrument_model = instrument_model
+
+        # Determine range options
+        self.options = self._get_options()
+
+        # Layout
+        h = QHBoxLayout(self)
+        h.setContentsMargins(0, 2, 0, 2)
+        h.setSpacing(10)
+
+        # 1. Badge / Name
+        self.badge = QLabel(unit_id)
+        self.badge.setFixedWidth(48)
+        self.badge.setStyleSheet(channel_row_badge_stylesheet(P.ACCENT_HOVER))
+        self.badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        h.addWidget(self.badge)
+
+        # 2. Mode combo box
+        self.mode_combo = QComboBox()
+        self.mode_combo.setStyleSheet(unit_card_combo_stylesheet())
+        self.mode_combo.setFixedWidth(180)
+        for label in ["Automatic", "Automatic with limitation", "Fixed"]:
+            self.mode_combo.addItem(label)
+        
+        display_mode = _MODE_INTERNAL_TO_DISPLAY.get(initial_mode, "Automatic")
+        self.mode_combo.setCurrentText(display_mode)
+        h.addWidget(self.mode_combo)
+
+        # 3. Value combo box
+        self.val_combo = QComboBox()
+        self.val_combo.setStyleSheet(unit_card_combo_stylesheet())
+        self.val_combo.setFixedWidth(100)
+        h.addWidget(self.val_combo)
+        
+        h.addStretch()
+
+        self._repopulate_values(initial_value)
+
+        # Connect signals
+        self.mode_combo.currentTextChanged.connect(self._on_mode_changed)
+        self.val_combo.currentIndexChanged.connect(self._on_value_changed)
+
+    def _get_options(self) -> Tuple[Tuple[str, float], ...]:
+        if self.unit_type == "SMU":
+            is_voltage_range = self.unit_mode in ("I", "IPULSE")
+            is_4156 = "56" in self.instrument_model
+            if is_voltage_range:
+                return RANGE_VALUES_SMU_VOLTAGE
+            else:
+                return RANGE_VALUES_HRSMU_CURRENT if is_4156 else RANGE_VALUES_MPSMU_CURRENT
+        elif self.unit_type == "VMU":
+            if self.unit_mode == "V":
+                return RANGE_VALUES_VMU_V
+            else:  # DVOLT
+                return RANGE_VALUES_VMU_DVOL
+        return ()
+
+    def _repopulate_values(self, initial_value: Optional[float]) -> None:
+        self.val_combo.blockSignals(True)
+        self.val_combo.clear()
+        for label, _ in self.options:
+            self.val_combo.addItem(label)
+
+        if initial_value is not None:
+            best_idx = 0
+            min_diff = float("inf")
+            for idx, (_, val) in enumerate(self.options):
+                diff = abs(val - initial_value)
+                if diff < min_diff:
+                    min_diff = diff
+                    best_idx = idx
+            self.val_combo.setCurrentIndex(best_idx)
+        else:
+            self.val_combo.setCurrentIndex(0)
+        self.val_combo.blockSignals(False)
+
+        mode = _MODE_DISPLAY_TO_INTERNAL.get(self.mode_combo.currentText(), "AUTO")
+        self.val_combo.setEnabled(mode in ("LIM", "FIX"))
+
+    def _on_mode_changed(self, display_mode: str) -> None:
+        mode = _MODE_DISPLAY_TO_INTERNAL.get(display_mode, "AUTO")
+        self.val_combo.setEnabled(mode in ("LIM", "FIX"))
+        self.changed.emit(mode, self.current_value())
+
+    def _on_value_changed(self, idx: int) -> None:
+        display_mode = self.mode_combo.currentText()
+        mode = _MODE_DISPLAY_TO_INTERNAL.get(display_mode, "AUTO")
+        self.changed.emit(mode, self.current_value())
+
+    def current_value(self) -> Optional[float]:
+        display_mode = self.mode_combo.currentText()
+        mode = _MODE_DISPLAY_TO_INTERNAL.get(display_mode, "AUTO")
+        if mode == "AUTO":
+            return None
+        idx = self.val_combo.currentIndex()
+        if 0 <= idx < len(self.options):
+            return self.options[idx][1]
+        return None
+
+
+class _RangesSection(_SectionFrame):
+    range_changed = Signal(str, str, object)  # (unit_id, mode, value)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__("Measurement Ranges", parent)
+        self._rows: Dict[str, _RangeRow] = {}
+
+    def display_ranges(
+        self,
+        active_channels: List[dict],
+        instrument_model: str,
+        ranges_config: Dict[str, dict]
+    ) -> None:
+        while self.body().count():
+            item = self.body().takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._rows.clear()
+
+        eligible_channels = []
+        for ch in active_channels:
+            if ch["unit_type"] in ("SMU", "VMU"):
+                eligible_channels.append(ch)
+
+        if not eligible_channels:
+            lbl = QLabel("No active measurement units (SMU/VMU).")
+            lbl.setStyleSheet(
+                f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_SM}; "
+                "font-style: italic; background: transparent;"
+            )
+            self.body().addWidget(lbl)
+            return
+
+        hdr = QWidget()
+        hh = QHBoxLayout(hdr)
+        hh.setContentsMargins(0, 0, 0, 4)
+        hh.setSpacing(10)
+        for text, w in [
+            ("Unit", 48),
+            ("Range Mode", 180),
+            ("Range Value", 100),
+        ]:
+            l = QLabel(text)
+            l.setStyleSheet(
+                f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
+                "font-weight: bold; letter-spacing: 1px; background: transparent;"
+            )
+            l.setFixedWidth(w)
+            l.setAlignment(Qt.AlignmentFlag.AlignCenter if text == "Unit" else Qt.AlignmentFlag.AlignLeft)
+            hh.addWidget(l)
+        hh.addStretch()
+        self.body().addWidget(hdr)
+
+        div = QFrame()
+        div.setFrameShape(QFrame.Shape.HLine)
+        div.setStyleSheet(f"background-color: {P.BORDER}; max-height: 1px;")
+        self.body().addWidget(div)
+
+        for ch in eligible_channels:
+            ch_id = ch["id"]
+            r_data = ranges_config.get(ch_id, {})
+            mode = r_data.get("mode", "AUTO")
+            value = r_data.get("value")
+
+            row = _RangeRow(
+                unit_id=ch_id,
+                unit_type=ch.get("unit_type", "SMU"),
+                unit_mode=ch.get("mode", ""),
+                instrument_model=instrument_model,
+                initial_mode=mode,
+                initial_value=value,
+                parent=self,
+            )
+            row.changed.connect(lambda m, v, cid=ch_id: self.range_changed.emit(cid, m, v))
+            self._rows[ch_id] = row
+            self.body().addWidget(row)
+
 
 class _SweepTimingSection(_SectionFrame):
     delay_committed = Signal(float)
@@ -1179,6 +1386,7 @@ class SweepConfigPageView(BasePage):
     smu_standby_changed = Signal(str, bool)
     display_var_toggled = Signal(str, bool)
     export_requested = Signal()
+    range_changed = Signal(str, str, object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -1192,6 +1400,14 @@ class SweepConfigPageView(BasePage):
 
     def display_channel_summary(self, active_channels: List[dict]) -> None:
         self._summary_sec.display_channels(active_channels)
+
+    def display_ranges_setup(
+        self,
+        active_channels: List[dict],
+        instrument_model: str,
+        ranges_config: Dict[str, dict]
+    ) -> None:
+        self._ranges_sec.display_ranges(active_channels, instrument_model, ranges_config)
 
     def display_config(self, snap: dict) -> None:
         ms = snap.get("measurement_setup", {})
@@ -1351,12 +1567,14 @@ class SweepConfigPageView(BasePage):
 
         self._summary_sec = _ChannelSummarySection()
         self._meas_sec = _MeasSetupSection()
+        self._ranges_sec = _RangesSection()
         self._timing_sec = _SweepTimingSection()
         self._display_vars_sec = _DisplayVarsSection()
 
         for w in (
             self._summary_sec,
             self._meas_sec,
+            self._ranges_sec,
             self._timing_sec,
             self._display_vars_sec,
         ):
@@ -1425,3 +1643,4 @@ class SweepConfigPageView(BasePage):
         vd.pcomp_committed.connect(self.vard_pcomp_committed)
 
         self._display_vars_sec.var_toggled.connect(self.display_var_toggled)
+        self._ranges_sec.range_changed.connect(self.range_changed)

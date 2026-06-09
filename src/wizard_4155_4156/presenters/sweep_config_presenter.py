@@ -84,6 +84,7 @@ class SweepConfigPresenter(QObject):
 
         # Populated on every page_activated from ChannelsPresenter.get_config()
         self._ctx: Dict[str, Any] = {
+            "instrument_model": "4155C",
             "has_var1": False,
             "has_var2": False,
             "has_vard": False,
@@ -159,6 +160,9 @@ class SweepConfigPresenter(QObject):
 
         # Export
         v.export_requested.connect(self._on_export_requested)
+
+        # Ranges
+        v.range_changed.connect(self._on_range_changed)
 
     # ── Page activation ────────────────────────────────────────────────────────
 
@@ -270,7 +274,23 @@ class SweepConfigPresenter(QObject):
             unique_vars = list(dict.fromkeys(available_vars))
             self._config.display_vars = unique_vars[:DISPLAY_VARS_MAX]
 
+        # Prune ranges for disabled/inactive measurement units (SMUs and VMUs)
+        # and initialize defaults (AUTO) for new active units.
+        active_meas_units = {
+            ch["id"] for ch in active if ch["unit_type"] in ("SMU", "VMU")
+        }
+        updated_ranges = {}
+        for uid in active_meas_units:
+            if uid in self._config.measurement_setup.ranges:
+                updated_ranges[uid] = self._config.measurement_setup.ranges[
+                    uid
+                ]
+            else:
+                updated_ranges[uid] = {"mode": "AUTO"}
+        self._config.measurement_setup.ranges = updated_ranges
+
         self._ctx = {
+            "instrument_model": ch_cfg.instrument_model.value,
             "has_var1": var1_ch is not None,
             "has_var2": var2_ch is not None,
             "has_vard": vard_ch is not None,
@@ -290,6 +310,11 @@ class SweepConfigPresenter(QObject):
         cfg = self._config
 
         self._view.display_channel_summary(ctx["active_channels"])
+        self._view.display_ranges_setup(
+            ctx["active_channels"],
+            ctx["instrument_model"],
+            cfg.measurement_setup.ranges,
+        )
 
         self._view.display_var_sections(
             ctx["has_var1"], ctx["has_var2"], ctx["has_vard"]
@@ -323,7 +348,15 @@ class SweepConfigPresenter(QObject):
         )
         self._update_validation()
 
-    # ── Signal handlers ────────────────────────────────────────────────────────
+    # ── Signal handlers ──────────────────────────────────────────────────────
+    def _on_range_changed(
+        self, unit_id: str, mode: str, value: Optional[float]
+    ) -> None:
+        r_entry = {"mode": mode}
+        if mode in ("FIX", "LIM") and value is not None:
+            r_entry["value"] = value
+        self._config.measurement_setup.ranges[unit_id] = r_entry
+        self._update_validation()
 
     def _on_integration_mode(self, val: str) -> None:
         try:
@@ -558,6 +591,7 @@ class SweepConfigPresenter(QObject):
             "short_time": ms.short_time,
             "long_time_cycles": ms.long_time_cycles,
             "wait_time": ms.wait_multiplier,  # JSON key kept as "wait_time"
+            "ranges": ms.ranges,
         }
 
         sweep_json: Dict[str, Any] = {
@@ -616,6 +650,7 @@ class SweepConfigPresenter(QObject):
                 "short_time": ms.short_time,
                 "long_time_cycles": ms.long_time_cycles,
                 "wait_multiplier": ms.wait_multiplier,
+                "ranges": copy.deepcopy(ms.ranges),
             },
             "delay": cfg.delay,
             "hold_time": cfg.hold_time,
