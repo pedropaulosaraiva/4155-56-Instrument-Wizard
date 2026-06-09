@@ -51,7 +51,11 @@ def _is_voltage_mode(mode_value: str) -> bool:
 
 def _fn_to_json_key(fn_value: str) -> str:
     """Map UnitFunction SCPI values to JSON-layer keys."""
-    return "VARD" if fn_value == "VAR1'" else fn_value
+    if fn_value == "VAR1'":
+        return "VARD"
+    if fn_value == "CONST":
+        return "CONS"
+    return fn_value
 
 
 # ── Presenter ─────────────────────────────────────────────────────────────────
