@@ -371,7 +371,7 @@ class ChannelsPresenter(QObject):
             if has_vmu and vmu_usable and vmu.enabled:
                 channels[unit_key] = {
                     "v_name": vmu.voltage_name,
-                    "vu_mode": VMU_MODE_SCPI_MAP[vmu.mode],
+                    "vmu_mode": VMU_MODE_SCPI_MAP[vmu.mode],
                 }
             else:
                 channels[unit_key] = {"disable": 1}

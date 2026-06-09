@@ -9,8 +9,8 @@ from wizard_4155_4156.SCPI.literals_definition import (
     SMUnitType,
     SourceUnitType,
     UnitType,
+    VMUnitType,
     VoltageUnitType,
-    VSUnitType,
     VUModeType,
 )
 
@@ -104,13 +104,13 @@ class ChannelsCommandBuilder(SCPICommandBuilder):
         self._is_command_ready = True
         self._is_command_query = True
 
-    def set_vu_mode(self, unit_type: VSUnitType, vu_mode: VUModeType):
+    def set_vmu_mode(self, unit_type: VMUnitType, vmu_mode: VUModeType):
         self._unit(unit_type)
-        self._verify_parameter(vu_mode, VUModeType)
-        self._add_command_segment(":MODE " + vu_mode, self._VU_CHANNEL_BASE)
+        self._verify_parameter(vmu_mode, VUModeType)
+        self._add_command_segment(":MODE " + vmu_mode, self._VU_CHANNEL_BASE)
         self._is_command_ready = True
 
-    def get_vu_mode(self, unit_type: VoltageUnitType):
+    def get_vmu_mode(self, unit_type: VMUnitType):
         self._unit(unit_type)
         self._add_command_segment(":MODE?", self._VU_CHANNEL_BASE)
         self._is_command_ready = True

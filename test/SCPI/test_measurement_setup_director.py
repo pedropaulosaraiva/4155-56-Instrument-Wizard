@@ -59,7 +59,7 @@ def test_setup_channels(setup_director):
             "smu_mode": "V",
             "standby": "ON",
         },
-        "VMU1": {"vu_mode": "V"},
+        "VMU1": {"vmu_mode": "V"},
     }
 
     expected_set_commands = [

@@ -39,17 +39,24 @@ class MeasurementSetupDirector(BaseDirector):
     def reset_instrument(self) -> list[CommandPair]:
         scpi_sequence: list[CommandPair] = []
 
-        scpi_sequence.append(self._build_pair(
-            CommonCommandBuilder, CommonCommandBuilder.reset, ()
-        ))
-        scpi_sequence.append(self._build_pair(
-            CommonCommandBuilder, CommonCommandBuilder.clear, ()
-        ))
+        scpi_sequence.append(
+            self._build_pair(
+                CommonCommandBuilder, CommonCommandBuilder.reset, ()
+            )
+        )
+        scpi_sequence.append(
+            self._build_pair(
+                CommonCommandBuilder, CommonCommandBuilder.clear, ()
+            )
+        )
 
-        scpi_sequence.append(self._build_pair(
-            MeasureRunCommandBuilder,
-            MeasureRunCommandBuilder.delete_all_display_list, ()
-        ))
+        scpi_sequence.append(
+            self._build_pair(
+                MeasureRunCommandBuilder,
+                MeasureRunCommandBuilder.delete_all_display_list,
+                (),
+            )
+        )
 
         return scpi_sequence
 
@@ -84,13 +91,16 @@ class MeasurementSetupDirector(BaseDirector):
                 self._setup_sampling(config["sampling_setup"])
             )
 
-        if 'display_vars' in config and config['display_vars']:
-            scpi_sequence.append(self._build_pair(
-                MeasureRunCommandBuilder,
-                MeasureRunCommandBuilder.set_display_list_select,
-                tuple(config['display_vars']),
-                MeasureRunCommandBuilder.get_display_list_select, ()
-            ))
+        if "display_vars" in config and config["display_vars"]:
+            scpi_sequence.append(
+                self._build_pair(
+                    MeasureRunCommandBuilder,
+                    MeasureRunCommandBuilder.set_display_list_select,
+                    tuple(config["display_vars"]),
+                    MeasureRunCommandBuilder.get_display_list_select,
+                    (),
+                )
+            )
 
         return scpi_sequence
 
@@ -149,13 +159,13 @@ class MeasurementSetupDirector(BaseDirector):
                         (unit,),
                     )
                 )
-            if "vu_mode" in settings:
+            if "vmu_mode" in settings:
                 commands.append(
                     self._build_pair(
                         builder,
-                        builder.set_vu_mode,
-                        (unit, settings["vu_mode"]),
-                        builder.get_vu_mode,
+                        builder.set_vmu_mode,
+                        (unit, settings["vmu_mode"]),
+                        builder.get_vmu_mode,
                         (unit,),
                     )
                 )
@@ -166,7 +176,9 @@ class MeasurementSetupDirector(BaseDirector):
                         builder.set_standby_mode,
                         (
                             unit,
-                            self._parse_bool_to_scpi_state(settings["standby"])
+                            self._parse_bool_to_scpi_state(
+                                settings["standby"]
+                            ),
                         ),
                         builder.get_standby_mode,
                         (unit,),
@@ -359,7 +371,11 @@ class MeasurementSetupDirector(BaseDirector):
                 self._build_pair(
                     builder,
                     builder.set_var1_pcompliance_state,
-                    (self._parse_bool_to_scpi_state(var1["pcompliance_state"]),),
+                    (
+                        self._parse_bool_to_scpi_state(
+                            var1["pcompliance_state"]
+                        ),
+                    ),
                     builder.get_var1_pcompliance_state,
                     (),
                 )
@@ -422,7 +438,11 @@ class MeasurementSetupDirector(BaseDirector):
                 self._build_pair(
                     builder,
                     builder.set_var2_pcompliance_state,
-                    (self._parse_bool_to_scpi_state(var2["pcompliance_state"]),),
+                    (
+                        self._parse_bool_to_scpi_state(
+                            var2["pcompliance_state"]
+                        ),
+                    ),
                     builder.get_var2_pcompliance_state,
                     (),
                 )
@@ -476,7 +496,11 @@ class MeasurementSetupDirector(BaseDirector):
                 self._build_pair(
                     builder,
                     builder.set_vard_pcompliance_state,
-                    (self._parse_bool_to_scpi_state(vard["pcompliance_state"]),),
+                    (
+                        self._parse_bool_to_scpi_state(
+                            vard["pcompliance_state"]
+                        ),
+                    ),
                     builder.get_vard_pcompliance_state,
                     (),
                 )
@@ -602,7 +626,11 @@ class MeasurementSetupDirector(BaseDirector):
                 self._build_pair(
                     builder,
                     builder.set_period_auto,
-                    (self._parse_bool_to_scpi_state(samp_config["period_auto"]),),
+                    (
+                        self._parse_bool_to_scpi_state(
+                            samp_config["period_auto"]
+                        ),
+                    ),
                     builder.get_period_auto,
                     (),
                 )
