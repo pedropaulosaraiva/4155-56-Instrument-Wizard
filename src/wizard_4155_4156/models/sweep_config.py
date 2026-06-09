@@ -266,7 +266,7 @@ class SweepConstraints:
             elif spacing_val == "L50":
                 n_per_decade = 50
             decades = math.log10(stop / start)
-            return round(decades * n_per_decade) + 1
+            return math.floor(decades * n_per_decade) + 1
 
     @staticmethod
     def validate_config(
