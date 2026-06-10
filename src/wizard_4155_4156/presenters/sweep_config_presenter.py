@@ -164,6 +164,11 @@ class SweepConfigPresenter(QObject):
         # Ranges
         v.range_changed.connect(self._on_range_changed)
 
+        # Constant Sources
+        v.const_source_changed.connect(self._on_const_source_changed)
+        v.const_compliance_changed.connect(self._on_const_compliance_changed)
+
+
     # ── Page activation ────────────────────────────────────────────────────────
 
     def _on_page_activated(self) -> None:
@@ -289,6 +294,33 @@ class SweepConfigPresenter(QObject):
                 updated_ranges[uid] = {"mode": "AUTO"}
         self._config.measurement_setup.ranges = updated_ranges
 
+        # Prune/initialize constant entries to match currently active CONST units
+        # (excluding COMM SMUs). Initialize default values based on unit type and source mode:
+        # SMU Voltage source: source = 0.0 V, compliance = 0.01 A.
+        # SMU Current source: source = 0.0 A, compliance = 2.0 V.
+        # VSU: source = 0.0 V.
+        active_const_units = {
+            ch["id"]: ch
+            for ch in active
+            if ch.get("function") == "CONST"
+            and ch.get("unit_type") in ("SMU", "VSU")
+            and ch.get("mode") != "COMM"
+        }
+        updated_constants = {}
+        for uid, ch in active_const_units.items():
+            if uid in self._config.constants:
+                updated_constants[uid] = self._config.constants[uid]
+            else:
+                if ch["unit_type"] == "VSU":
+                    updated_constants[uid] = {"source": 0.0}
+                elif ch["unit_type"] == "SMU":
+                    if ch["mode"] in ("V", "VPULSE"):
+                        updated_constants[uid] = {"source": 0.0, "compliance": 0.01}
+                    elif ch["mode"] in ("I", "IPULSE"):
+                        updated_constants[uid] = {"source": 0.0, "compliance": 2.0}
+        self._config.constants = updated_constants
+
+
         self._ctx = {
             "instrument_model": ch_cfg.instrument_model.value,
             "has_var1": var1_ch is not None,
@@ -343,6 +375,10 @@ class SweepConfigPresenter(QObject):
             )
 
         self._view.display_config(self._config_snapshot())
+        self._view.display_constants_setup(
+            ctx["active_channels"],
+            cfg.constants,
+        )
         self._view.display_available_vars(
             ctx["available_vars"], cfg.display_vars
         )
@@ -468,6 +504,17 @@ class SweepConfigPresenter(QObject):
         self._config.channel_standby[ch_id] = on
         self._update_validation()
 
+    def _on_const_source_changed(self, unit_id: str, val: float) -> None:
+        if unit_id in self._config.constants:
+            self._config.constants[unit_id]["source"] = val
+            self._update_validation()
+
+    def _on_const_compliance_changed(self, unit_id: str, val: float) -> None:
+        if unit_id in self._config.constants:
+            self._config.constants[unit_id]["compliance"] = val
+            self._update_validation()
+
+
     def _on_display_var_toggled(self, var_name: str, selected: bool) -> None:
         if selected and var_name not in self._config.display_vars:
             self._config.display_vars.append(var_name)
@@ -499,6 +546,7 @@ class SweepConfigPresenter(QObject):
             var1_is_vsu=self._ctx.get("var1_is_vsu", False),
             var2_is_voltage=self._ctx.get("var2_is_voltage", True),
             var2_is_vsu=self._ctx.get("var2_is_vsu", False),
+            active_channels=self._ctx.get("active_channels"),
         )
 
         for i, err in enumerate(model_errors):
@@ -631,6 +679,9 @@ class SweepConfigPresenter(QObject):
                 "pcompliance": vd.power_compliance,
             }
 
+        if cfg.constants:
+            sweep_json["constants"] = copy.deepcopy(cfg.constants)
+
         return {
             "mode": "SWEEP",
             "channels": channels_json,
@@ -677,4 +728,5 @@ class SweepConfigPresenter(QObject):
                 "compliance": cfg.vard.compliance,
                 "power_compliance": cfg.vard.power_compliance,
             },
+            "constants": copy.deepcopy(cfg.constants),
         }

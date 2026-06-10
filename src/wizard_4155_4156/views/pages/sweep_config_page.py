@@ -167,6 +167,37 @@ def _matrix_label_style(ok: bool) -> str:
     )
 
 
+def _create_table_header(
+    columns: List[Tuple[str, int]], spacing: int = 10
+) -> QWidget:
+    hdr = QWidget()
+    hh = QHBoxLayout(hdr)
+    hh.setContentsMargins(0, 0, 0, 4)
+    hh.setSpacing(spacing)
+    for text, w in columns:
+        l = QLabel(text)
+        l.setStyleSheet(
+            f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
+            "font-weight: bold; letter-spacing: 1px; background: transparent;"
+        )
+        l.setFixedWidth(w)
+        l.setAlignment(
+            Qt.AlignmentFlag.AlignCenter
+            if text in ("Unit", "Channel")
+            else Qt.AlignmentFlag.AlignLeft
+        )
+        hh.addWidget(l)
+    hh.addStretch()
+    return hdr
+
+
+def _create_horizontal_divider() -> QFrame:
+    div = QFrame()
+    div.setFrameShape(QFrame.Shape.HLine)
+    div.setStyleSheet(f"background-color: {P.BORDER}; max-height: 1px;")
+    return div
+
+
 class SciDoubleValidator(QValidator):
     def __init__(self, min_val: float, max_val: float, parent=None):
         super().__init__(parent)
@@ -447,33 +478,19 @@ class _ChannelSummarySection(_SectionFrame):
             return
 
         # Column headers
-        hdr = QWidget()
-        hh = QHBoxLayout(hdr)
-        hh.setContentsMargins(0, 0, 0, 4)
-        hh.setSpacing(0)
-        for text, w in [
-            ("Channel", 65),
-            ("Function", 70),
-            ("Mode", 75),
-            ("V-Name", 55),
-            ("I-Name", 55),
-            ("Standby", 55),
-        ]:
-            l = QLabel(text)
-            l.setStyleSheet(
-                f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
-                "font-weight: bold; letter-spacing: 1px; background: transparent;"
-            )
-            l.setFixedWidth(w)
-            l.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            hh.addWidget(l)
-        hh.addStretch()
+        hdr = _create_table_header(
+            [
+                ("Channel", 65),
+                ("Function", 70),
+                ("Mode", 75),
+                ("V-Name", 55),
+                ("I-Name", 55),
+                ("Standby", 55),
+            ],
+            spacing=0,
+        )
         self.body().addWidget(hdr)
-
-        div = QFrame()
-        div.setFrameShape(QFrame.Shape.HLine)
-        div.setStyleSheet(f"background-color: {P.BORDER}; max-height: 1px;")
-        self.body().addWidget(div)
+        self.body().addWidget(_create_horizontal_divider())
 
         fn_colors = {
             "VAR1": P.STATUS_OK,
@@ -702,12 +719,15 @@ class _MeasSetupSection(_SectionFrame):
                 )
         return errors
 
+
 _MODE_DISPLAY_TO_INTERNAL = {
     "Automatic": "AUTO",
     "Automatic with limitation": "LIM",
     "Fixed": "FIX",
 }
-_MODE_INTERNAL_TO_DISPLAY = {v: k for k, v in _MODE_DISPLAY_TO_INTERNAL.items()}
+_MODE_INTERNAL_TO_DISPLAY = {
+    v: k for k, v in _MODE_DISPLAY_TO_INTERNAL.items()
+}
 
 
 class _RangeRow(QWidget):
@@ -750,18 +770,16 @@ class _RangeRow(QWidget):
         self.mode_combo.setFixedWidth(180)
         for label in ["Automatic", "Automatic with limitation", "Fixed"]:
             self.mode_combo.addItem(label)
-        
+
         display_mode = _MODE_INTERNAL_TO_DISPLAY.get(initial_mode, "Automatic")
         self.mode_combo.setCurrentText(display_mode)
-        h.addWidget(self.mode_combo)
+        h.addWidget(self.mode_combo, stretch=1)
 
         # 3. Value combo box
         self.val_combo = QComboBox()
         self.val_combo.setStyleSheet(unit_card_combo_stylesheet())
         self.val_combo.setFixedWidth(100)
-        h.addWidget(self.val_combo)
-        
-        h.addStretch()
+        h.addWidget(self.val_combo, stretch=1)
 
         self._repopulate_values(initial_value)
 
@@ -776,7 +794,11 @@ class _RangeRow(QWidget):
             if is_voltage_range:
                 return RANGE_VALUES_SMU_VOLTAGE
             else:
-                return RANGE_VALUES_HRSMU_CURRENT if is_4156 else RANGE_VALUES_MPSMU_CURRENT
+                return (
+                    RANGE_VALUES_HRSMU_CURRENT
+                    if is_4156
+                    else RANGE_VALUES_MPSMU_CURRENT
+                )
         elif self.unit_type == "VMU":
             if self.unit_mode == "V":
                 return RANGE_VALUES_VMU_V
@@ -803,7 +825,9 @@ class _RangeRow(QWidget):
             self.val_combo.setCurrentIndex(0)
         self.val_combo.blockSignals(False)
 
-        mode = _MODE_DISPLAY_TO_INTERNAL.get(self.mode_combo.currentText(), "AUTO")
+        mode = _MODE_DISPLAY_TO_INTERNAL.get(
+            self.mode_combo.currentText(), "AUTO"
+        )
         self.val_combo.setEnabled(mode in ("LIM", "FIX"))
 
     def _on_mode_changed(self, display_mode: str) -> None:
@@ -838,7 +862,7 @@ class _RangesSection(_SectionFrame):
         self,
         active_channels: List[dict],
         instrument_model: str,
-        ranges_config: Dict[str, dict]
+        ranges_config: Dict[str, dict],
     ) -> None:
         while self.body().count():
             item = self.body().takeAt(0)
@@ -860,30 +884,17 @@ class _RangesSection(_SectionFrame):
             self.body().addWidget(lbl)
             return
 
-        hdr = QWidget()
-        hh = QHBoxLayout(hdr)
-        hh.setContentsMargins(0, 0, 0, 4)
-        hh.setSpacing(10)
-        for text, w in [
-            ("Unit", 48),
-            ("Range Mode", 180),
-            ("Range Value", 100),
-        ]:
-            l = QLabel(text)
-            l.setStyleSheet(
-                f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
-                "font-weight: bold; letter-spacing: 1px; background: transparent;"
-            )
-            l.setFixedWidth(w)
-            l.setAlignment(Qt.AlignmentFlag.AlignCenter if text == "Unit" else Qt.AlignmentFlag.AlignLeft)
-            hh.addWidget(l)
-        hh.addStretch()
+        # Column headers
+        hdr = _create_table_header(
+            [
+                ("Unit", 48),
+                ("Range Mode", 180),
+                ("Range Value", 100),
+            ],
+            spacing=10,
+        )
         self.body().addWidget(hdr)
-
-        div = QFrame()
-        div.setFrameShape(QFrame.Shape.HLine)
-        div.setStyleSheet(f"background-color: {P.BORDER}; max-height: 1px;")
-        self.body().addWidget(div)
+        self.body().addWidget(_create_horizontal_divider())
 
         for ch in eligible_channels:
             ch_id = ch["id"]
@@ -900,9 +911,178 @@ class _RangesSection(_SectionFrame):
                 initial_value=value,
                 parent=self,
             )
-            row.changed.connect(lambda m, v, cid=ch_id: self.range_changed.emit(cid, m, v))
+            row.changed.connect(
+                lambda m, v, cid=ch_id: self.range_changed.emit(cid, m, v)
+            )
             self._rows[ch_id] = row
             self.body().addWidget(row)
+
+
+class _ConstantRow(QWidget):
+    source_changed = Signal(str, float)
+    compliance_changed = Signal(str, float)
+
+    def __init__(
+        self,
+        unit_id: str,
+        unit_type: str,
+        unit_mode: str,
+        initial_source: float,
+        initial_compliance: Optional[float] = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.unit_id = unit_id
+        self.unit_type = unit_type
+        self.unit_mode = unit_mode
+
+        h = QHBoxLayout(self)
+        h.setContentsMargins(0, 2, 0, 2)
+        h.setSpacing(10)
+
+        # 1. Badge / Name
+        self.badge = QLabel(unit_id)
+        self.badge.setFixedWidth(48)
+        self.badge.setStyleSheet(channel_row_badge_stylesheet(P.ACCENT_HOVER))
+        self.badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        h.addWidget(self.badge)
+
+        # 2. Source input
+        if unit_type == "VSU":
+            min_s, max_s, unit_s = VSU_VOLTAGE_MIN, VSU_VOLTAGE_MAX, "V"
+        else:
+            if unit_mode in ("V", "VPULSE"):
+                min_s, max_s, unit_s = VOLTAGE_MIN, VOLTAGE_MAX, "V"
+            else:
+                min_s, max_s, unit_s = CURRENT_MIN, CURRENT_MAX, "A"
+
+        self.source_edit = _SciDoubleEdit(
+            initial_source, min_s, max_s, unit_s, parent=self
+        )
+        self.source_edit._edit.setToolTip(
+            f"Range: {min_s:.3g} – {max_s:.3g} {unit_s}"
+        )
+        self.source_edit.setFixedWidth(160)
+        self.source_edit.value_committed.connect(
+            lambda val: self.source_changed.emit(self.unit_id, val)
+        )
+        h.addWidget(self.source_edit, stretch=1)
+
+        # 3. Compliance input (SMU only)
+        if unit_type == "SMU":
+            if unit_mode in ("V", "VPULSE"):
+                min_c, max_c, unit_c = COMP_I_MIN, COMP_I_MAX, "A"
+            else:
+                min_c, max_c, unit_c = COMP_V_MIN, COMP_V_MAX, "V"
+
+            comp_val = (
+                initial_compliance if initial_compliance is not None else 0.01
+            )
+            self.compliance_edit = _SciDoubleEdit(
+                comp_val, min_c, max_c, unit_c, parent=self
+            )
+            self.compliance_edit._edit.setToolTip(
+                f"Range: {min_c:.3g} – {max_c:.3g} {unit_c}"
+            )
+            self.compliance_edit.setFixedWidth(160)
+            self.compliance_edit.value_committed.connect(
+                lambda val: self.compliance_changed.emit(self.unit_id, val)
+            )
+            h.addWidget(self.compliance_edit, stretch=1)
+        else:
+            self.compliance_edit = None
+            spacer = QLabel("—")
+            spacer.setStyleSheet(sweep_form_label_stylesheet())
+            spacer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            spacer.setFixedWidth(160)
+            h.addWidget(spacer, stretch=1)
+
+
+class _ConstantsSection(_SectionFrame):
+    const_source_changed = Signal(str, float)
+    const_compliance_changed = Signal(str, float)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__("Constant Sources", parent)
+        self._rows: Dict[str, _ConstantRow] = {}
+
+    def display_constants(
+        self,
+        active_channels: List[dict],
+        constants_config: Dict[str, dict],
+    ) -> None:
+        while self.body().count():
+            item = self.body().takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._rows.clear()
+
+        eligible_channels = []
+        for ch in active_channels:
+            if (
+                ch.get("function") == "CONST"
+                and ch.get("unit_type") in ("SMU", "VSU")
+                and ch.get("mode") != "COMM"
+            ):
+                eligible_channels.append(ch)
+
+        if not eligible_channels:
+            lbl = QLabel("No constant source units configured.")
+            lbl.setStyleSheet(
+                f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_SM}; "
+                "font-style: italic; background: transparent;"
+            )
+            self.body().addWidget(lbl)
+            return
+
+        # Column headers
+        hdr = _create_table_header(
+            [
+                ("Unit", 48),
+                ("Constant Source", 160),
+                ("Compliance Limit", 160),
+            ],
+            spacing=10,
+        )
+        self.body().addWidget(hdr)
+        self.body().addWidget(_create_horizontal_divider())
+
+        for ch in eligible_channels:
+            ch_id = ch["id"]
+            c_data = constants_config.get(ch_id, {})
+            source_val = c_data.get("source", 0.0)
+            comp_val = (
+                c_data.get("compliance", 0.01)
+                if ch.get("unit_type") == "SMU"
+                else None
+            )
+
+            row = _ConstantRow(
+                unit_id=ch_id,
+                unit_type=ch.get("unit_type", "SMU"),
+                unit_mode=ch.get("mode", ""),
+                initial_source=source_val,
+                initial_compliance=comp_val,
+                parent=self,
+            )
+            row.source_changed.connect(self.const_source_changed)
+            row.compliance_changed.connect(self.const_compliance_changed)
+            self._rows[ch_id] = row
+            self.body().addWidget(row)
+
+    def get_input_errors(self) -> Dict[str, str]:
+        errors = {}
+        for ch_id, row in self._rows.items():
+            if row.source_edit.get_value() is None:
+                errors[f"const_source_{ch_id}"] = (
+                    f"{ch_id} Constant Source: value is empty or invalid"
+                )
+            if row.compliance_edit is not None:
+                if row.compliance_edit.get_value() is None:
+                    errors[f"const_compliance_{ch_id}"] = (
+                        f"{ch_id} Constant Compliance: value is empty or invalid"
+                    )
+        return errors
 
 
 class _SweepTimingSection(_SectionFrame):
@@ -1387,6 +1567,8 @@ class SweepConfigPageView(BasePage):
     display_var_toggled = Signal(str, bool)
     export_requested = Signal()
     range_changed = Signal(str, str, object)
+    const_source_changed = Signal(str, float)
+    const_compliance_changed = Signal(str, float)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -1405,9 +1587,11 @@ class SweepConfigPageView(BasePage):
         self,
         active_channels: List[dict],
         instrument_model: str,
-        ranges_config: Dict[str, dict]
+        ranges_config: Dict[str, dict],
     ) -> None:
-        self._ranges_sec.display_ranges(active_channels, instrument_model, ranges_config)
+        self._ranges_sec.display_ranges(
+            active_channels, instrument_model, ranges_config
+        )
 
     def display_config(self, snap: dict) -> None:
         ms = snap.get("measurement_setup", {})
@@ -1496,12 +1680,23 @@ class SweepConfigPageView(BasePage):
         dlg = _JsonPreviewDialog(json_str, self)
         dlg.exec()
 
+    def display_constants_setup(
+        self,
+        active_channels: List[dict],
+        constants_config: Dict[str, dict],
+    ) -> None:
+        self._constants_sec.display_constants(
+            active_channels, constants_config
+        )
+
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
         if self._meas_sec.isVisible():
             errors.update(self._meas_sec.get_input_errors())
         if self._timing_sec.isVisible():
             errors.update(self._timing_sec.get_input_errors())
+        if self._constants_sec.isVisible():
+            errors.update(self._constants_sec.get_input_errors())
         if self._var1_sec.isVisible():
             errors.update(self._var1_sec.get_input_errors())
         if self._var2_sec.isVisible():
@@ -1591,11 +1786,13 @@ class SweepConfigPageView(BasePage):
         self._var1_sec = _VAR1Section()
         self._var2_sec = _VAR2Section()
         self._vard_sec = _VARDSection()
+        self._constants_sec = _ConstantsSection()
 
         for w in (
             self._var1_sec,
             self._var2_sec,
             self._vard_sec,
+            self._constants_sec,
         ):
             right_v.addWidget(w)
         right_v.addStretch()
@@ -1644,3 +1841,10 @@ class SweepConfigPageView(BasePage):
 
         self._display_vars_sec.var_toggled.connect(self.display_var_toggled)
         self._ranges_sec.range_changed.connect(self.range_changed)
+
+        self._constants_sec.const_source_changed.connect(
+            self.const_source_changed
+        )
+        self._constants_sec.const_compliance_changed.connect(
+            self.const_compliance_changed
+        )
