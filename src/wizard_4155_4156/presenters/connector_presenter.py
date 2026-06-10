@@ -74,6 +74,7 @@ class ConnectorPresenter(QObject):
     # ── Application-level signals (consumed by MainWindow) ───────────────────
     data_ready = Signal(dict)     # forwarded from DataFetchTask.data_fetched
     hardware_busy = Signal(bool)  # True when any trigger_* sequence is active
+    connection_changed = Signal(bool, str)  # (connected, instrument name)
 
     def __init__(
         self,
@@ -114,6 +115,10 @@ class ConnectorPresenter(QObject):
         """
         self._pool.clear()
         self._pool.waitForDone(3_000)   # 3 s grace period
+
+    def is_connected(self) -> bool:
+        """Whether an instrument is currently connected (initial state)."""
+        return self._controller.is_connected
 
     # ── Public trigger API (called by future measurement presenters) ─────────
 
@@ -232,6 +237,9 @@ class ConnectorPresenter(QObject):
             self._view.display_connected(name)
         else:
             self._view.display_disconnected()
+        # Notify application-level listeners (e.g. MeasurementsPresenter) so
+        # they can gate hardware-dependent controls on the connection state.
+        self.connection_changed.emit(connected, name)
 
     @Slot(int, int, str)
     def _on_progress_update(

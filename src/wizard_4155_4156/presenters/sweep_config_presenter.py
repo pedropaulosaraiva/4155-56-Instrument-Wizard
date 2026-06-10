@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import copy
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QObject
@@ -158,8 +159,10 @@ class SweepConfigPresenter(QObject):
         v.smu_standby_changed.connect(self._on_smu_standby)
         v.display_var_toggled.connect(self._on_display_var_toggled)
 
-        # Export
+        # Export / Save
         v.export_requested.connect(self._on_export_requested)
+        v.save_requested.connect(self._on_save_requested)
+        v.save_message_expired.connect(self._update_validation)
 
         # Ranges
         v.range_changed.connect(self._on_range_changed)
@@ -527,6 +530,15 @@ class SweepConfigPresenter(QObject):
         if not errors:
             result = self._build_json()
             self._view.display_json(json.dumps(result, indent=4))
+
+    def _on_save_requested(self, path: str) -> None:
+        errors = self._run_validation()
+        if errors:
+            return
+        result = self._build_json()
+        with open(path, "w", encoding="utf-8") as fp:
+            json.dump(result, fp, indent=4)
+        self._view.display_save_success(Path(path).name)
 
     # ── Validation (model driven) ──────────────────────────────────────────────
 

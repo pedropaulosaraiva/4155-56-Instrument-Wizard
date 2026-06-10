@@ -16,10 +16,10 @@ uses a single, stable import path:
         BasePage,
         HomePageView,
         ChannelsPageView,
-        SweepConfigPage,
-        MeasurementsPage,
+        SweepConfigPageView,
+        MeasurementsPageView,
         GraphPage,
-        TablePage,
+        TablePageView,
     )
 
 Architectural rules enforced here
@@ -98,14 +98,14 @@ from wizard_4155_4156.views.pages.channels_page import (  # noqa: E402
     ChannelsPageView,
 )
 from wizard_4155_4156.views.pages.home_page import HomePageView  # noqa: E402
-from wizard_4155_4156.views.pages.stub_pages import (  # noqa: E402
-    GraphPage,
-    MeasurementsPage,
-    TablePage,
+from wizard_4155_4156.views.pages.measurements_page import (  # noqa: E402
+    MeasurementsPageView,
 )
+from wizard_4155_4156.views.pages.stub_pages import GraphPage  # noqa: E402
 from wizard_4155_4156.views.pages.sweep_config_page import (  # noqa: E402
     SweepConfigPageView,
 )
+from wizard_4155_4156.views.pages.table_page import TablePageView  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Explicit public API
@@ -119,7 +119,7 @@ __all__ = [
     "HomePageView",
     "ChannelsPageView",
     "SweepConfigPageView",
-    "MeasurementsPage",
+    "MeasurementsPageView",
     "GraphPage",
-    "TablePage",
+    "TablePageView",
 ]

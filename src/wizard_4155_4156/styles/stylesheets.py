@@ -917,3 +917,110 @@ def sweep_spinbox_stylesheet() -> str:
         }}
         QSpinBox:disabled {{ color: {P.TEXT_DISABLED}; border-color: {P.BG_ELEVATED}; }}
     """
+
+
+# ── Measurements & Run Page ──────────────────────────────────────────────
+
+
+def measurements_page_stylesheet() -> str:
+    return f"background-color: {P.BG_DEEP};"
+
+
+def meas_source_label_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_MD}; "
+        f"font-weight: bold; background: transparent;"
+    )
+
+
+def meas_summary_box_stylesheet() -> str:
+    return f"""
+        QLabel {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+            padding: 10px 14px;
+            font-size: {P.FONT_SIZE_SM};
+            font-family: {P.FONT_FAMILY_MONO};
+        }}
+    """
+
+
+def meas_status_label_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_MD}; "
+        f"background: transparent;"
+    )
+
+
+def config_preview_tree_stylesheet() -> str:
+    return f"""
+        QTreeWidget {{
+            background-color: {P.BG_INPUT};
+            alternate-background-color: {P.BG_PANEL};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+            font-size: {P.FONT_SIZE_SM};
+            font-family: {P.FONT_FAMILY_MONO};
+            outline: 0;
+        }}
+        QTreeWidget::item {{
+            padding: 3px 4px;
+            border: none;
+        }}
+        QTreeWidget::item:selected {{
+            background-color: {P.ACCENT_MUTED};
+            color: {P.TEXT_WHITE};
+        }}
+        QHeaderView::section {{
+            background-color: {P.BG_ELEVATED};
+            color: {P.TEXT_SECONDARY};
+            border: none;
+            border-right: 1px solid {P.BORDER};
+            border-bottom: 1px solid {P.BORDER};
+            padding: 6px 10px;
+            font-weight: bold;
+            font-family: {P.FONT_FAMILY_UI};
+        }}
+    """
+
+
+# ── Table View Page ──────────────────────────────────────────────────────
+
+
+def table_page_stylesheet() -> str:
+    return f"background-color: {P.BG_DEEP};"
+
+
+def data_table_stylesheet() -> str:
+    return f"""
+        QTableWidget {{
+            background-color: {P.BG_INPUT};
+            alternate-background-color: {P.BG_PANEL};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+            gridline-color: {P.BORDER};
+            font-size: {P.FONT_SIZE_SM};
+            font-family: {P.FONT_FAMILY_MONO};
+        }}
+        QHeaderView::section {{
+            background-color: {P.BG_ELEVATED};
+            color: {P.TEXT_SECONDARY};
+            border: none;
+            border-right: 1px solid {P.BORDER};
+            border-bottom: 1px solid {P.BORDER};
+            padding: 6px 10px;
+            font-weight: bold;
+        }}
+        QTableWidget::item {{ padding: 2px 8px; }}
+    """
+
+
+def table_empty_label_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_LG}; "
+        f"background: transparent;"
+    )

@@ -68,20 +68,8 @@ SweepConfigPage = _make_stub(
     "Define sweep parameters, sampling intervals, and QSCV settings.",
 )
 
-MeasurementsPage = _make_stub(
-    "📋",
-    "Measurements & Run",
-    "Load saved setups, trigger measurements, and monitor live data.",
-)
-
 GraphPage = _make_stub(
     "📈",
     "Graph View",
     "Visualise fetched measurement data as interactive curves.",
-)
-
-TablePage = _make_stub(
-    "📊",
-    "Table View",
-    "Inspect raw measurement data in a sortable, exportable table.",
 )

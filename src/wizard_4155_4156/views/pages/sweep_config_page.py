@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 from typing import Dict, List, Optional, Tuple
 
-from PySide6.QtCore import QLocale, Qt, Signal
+from PySide6.QtCore import QLocale, Qt, QTimer, Signal
 from PySide6.QtGui import QDoubleValidator, QValidator
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -1566,6 +1567,8 @@ class SweepConfigPageView(BasePage):
     smu_standby_changed = Signal(str, bool)
     display_var_toggled = Signal(str, bool)
     export_requested = Signal()
+    save_requested = Signal(str)  # chosen file path
+    save_message_expired = Signal()  # transient "Saved" toast timed out
     range_changed = Signal(str, str, object)
     const_source_changed = Signal(str, float)
     const_compliance_changed = Signal(str, float)
@@ -1664,7 +1667,10 @@ class SweepConfigPageView(BasePage):
 
     def display_validation_status(self, is_valid: bool, message: str) -> None:
         """Update the validation status label in the header."""
+        # A fresh validation state supersedes any lingering "Saved" toast.
+        self._save_msg_timer.stop()
         self._export_btn.setEnabled(is_valid)
+        self._save_btn.setEnabled(is_valid)
         if is_valid:
             self._validation_lbl.setText(f"✅ {message}")
             self._validation_lbl.setStyleSheet(
@@ -1679,6 +1685,22 @@ class SweepConfigPageView(BasePage):
     def display_json(self, json_str: str) -> None:
         dlg = _JsonPreviewDialog(json_str, self)
         dlg.exec()
+
+    def _on_save_clicked(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Sweep Setup",
+            "",
+            "Setup files (*.json);;All files (*)",
+        )
+        if path:
+            self.save_requested.emit(path)
+
+    def display_save_success(self, filename: str) -> None:
+        """Flash a transient confirmation in the header validation label."""
+        self._validation_lbl.setText(f"💾 Saved to {filename}")
+        self._validation_lbl.setStyleSheet(validation_status_stylesheet("valid"))
+        self._save_msg_timer.start()
 
     def display_constants_setup(
         self,
@@ -1728,11 +1750,20 @@ class SweepConfigPageView(BasePage):
         )
         hh.addWidget(title)
 
-        # Validation status label
+        # Validation status label (also hosts the transient "Saved" toast)
         self._validation_lbl = QLabel()
         hh.addWidget(self._validation_lbl)
 
+        self._save_msg_timer = QTimer(self)
+        self._save_msg_timer.setSingleShot(True)
+        self._save_msg_timer.setInterval(3000)
+        self._save_msg_timer.timeout.connect(self.save_message_expired)
+
         hh.addStretch()
+        self._save_btn = QPushButton("Save Setup")
+        self._save_btn.setStyleSheet(export_btn_stylesheet())
+        self._save_btn.clicked.connect(self._on_save_clicked)
+        hh.addWidget(self._save_btn)
         self._export_btn = QPushButton("Generate JSON")
         self._export_btn.setStyleSheet(export_btn_stylesheet())
         self._export_btn.clicked.connect(self.export_requested)

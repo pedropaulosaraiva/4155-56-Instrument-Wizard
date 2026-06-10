@@ -44,6 +44,9 @@ from wizard_4155_4156.models.project import RecentProjectsManager
 from wizard_4155_4156.presenters.channels_presenter import ChannelsPresenter
 from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
 from wizard_4155_4156.presenters.home_presenter import HomePresenter
+from wizard_4155_4156.presenters.measurements_presenter import (
+    MeasurementsPresenter,
+)
 from wizard_4155_4156.presenters.sweep_config_presenter import (
     SweepConfigPresenter,
 )
@@ -62,10 +65,10 @@ from wizard_4155_4156.views.pages import (
     ChannelsPageView,
     GraphPage,
     HomePageView,
-    MeasurementsPage,
+    MeasurementsPageView,
     Page,
     SweepConfigPageView,
-    TablePage,
+    TablePageView,
 )
 
 
@@ -127,6 +130,17 @@ class MainWindow(QMainWindow):
         )
         self._connector_presenter.data_ready.connect(self.on_data_ready)
         self._connector_presenter.hardware_busy.connect(self.on_hardware_busy)
+
+        # ── MeasurementsPresenter ────────────────────────────────────────────
+        # Orchestrates Setup/Run/Fetch by reading config from the Sweep Config
+        # page (or a loaded file) and delegating hardware I/O to the connector.
+        self._measurements_presenter = MeasurementsPresenter(
+            view=self._measurements_page,
+            sweep_presenter=self._sweep_presenter,
+            connector_presenter=self._connector_presenter,
+            parent=self,
+        )
+
         # Trigger initial bus scan AFTER signal wiring so scan_results
         # reaches the modal's combo box via the connected Slot.
         self._connector_presenter.start()
@@ -187,9 +201,12 @@ class MainWindow(QMainWindow):
         stack.addWidget(self._channels_page)
         self._sweep_page = SweepConfigPageView()  # Page.SWEEP_CONFIG = 2
         stack.addWidget(self._sweep_page)
-        stack.addWidget(MeasurementsPage())  # Page.MEASUREMENTS = 3
+        # Page.MEASUREMENTS = 3
+        self._measurements_page = MeasurementsPageView()
+        stack.addWidget(self._measurements_page)
         stack.addWidget(GraphPage())  # Page.GRAPH        = 4
-        stack.addWidget(TablePage())  # Page.TABLE        = 5
+        self._table_page = TablePageView()  # Page.TABLE        = 5
+        stack.addWidget(self._table_page)
 
         return stack
 
@@ -342,6 +359,9 @@ class MainWindow(QMainWindow):
         self._status_bar.showMessage(
             f"Data received — {len(data)} record(s).", 5000
         )
+        # Surface fetched data first as a table, then switch to that page.
+        self._table_page.display_data(data)
+        self._navigate_to(Page.TABLE)
 
     def on_hardware_busy(self, busy: bool) -> None:
         self._status_indicator.setText(" ● Busy " if busy else " ● Ready ")
