@@ -75,15 +75,16 @@ class SweepConfigPresenter(QObject):
     def __init__(
         self,
         view: SweepConfigPageView,
-        channels_presenter,  # ChannelsPresenter — loose type to avoid circular
+        channels_snapshot,  # ChannelsConfig — static deep-copied snapshot
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._view = view
-        self._channels_presenter = channels_presenter
+        self._channels_config = channels_snapshot
         self._config = SweepConfig()
 
-        # Populated on every page_activated from ChannelsPresenter.get_config()
+        # Derived once from the static channels snapshot (re-derived on
+        # page_activated, which is idempotent against the same snapshot).
         self._ctx: Dict[str, Any] = {
             "instrument_model": "4155C",
             "has_var1": False,
@@ -101,6 +102,8 @@ class SweepConfigPresenter(QObject):
         }
 
         self._connect_view_signals()
+        # Populate the freshly built page before it is first shown.
+        self._on_page_activated()
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
@@ -181,12 +184,12 @@ class SweepConfigPresenter(QObject):
 
     def _rebuild_channel_context(self) -> None:
         """
-        Pull a fresh ChannelsConfig snapshot and derive the full context:
+        Derive the full context from the static ChannelsConfig snapshot:
         which channels are active, their VAR assignments, and sweep units.
         VSU channels assigned to VAR1/VAR2 are flagged with is_vsu=True so
         the view can apply the ±20 V widget bounds instead of ±100 V.
         """
-        ch_cfg = self._channels_presenter.get_config()
+        ch_cfg = self._channels_config
         active: List[dict] = []
         available_vars: List[str] = []
 
@@ -595,7 +598,8 @@ class SweepConfigPresenter(QObject):
 
     def _build_json(self) -> dict:
         """
-        Merge channel context (from ChannelsPresenter) with SweepConfig.
+        Merge channel context (static ChannelsConfig snapshot) with
+        SweepConfig.
 
         JSON conventions:
           "VAR1'"   function key → "VARD"
@@ -604,7 +608,7 @@ class SweepConfigPresenter(QObject):
           Disabled channels      → {"disable": 1}
         """
         cfg = self._config
-        ch_cfg = self._channels_presenter.get_config()
+        ch_cfg = self._channels_config
         channels_json: Dict[str, Any] = {}
 
         for idx in range(1, 5):

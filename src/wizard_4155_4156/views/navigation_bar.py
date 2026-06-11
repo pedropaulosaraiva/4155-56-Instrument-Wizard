@@ -42,7 +42,11 @@ from wizard_4155_4156.views.pages import Page
 _NAV_ITEMS: list[tuple[Page, str, str]] = [
     (Page.HOME, "🏠", "Home"),
     (Page.CHANNELS, "🔌", "Channels"),
-    (Page.SWEEP_CONFIG, "⚙️", "Sweep / Sampling / QSCV Config"),
+    (
+        Page.MEASURE_CONFIG,
+        "⚙️",
+        "Measure Config (generate from the Channels page)",
+    ),
     (Page.MEASUREMENTS, "📋", "Measurements & Run"),
     (Page.GRAPH, "📈", "Graph View"),
     (Page.TABLE, "📊", "Table View"),
@@ -82,6 +86,13 @@ class NavigationBar(QFrame):
         self._group.blockSignals(True)
         self._buttons[page].setChecked(True)
         self._group.blockSignals(False)
+
+    def set_page_enabled(self, page: Page, enabled: bool) -> None:
+        """
+        Enable/disable a page button (e.g. Measure Config stays
+        disabled until a configuration page has been generated).
+        """
+        self._buttons[page].setEnabled(enabled)
 
     # ── Private ──────────────────────────────────────────────────────────────
 

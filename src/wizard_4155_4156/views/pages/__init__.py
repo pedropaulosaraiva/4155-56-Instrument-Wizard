@@ -5,7 +5,7 @@ Public surface of the pages sub-package.
 
 Defines
 -------
-Page      — IntEnum mapping page names to QStackedWidget indices.
+Page      — IntEnum of canonical page identifiers.
 BasePage  — Minimal QWidget contract all page classes must satisfy.
 
 Re-exports all concrete page classes so the rest of the codebase
@@ -17,6 +17,7 @@ uses a single, stable import path:
         HomePageView,
         ChannelsPageView,
         SweepConfigPageView,
+        SamplingConfigPageView,
         MeasurementsPageView,
         GraphPage,
         TablePageView,
@@ -24,9 +25,11 @@ uses a single, stable import path:
 
 Architectural rules enforced here
 ----------------------------------
-1. Page integer values are the single source of truth for
-   QStackedWidget insertion order (MainWindow._build_page_stack
-   must add widgets in the same order).
+1. Page values are stable identifiers only — navigation resolves
+   widgets through MainWindow's page registry (setCurrentWidget),
+   NOT through QStackedWidget indices.  Page.MEASURE_CONFIG is a
+   dynamic slot: its widget is generated lazily by
+   MeasureConfigFactory from the Channels page and may be absent.
 2. BasePage.on_activate() is the only lifecycle hook the
    navigation system calls — pages must not rely on any other
    external trigger to refresh their state.
@@ -48,14 +51,19 @@ class Page(IntEnum):
     """
     Canonical identifiers for every top-level application page.
 
-    The integer value is used directly as the QStackedWidget index, so
-    members must be numbered contiguously starting at 0 and their order
-    must match the widget-insertion order in MainWindow._build_page_stack().
+    Values are stable ids (also used as QButtonGroup ids in the nav
+    bar) — they are NOT QStackedWidget indices.  MainWindow resolves
+    each Page to its widget through its page registry and navigates
+    with setCurrentWidget().
+
+    MEASURE_CONFIG is the dynamic measurement-configuration slot:
+    its widget (sweep or sampling page) is generated lazily by the
+    Channels page "Configure Measure" button.
     """
 
     HOME = 0
     CHANNELS = 1
-    SWEEP_CONFIG = 2
+    MEASURE_CONFIG = 2
     MEASUREMENTS = 3
     GRAPH = 4
     TABLE = 5
@@ -101,6 +109,9 @@ from wizard_4155_4156.views.pages.home_page import HomePageView  # noqa: E402
 from wizard_4155_4156.views.pages.measurements_page import (  # noqa: E402
     MeasurementsPageView,
 )
+from wizard_4155_4156.views.pages.sampling_config_page import (  # noqa: E402
+    SamplingConfigPageView,
+)
 from wizard_4155_4156.views.pages.stub_pages import GraphPage  # noqa: E402
 from wizard_4155_4156.views.pages.sweep_config_page import (  # noqa: E402
     SweepConfigPageView,
@@ -115,10 +126,11 @@ __all__ = [
     # Primitives
     "Page",
     "BasePage",
-    # Concrete pages (insertion order mirrors Page enum)
+    # Concrete pages
     "HomePageView",
     "ChannelsPageView",
     "SweepConfigPageView",
+    "SamplingConfigPageView",
     "MeasurementsPageView",
     "GraphPage",
     "TablePageView",

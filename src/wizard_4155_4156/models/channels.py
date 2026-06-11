@@ -191,10 +191,11 @@ class ChannelsConstraints:
     @staticmethod
     def vmu_usable_in_mode(mode: MeasurementMode) -> bool:
         """
-        VMUs are monitor-only units; in Sampling and QSCV they are
-        disabled in hardware and must be greyed-out in the UI.
+        VMUs are monitor-only units, usable in Sweep and Sampling.
+        Only in QSCV they are disabled in hardware and must be
+        greyed-out in the UI.
         """
-        return mode == MeasurementMode.SWEEP
+        return mode in {MeasurementMode.SWEEP, MeasurementMode.SAMPLING}
 
     @staticmethod
     def smu_functions(mode: MeasurementMode) -> List[UnitFunction]:

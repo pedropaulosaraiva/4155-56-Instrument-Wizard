@@ -46,19 +46,19 @@ class MeasurementsPresenter(QObject):
     def __init__(
         self,
         view: MeasurementsPageView,
-        sweep_presenter,  # SweepConfigPresenter — loose type to avoid cycles
+        config_provider,  # MeasureConfigFactory — loose type to avoid cycles
         connector_presenter,  # ConnectorPresenter — loose type to avoid cycles
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._view = view
-        self._sweep_presenter = sweep_presenter
+        self._config_provider = config_provider
         self._connector_presenter = connector_presenter
 
         self._setup_director = MeasurementSetupDirector()
         self._run_director = MeasurementRunDirector()
 
-        # None ⇒ use the live Sweep Config page; else use this loaded dict.
+        # None ⇒ use the live measure-config page; else use this loaded dict.
         self._loaded_config: Optional[Dict[str, Any]] = None
         self._loaded_name: str = ""
 
@@ -173,7 +173,7 @@ class MeasurementsPresenter(QObject):
             self._view.display_error("")
             return self._loaded_config
         try:
-            config = self._sweep_presenter.get_json()
+            config = self._config_provider.get_json()
         except ValueError as exc:
             self._view.display_error(
                 tr_ui(CommandWizardText.MEAS_CONFIG_ERROR).format(error=exc)
@@ -223,7 +223,7 @@ class MeasurementsPresenter(QObject):
                 tr_ui(CommandWizardText.MEAS_SOURCE_LIVE)
             )
             try:
-                config = self._sweep_presenter.get_json()
+                config = self._config_provider.get_json()
                 self._view.display_config_summary(self._summarize(config))
                 self._view.display_config_preview(config)
             except ValueError:

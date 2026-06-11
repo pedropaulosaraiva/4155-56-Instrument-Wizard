@@ -31,7 +31,7 @@ Model ────────────────────────�
 
 Mode ─────────────────────────────────────────────────────────────
   SWEEP    → SMU: CONST/VAR1/VAR2/VAR1'; VSU: same; VMU: active
-  SAMPLING → SMU: CONST only;            VSU: CONST only; VMU: disabled
+  SAMPLING → SMU: CONST only;            VSU: CONST only; VMU: active
   QSCV     → SMU: CONST/VAR1;            VSU: CONST only; VMU: disabled
 
 SMU mode COMM → function locked to CONST; combo disabled in view.
@@ -343,6 +343,11 @@ class ChannelsPresenter(QObject):
 
     def _on_configure_measure(self) -> None:
         cfg = self._config
+
+        # Never generate a measurement page from an invalid channel layout;
+        # the validation label already shows the blocking error.
+        if ChannelsConstraints.validate_config(cfg):
+            return
 
         channels = {}
 

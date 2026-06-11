@@ -35,8 +35,12 @@ class CommandWizardText(StrEnum):
     MEAS_PAGE_TITLE = "Measurements & Run"
     MEAS_CONFIG_SOURCE = "Configuration Source"
     MEAS_RUN_CONTROLS = "Run Controls"
-    MEAS_SOURCE_LIVE = "Source: Live Sweep Config"
+    MEAS_SOURCE_LIVE = "Source: Live Measure Config"
     MEAS_SOURCE_FILE = "Source: {name}"
+    MEAS_NO_CONFIG = (
+        "No measurement configuration generated. "
+        "Use 'Configure Measure' on the Channels page."
+    )
     MEAS_BTN_LOAD_FILE = "Load setup file…"
     MEAS_BTN_USE_LIVE = "Use live config"
     MEAS_BTN_APPLY_SETUP = "Apply Setup"

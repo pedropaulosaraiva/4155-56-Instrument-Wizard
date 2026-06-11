@@ -41,6 +41,7 @@ class _Palette:
     STATUS_OK: str = "#4ec9b0"
     STATUS_ERROR: str = "#f48771"
     STATUS_WARN: str = "#dcdcaa"
+    STATUS_CAUTION: str = "#ce9178"  # non-blocking warnings (amber)
     STATUS_INFO: str = "#9cdcfe"
 
     # ── Navigation bar ───────────────────────────────────────────────────────

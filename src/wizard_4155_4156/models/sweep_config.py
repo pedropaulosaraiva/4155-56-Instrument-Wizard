@@ -37,7 +37,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # ── Enumerations ─────────────────────────────────────────────────────────────
 
@@ -236,6 +236,66 @@ class SweepConfig:
     channel_standby: Dict[str, bool] = field(default_factory=dict)
     display_vars: List[str] = field(default_factory=list)
     constants: Dict[str, Dict[str, float]] = field(default_factory=dict)
+
+
+# ── Shared validation helpers ────────────────────────────────────────────────
+
+
+def validate_constant_sources(
+    constants: Dict[str, Dict[str, float]],
+    active_channels: List[dict],
+) -> List[str]:
+    """
+    Validate constant-source values and compliances against the hardware
+    limits of each active CONST channel.  Shared by SweepConstraints and
+    SamplingConstraints (models/sampling_config.py).
+    """
+    errors: List[str] = []
+    for ch in active_channels or []:
+        if not (
+            ch.get("function") == "CONST"
+            and ch.get("unit_type") in ("SMU", "VSU")
+            and ch.get("mode") != "COMM"
+        ):
+            continue
+        unit_id = ch["id"]
+        unit_type = ch["unit_type"]
+        mode = ch.get("mode")
+        c_entry = constants.get(unit_id, {})
+        source = c_entry.get("source")
+
+        if source is not None:
+            if unit_type == "VSU":
+                if not (VSU_VOLTAGE_MIN <= source <= VSU_VOLTAGE_MAX):
+                    errors.append(
+                        f"{unit_id} Constant Source: invalid value (range: {VSU_VOLTAGE_MIN:.3g} – {VSU_VOLTAGE_MAX:.3g} V)"
+                    )
+            elif unit_type == "SMU":
+                if mode in ("V", "VPULSE"):
+                    if not (VOLTAGE_MIN <= source <= VOLTAGE_MAX):
+                        errors.append(
+                            f"{unit_id} Constant Source: invalid value (range: {VOLTAGE_MIN:.3g} – {VOLTAGE_MAX:.3g} V)"
+                        )
+                elif mode in ("I", "IPULSE"):
+                    if not (CURRENT_MIN <= source <= CURRENT_MAX):
+                        errors.append(
+                            f"{unit_id} Constant Source: invalid value (range: {CURRENT_MIN:.3g} – {CURRENT_MAX:.3g} A)"
+                        )
+
+        if unit_type == "SMU":
+            compliance = c_entry.get("compliance")
+            if compliance is not None:
+                if mode in ("V", "VPULSE"):
+                    if not (COMP_I_MIN <= compliance <= COMP_I_MAX):
+                        errors.append(
+                            f"{unit_id} Constant Compliance: invalid value (range: {COMP_I_MIN:.3g} – {COMP_I_MAX:.3g} A)"
+                        )
+                elif mode in ("I", "IPULSE"):
+                    if not (COMP_V_MIN <= compliance <= COMP_V_MAX):
+                        errors.append(
+                            f"{unit_id} Constant Compliance: invalid value (range: {COMP_V_MIN:.3g} – {COMP_V_MAX:.3g} V)"
+                        )
+    return errors
 
 
 # ── Constraint rule-set (cross-parameter only) ───────────────────────────────
@@ -534,56 +594,8 @@ class SweepConstraints:
             )
 
         # 7. Constant Sources Validation
-        # TODO: refractor this ugly branch
-        if active_channels:
-            for ch in active_channels:
-                if (
-                    ch.get("function") == "CONST"
-                    and ch.get("unit_type") in ("SMU", "VSU")
-                    and ch.get("mode") != "COMM"
-                ):
-                    unit_id = ch["id"]
-                    unit_type = ch["unit_type"]
-                    mode = ch.get("mode")
-                    c_entry = cfg.constants.get(unit_id, {})
-                    source = c_entry.get("source")
-
-                    if source is not None:
-                        if unit_type == "VSU":
-                            if not (
-                                VSU_VOLTAGE_MIN <= source <= VSU_VOLTAGE_MAX
-                            ):
-                                errors.append(
-                                    f"{unit_id} Constant Source: invalid value (range: {VSU_VOLTAGE_MIN:.3g} – {VSU_VOLTAGE_MAX:.3g} V)"
-                                )
-                        elif unit_type == "SMU":
-                            if mode in ("V", "VPULSE"):
-                                if not (VOLTAGE_MIN <= source <= VOLTAGE_MAX):
-                                    errors.append(
-                                        f"{unit_id} Constant Source: invalid value (range: {VOLTAGE_MIN:.3g} – {VOLTAGE_MAX:.3g} V)"
-                                    )
-                            elif mode in ("I", "IPULSE"):
-                                if not (CURRENT_MIN <= source <= CURRENT_MAX):
-                                    errors.append(
-                                        f"{unit_id} Constant Source: invalid value (range: {CURRENT_MIN:.3g} – {CURRENT_MAX:.3g} A)"
-                                    )
-
-                    if unit_type == "SMU":
-                        compliance = c_entry.get("compliance")
-                        if compliance is not None:
-                            if mode in ("V", "VPULSE"):
-                                if not (
-                                    COMP_I_MIN <= compliance <= COMP_I_MAX
-                                ):
-                                    errors.append(
-                                        f"{unit_id} Constant Compliance: invalid value (range: {COMP_I_MIN:.3g} – {COMP_I_MAX:.3g} A)"
-                                    )
-                            elif mode in ("I", "IPULSE"):
-                                if not (
-                                    COMP_V_MIN <= compliance <= COMP_V_MAX
-                                ):
-                                    errors.append(
-                                        f"{unit_id} Constant Compliance: invalid value (range: {COMP_V_MIN:.3g} – {COMP_V_MAX:.3g} V)"
-                                    )
+        errors.extend(
+            validate_constant_sources(cfg.constants, active_channels)
+        )
 
         return errors

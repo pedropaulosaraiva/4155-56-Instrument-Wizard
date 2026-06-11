@@ -150,6 +150,10 @@ def nav_button_stylesheet() -> str:
         QToolButton:pressed {{
             background-color: {P.ACCENT_MUTED};
         }}
+        QToolButton:disabled {{
+            background-color: transparent;
+            color: {P.TEXT_MUTED};
+        }}
     """
 
 
@@ -739,9 +743,15 @@ def unit_card_line_edit_stylesheet() -> str:
 
 def validation_status_stylesheet(state: str) -> str:
     """
-    state can be 'valid' (green) or 'warning' (yellow).
+    state can be 'valid' (green), 'caution' (amber, non-blocking
+    warnings) or 'warning' (yellow, blocking errors).
     """
-    color = P.STATUS_OK if state == "valid" else P.STATUS_WARN
+    if state == "valid":
+        color = P.STATUS_OK
+    elif state == "caution":
+        color = P.STATUS_CAUTION
+    else:
+        color = P.STATUS_WARN
     return f"""
         QLabel {{
             color: {color};

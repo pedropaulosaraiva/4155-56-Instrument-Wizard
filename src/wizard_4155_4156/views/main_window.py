@@ -25,8 +25,6 @@ Responsibilities
 - Expose on_data_ready / on_hardware_busy for connector widget signals.
 """
 
-import json
-
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFrame,
@@ -44,11 +42,11 @@ from wizard_4155_4156.models.project import RecentProjectsManager
 from wizard_4155_4156.presenters.channels_presenter import ChannelsPresenter
 from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
 from wizard_4155_4156.presenters.home_presenter import HomePresenter
+from wizard_4155_4156.presenters.measure_config_factory import (
+    MeasureConfigFactory,
+)
 from wizard_4155_4156.presenters.measurements_presenter import (
     MeasurementsPresenter,
-)
-from wizard_4155_4156.presenters.sweep_config_presenter import (
-    SweepConfigPresenter,
 )
 from wizard_4155_4156.styles.stylesheets import (
     application_stylesheet,
@@ -67,7 +65,6 @@ from wizard_4155_4156.views.pages import (
     HomePageView,
     MeasurementsPageView,
     Page,
-    SweepConfigPageView,
     TablePageView,
 )
 
@@ -110,16 +107,16 @@ class MainWindow(QMainWindow):
             self._on_measure_configured
         )
 
-        # ── SweepConfigPresenter ─────────────────────────────────────────────
-        # Reads ChannelsPresenter.get_config() on every page_activated so the
-        # channel context (VAR assignments, units) is always fresh.
-        # Call self._sweep_presenter.get_json() from MeasurementsPresenter
-        # when triggering a measurement sequence.
-        self._sweep_presenter = SweepConfigPresenter(
-            view=self._sweep_page,
+        # ── MeasureConfigFactory ─────────────────────────────────────────────
+        # Lazily generates the measurement-config page (sweep or sampling)
+        # from a static channels snapshot each time "Configure Measure" is
+        # clicked.  No page exists until then — the nav button stays
+        # disabled.
+        self._measure_factory = MeasureConfigFactory(
             channels_presenter=self._channels_presenter,
             parent=self,
         )
+        self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, False)
 
         # ── ConnectorPresenter ───────────────────────────────────────────────
         # Owns GPIB41xxController + single-thread QThreadPool.
@@ -132,11 +129,12 @@ class MainWindow(QMainWindow):
         self._connector_presenter.hardware_busy.connect(self.on_hardware_busy)
 
         # ── MeasurementsPresenter ────────────────────────────────────────────
-        # Orchestrates Setup/Run/Fetch by reading config from the Sweep Config
-        # page (or a loaded file) and delegating hardware I/O to the connector.
+        # Orchestrates Setup/Run/Fetch by reading config from the generated
+        # measure-config page (or a loaded file) and delegating hardware
+        # I/O to the connector.
         self._measurements_presenter = MeasurementsPresenter(
             view=self._measurements_page,
-            sweep_presenter=self._sweep_presenter,
+            config_provider=self._measure_factory,
             connector_presenter=self._connector_presenter,
             parent=self,
         )
@@ -189,24 +187,33 @@ class MainWindow(QMainWindow):
 
     def _build_page_stack(self) -> QStackedWidget:
         """
-        Widgets are inserted at the integer value of their Page enum member.
-        The order MUST match Page(IntEnum).
+        Pages are resolved through self._page_widgets (Page → widget),
+        NOT through stack indices.  Page.MEASURE_CONFIG starts empty —
+        its widget is generated lazily by MeasureConfigFactory when
+        "Configure Measure" is clicked on the Channels page.
         """
         stack = QStackedWidget()
 
-        self._home_page = HomePageView()  # Page.HOME  = 0
+        self._home_page = HomePageView()
         stack.addWidget(self._home_page)
 
-        self._channels_page = ChannelsPageView()  # Page.CHANNELS = 1
+        self._channels_page = ChannelsPageView()
         stack.addWidget(self._channels_page)
-        self._sweep_page = SweepConfigPageView()  # Page.SWEEP_CONFIG = 2
-        stack.addWidget(self._sweep_page)
-        # Page.MEASUREMENTS = 3
         self._measurements_page = MeasurementsPageView()
         stack.addWidget(self._measurements_page)
-        stack.addWidget(GraphPage())  # Page.GRAPH        = 4
-        self._table_page = TablePageView()  # Page.TABLE        = 5
+        self._graph_page = GraphPage()
+        stack.addWidget(self._graph_page)
+        self._table_page = TablePageView()
         stack.addWidget(self._table_page)
+
+        self._page_widgets: dict[Page, QWidget | None] = {
+            Page.HOME: self._home_page,
+            Page.CHANNELS: self._channels_page,
+            Page.MEASURE_CONFIG: None,  # generated lazily
+            Page.MEASUREMENTS: self._measurements_page,
+            Page.GRAPH: self._graph_page,
+            Page.TABLE: self._table_page,
+        }
 
         return stack
 
@@ -287,9 +294,15 @@ class MainWindow(QMainWindow):
     # =========================================================================
 
     def _navigate_to(self, page: Page) -> None:
-        self._stack.setCurrentIndex(int(page))
+        widget = self._page_widgets.get(page)
+        if widget is None:
+            # Dynamic slot not generated yet (Measure Config).
+            self._status_bar.showMessage(
+                "Configure a measurement from the Channels page first.", 3000
+            )
+            return
+        self._stack.setCurrentWidget(widget)
         # Let the page react to becoming visible
-        widget = self._stack.currentWidget()
         if isinstance(widget, BasePage):
             widget.on_activate()
         # Keep nav bar in sync when navigation is triggered programmatically
@@ -311,13 +324,36 @@ class MainWindow(QMainWindow):
         self._status_bar.showMessage("New project requested…", 3000)
         # TODO: switch to project editor / wizard page
 
-    def _on_measure_configured(self, config_dict: dict) -> None:
-        json_str = json.dumps(config_dict, indent=4)
-        print(json_str)
+    def _on_measure_configured(self, _config_dict: dict) -> None:
+        """
+        "Configure Measure" clicked on the Channels page: discard any
+        previously generated measure-config page and build a fresh one
+        from the current channels snapshot, then navigate to it.
+        """
+        old_page = self._measure_factory.current_page()
+        if old_page is not None:
+            # Remove from the stack BEFORE deleting so Qt never paints
+            # a dying widget.
+            self._stack.removeWidget(old_page)
+            old_page.deleteLater()
+        self._page_widgets[Page.MEASURE_CONFIG] = None
+
+        new_page = self._measure_factory.generate()
+        if new_page is None:
+            # Unsupported mode (QSCV) — keep the slot empty.
+            self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, False)
+            self._status_bar.showMessage(
+                "QSCV configuration is not yet supported.", 5000
+            )
+            return
+
+        self._stack.addWidget(new_page)
+        self._page_widgets[Page.MEASURE_CONFIG] = new_page
+        self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, True)
+        self._navigate_to(Page.MEASURE_CONFIG)
         self._status_bar.showMessage(
-            "Measurement configuration generated.", 5000
+            "Measurement configuration page generated.", 5000
         )
-        # TODO: Save this dict in a persistent variable of the main window
 
     # =========================================================================
     # Menu handlers (delegate to presenter where possible)
