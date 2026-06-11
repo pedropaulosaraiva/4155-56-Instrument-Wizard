@@ -14,7 +14,7 @@ Layout
 │   ── SOURCE MONITOR UNITS ──────────────────────    │
 │   [SMU1] [SMU2] [SMU3] [SMU4]                       │
 │   ── VOLTAGE MONITOR UNITS ─────────────────────    │
-│   [VMU1] [VMU2]          (hidden for 4155 models)   │
+│   [VMU1] [VMU2]                                     │
 │   ── VOLTAGE SOURCE UNITS ──────────────────────    │
 │   [VSU1] [VSU2]                                     │
 └─────────────────────────────────────────────────────┘
@@ -22,16 +22,16 @@ Layout
 MVP rules
 ---------
 - No model imports (ChannelsConfig etc.) — view only receives/emits primitives.
-- blockSignals(True/False) wraps every widget write in display_* methods to
-  prevent re-entrant signal emission back to the presenter.
+- QSignalBlocker wraps every widget write in display_* methods to prevent
+  re-entrant signal emission back to the presenter.
 - All QSS comes from stylesheets.py; no hex literals appear here.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import override
 
-from PySide6.QtCore import QRegularExpression, Qt, Signal
+from PySide6.QtCore import QRegularExpression, QSignalBlocker, Qt, Signal, Slot
 from PySide6.QtGui import QRegularExpressionValidator
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.stylesheets import (
     bottom_panel_stylesheet,
     channels_page_stylesheet,
@@ -59,19 +60,21 @@ from wizard_4155_4156.styles.stylesheets import (
     unit_card_disabled_stylesheet,
     unit_card_enabled_stylesheet,
     unit_card_line_edit_stylesheet,
+    unit_card_mode_badge_stylesheet,
+    unit_card_note_stylesheet,
     unit_card_row_label_stylesheet,
     unit_card_separator_stylesheet,
-    unit_card_title_stylesheet,
     unit_enable_checkbox_stylesheet,
     unit_group_header_stylesheet,
     unit_group_separator_stylesheet,
+    units_container_stylesheet,
+    units_scroll_area_stylesheet,
+    units_scroll_viewport_stylesheet,
     validation_status_stylesheet,
 )
-from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
 
 # ── Internal helpers ─────────────────────────────────────────────────────────
-
 _NAME_VALIDATOR = QRegularExpressionValidator(
     QRegularExpression(r"[A-Za-z_][A-Za-z0-9_]{0,5}")
 )
@@ -80,42 +83,34 @@ _LABEL_WIDTH = 68
 _ROW_HEIGHT = 26
 
 
-def _set_combo(combo: QComboBox, value: str) -> None:
-    """
-    Select the item whose userData matches *value* without emitting signals.
-    """
-    combo.blockSignals(True)
-    idx = combo.findData(value)
-    if idx >= 0:
-        combo.setCurrentIndex(idx)
-    combo.blockSignals(False)
+def _set_combo_signal_free(combo: QComboBox, value: str) -> None:
+    with QSignalBlocker(combo):
+        idx = combo.findData(value)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
 
 
-def _populate_combo(
+def _populate_combo_signal_free(
     combo: QComboBox,
-    items: List[str],  # display text == userData for enum values
+    items: list[str],  # display text == userData for enum values
     current: str = "",
 ) -> None:
-    """Rebuild combo items and restore selection, signal-free."""
-    combo.blockSignals(True)
-    combo.clear()
-    for item in items:
-        combo.addItem(item, item)
-    idx = combo.findData(current)
-    combo.setCurrentIndex(max(idx, 0))
-    combo.blockSignals(False)
+    with QSignalBlocker(combo):
+        combo.clear()
+        for item in items:
+            combo.addItem(item, item)
+        idx = combo.findData(current)
+        combo.setCurrentIndex(max(idx, 0))
 
 
-def _set_check(cb: QCheckBox, state: bool) -> None:
-    cb.blockSignals(True)
-    cb.setChecked(state)
-    cb.blockSignals(False)
+def _set_checkbox_signal_free(checkbox: QCheckBox, state: bool) -> None:
+    with QSignalBlocker(checkbox):
+        checkbox.setChecked(state)
 
 
-def _set_text(edit: QLineEdit, text: str) -> None:
-    edit.blockSignals(True)
-    edit.setText(text)
-    edit.blockSignals(False)
+def _set_linetxt_signal_free(linetxt: QLineEdit, text: str) -> None:
+    with QSignalBlocker(linetxt):
+        linetxt.setText(text)
 
 
 def _make_row(
@@ -126,14 +121,15 @@ def _make_row(
     """Return a fixed-label + control row widget."""
     row = QWidget()
     row.setFixedHeight(_ROW_HEIGHT)
-    h = QHBoxLayout(row)
-    h.setContentsMargins(0, 0, 0, 0)
-    h.setSpacing(6)
-    lbl = QLabel(label_text)
-    lbl.setFixedWidth(label_width)
-    lbl.setStyleSheet(unit_card_row_label_stylesheet())
-    h.addWidget(lbl)
-    h.addWidget(control, stretch=1)
+    row_layout = QHBoxLayout(row)
+    row_layout.setContentsMargins(0, 0, 0, 0)
+    row_layout.setSpacing(6)
+    label = QLabel(label_text)
+    label.setFixedWidth(label_width)
+    # TODO: Correct background color
+    label.setStyleSheet(unit_card_row_label_stylesheet())
+    row_layout.addWidget(label)
+    row_layout.addWidget(control, stretch=1)
     return row
 
 
@@ -141,28 +137,33 @@ def _make_name_edit() -> QLineEdit:
     edit = QLineEdit()
     edit.setMaxLength(6)
     edit.setValidator(_NAME_VALIDATOR)
+    # TODO: Correct background color
     edit.setStyleSheet(unit_card_line_edit_stylesheet())
     return edit
 
 
 # ── Unit cards ───────────────────────────────────────────────────────────────
-
-
-class SMUCard(QFrame):
+class _BaseUnitCard(QFrame):
     """
-    Configuration card for one SMU channel.
+    Shared shell for SMU/VMU/VSU configuration cards.
 
-    Signals (user intents → ChannelsPageView → ChannelsPresenter)
+    Owns the common card chrome (header checkbox, separator, content
+    container), hover/enable styling, and the enable-toggle behavior.
+    Subclasses declare their own user-intent signals and fill in their
+    specific rows via _setup_content(); optional hooks _extend_header(),
+    _apply_content_styles() and _wire_content() cover the rest.
     """
 
     enabled_toggled = Signal(bool)
-    mode_changed = Signal(str)  # SMUMode.value
-    function_changed = Signal(str)  # UnitFunction.value
-    vname_changed = Signal(str)
-    iname_changed = Signal(str)
 
-    def __init__(self, index: int, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        prefix: str,
+        index: int,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
+        self._prefix = prefix
         self._index = index
         self._enabled = True
         self._hovered = False
@@ -178,6 +179,115 @@ class SMUCard(QFrame):
 
     # ── Display API ──────────────────────────────────────────────────────────
 
+    def display_mode_usable(self, usable: bool) -> None:
+        """Enable/disable the whole card from mode-based restrictions."""
+        self.setEnabled(usable)
+
+    # ── Construction ─────────────────────────────────────────────────────────
+
+    def _setup_ui(self) -> None:
+        root = QVBoxLayout(self)
+        root.setContentsMargins(10, 10, 10, 10)
+        root.setSpacing(6)
+
+        # Header: enable checkbox + optional trailing widgets
+        header = QWidget()
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(8)
+        self._enable_cb = QCheckBox(f"{self._prefix}{self._index}")
+        self._enable_cb.setChecked(True)
+        header_layout.addWidget(self._enable_cb)
+        header_layout.addStretch()
+        self._extend_header(header_layout)
+        root.addWidget(header)
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setStyleSheet(unit_card_separator_stylesheet())
+        root.addWidget(separator)
+
+        # Content is disabled when card is user-disabled
+        self._content = QWidget()
+        content_layout = QVBoxLayout(self._content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(4)
+        self._setup_content(content_layout)
+        root.addWidget(self._content)
+
+    def _extend_header(self, header_layout: QHBoxLayout) -> None:
+        """Hook: append trailing header widgets (e.g. a static badge)."""
+
+    def _setup_content(self, content_layout: QVBoxLayout) -> None:
+        """Build the card's specific rows into the content layout."""
+        raise NotImplementedError
+
+    def _apply_styles(self) -> None:
+        self.setStyleSheet(unit_card_enabled_stylesheet())
+        self._enable_cb.setStyleSheet(unit_enable_checkbox_stylesheet())
+        self._apply_content_styles()
+
+    def _apply_content_styles(self) -> None:
+        """Hook: style content-specific widgets (combos)."""
+
+    def _wire_internal(self) -> None:
+        self._enable_cb.toggled.connect(self._on_enable_toggled)
+        self._wire_content()
+
+    def _wire_content(self) -> None:
+        """Hook: wire content-specific widget signals."""
+
+    # ── Shared behavior ──────────────────────────────────────────────────────
+
+    def _update_enable_label(self, enabled: bool) -> None:
+        label = f"{self._prefix}{self._index}"
+        self._enable_cb.setText(label if enabled else f"{label} (disabled)")
+
+    @Slot(bool)
+    def _on_enable_toggled(self, checked: bool) -> None:
+        self._enabled = checked
+        self._content.setEnabled(checked)
+        self._refresh_card_style(checked)
+        self._update_enable_label(checked)
+        self.enabled_toggled.emit(checked)
+
+    def _refresh_card_style(self, enabled: bool) -> None:
+        self.setStyleSheet(
+            unit_card_enabled_stylesheet(self._hovered)
+            if enabled
+            else unit_card_disabled_stylesheet(self._hovered)
+        )
+
+    def enterEvent(self, event) -> None:  # noqa: N802
+        self._hovered = True
+        self._refresh_card_style(self._enabled)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        self._hovered = False
+        self._refresh_card_style(self._enabled)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and not self._enable_cb.underMouse()
+        ):
+            self._enable_cb.setChecked(not self._enabled)
+        super().mousePressEvent(event)
+
+
+class SMUCard(_BaseUnitCard):
+    mode_changed = Signal(str)  # SMUMode.value
+    function_changed = Signal(str)  # UnitFunction.value
+    vname_changed = Signal(str)
+    iname_changed = Signal(str)
+
+    def __init__(self, index: int, parent: QWidget | None = None) -> None:
+        super().__init__("SMU", index, parent)
+
+    # ── Display API ──────────────────────────────────────────────────────────
+
     def display_state(
         self,
         enabled: bool,
@@ -187,151 +297,63 @@ class SMUCard(QFrame):
         current_name: str,
     ) -> None:
         self._enabled = enabled
-        _set_check(self._enable_cb, enabled)
+        _set_checkbox_signal_free(self._enable_cb, enabled)
         self._content.setEnabled(enabled)
-        _set_combo(self._mode_combo, mode)
-        _set_combo(self._func_combo, function)
-        _set_text(self._vname_edit, voltage_name)
-        _set_text(self._iname_edit, current_name)
+        _set_combo_signal_free(self._mode_combo, mode)
+        _set_combo_signal_free(self._func_combo, function)
+        _set_linetxt_signal_free(self._vname_edit, voltage_name)
+        _set_linetxt_signal_free(self._iname_edit, current_name)
         self._refresh_card_style(enabled)
-        if enabled:
-            self._enable_cb.setText(f"SMU{self._index}")
-        else:
-            self._enable_cb.setText(f"SMU{self._index} (disabled)")
+        self._update_enable_label(enabled)
 
-    def display_available_functions(self, functions: List[str]) -> None:
+    def display_available_functions(self, functions: list[str]) -> None:
         current = self._func_combo.currentData() or ""
-        _populate_combo(self._func_combo, functions, current)
+        _populate_combo_signal_free(self._func_combo, functions, current)
 
     def display_function_locked(self, locked: bool) -> None:
         """Disable function combo when SMU mode is COMM."""
         self._func_combo.setEnabled(not locked)
         if locked:
-            _set_combo(self._func_combo, "CONST")
+            _set_combo_signal_free(self._func_combo, "CONST")
 
-    def display_mode_usable(self, usable: bool) -> None:
-        """Called for mode-based restrictions (not user toggle)."""
-        self.setEnabled(usable)
+    # ── Construction ─────────────────────────────────────────────────────────
 
-    # ── Private ──────────────────────────────────────────────────────────────
-
-    def _setup_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(6)
-
-        # Header: enable LED + title
-        header = QWidget()
-        hh = QHBoxLayout(header)
-        hh.setContentsMargins(0, 0, 0, 0)
-        hh.setSpacing(8)
-        self._enable_cb = QCheckBox(f"SMU{self._index}")
-        self._enable_cb.setChecked(True)
-        hh.addWidget(self._enable_cb)
-        hh.addStretch()
-        root.addWidget(header)
-
-        # Separator
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(unit_card_separator_stylesheet())
-        root.addWidget(sep)
-
-        # Content (disabled when card is user-disabled)
-        self._content = QWidget()
-        cv = QVBoxLayout(self._content)
-        cv.setContentsMargins(0, 0, 0, 0)
-        cv.setSpacing(4)
-
+    def _setup_content(self, content_layout: QVBoxLayout) -> None:
         self._mode_combo = QComboBox()
-        for m in ("V", "I", "VPULSE", "IPULSE", "COMM"):
-            self._mode_combo.addItem(m, m)
-        cv.addWidget(_make_row("Mode", self._mode_combo))
+        for mode_value in ("V", "I", "VPULSE", "IPULSE", "COMM"):
+            self._mode_combo.addItem(mode_value, mode_value)
+        content_layout.addWidget(_make_row("Mode", self._mode_combo))
 
         self._func_combo = QComboBox()
-        for f in ("CONST", "VAR1", "VAR2", "VAR1'"):
-            self._func_combo.addItem(f, f)
-        cv.addWidget(_make_row("Function", self._func_combo))
+        for function_value in ("CONST", "VAR1", "VAR2", "VAR1'"):
+            self._func_combo.addItem(function_value, function_value)
+        content_layout.addWidget(_make_row("Function", self._func_combo))
 
         self._vname_edit = _make_name_edit()
-        cv.addWidget(_make_row("V-Name", self._vname_edit))
+        content_layout.addWidget(_make_row("V-Name", self._vname_edit))
 
         self._iname_edit = _make_name_edit()
-        cv.addWidget(_make_row("I-Name", self._iname_edit))
+        content_layout.addWidget(_make_row("I-Name", self._iname_edit))
 
-        root.addWidget(self._content)
-
-    def _apply_styles(self) -> None:
-        self.setStyleSheet(unit_card_enabled_stylesheet())
-        self._enable_cb.setStyleSheet(unit_enable_checkbox_stylesheet())
+    def _apply_content_styles(self) -> None:
         self._mode_combo.setStyleSheet(unit_card_combo_stylesheet())
         self._func_combo.setStyleSheet(unit_card_combo_stylesheet())
 
-    def _wire_internal(self) -> None:
-        self._enable_cb.toggled.connect(self._on_enable_toggled)
+    def _wire_content(self) -> None:
         self._mode_combo.currentTextChanged.connect(self.mode_changed)
         self._func_combo.currentTextChanged.connect(self.function_changed)
         self._vname_edit.textChanged.connect(self.vname_changed)
         self._iname_edit.textChanged.connect(self.iname_changed)
 
-    def _on_enable_toggled(self, checked: bool) -> None:
-        self._enabled = checked
-        self._content.setEnabled(checked)
-        self._refresh_card_style(checked)
-        if checked:
-            self._enable_cb.setText(f"SMU{self._index}")
-        else:
-            self._enable_cb.setText(f"SMU{self._index} (disabled)")
-        self.enabled_toggled.emit(checked)
 
-    def _refresh_card_style(self, enabled: bool) -> None:
-        self.setStyleSheet(
-            unit_card_enabled_stylesheet(self._hovered)
-            if enabled
-            else unit_card_disabled_stylesheet(self._hovered)
-        )
-
-    def enterEvent(self, event) -> None:  # noqa: N802
-        self._hovered = True
-        self._refresh_card_style(self._enabled)
-        super().enterEvent(event)
-
-    def leaveEvent(self, event) -> None:  # noqa: N802
-        self._hovered = False
-        self._refresh_card_style(self._enabled)
-        super().leaveEvent(event)
-
-    def mousePressEvent(self, event) -> None:  # noqa: N802
-        if (
-            event.button() == Qt.MouseButton.LeftButton
-            and not self._enable_cb.underMouse()
-        ):
-            self._enable_cb.setChecked(not self._enabled)
-        super().mousePressEvent(event)
-
-
-class VMUCard(QFrame):
-    """Configuration card for one VMU channel."""
-
-    enabled_toggled = Signal(bool)
+class VMUCard(_BaseUnitCard):
     mode_changed = Signal(str)
     vname_changed = Signal(str)
 
     def __init__(self, index: int, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._index = index
-        self._enabled = True
-        self._hovered = False
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setObjectName("unit_card")
-        self.setFixedWidth(_CARD_WIDTH)
-        self.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum
-        )
-        self._setup_ui()
-        self._apply_styles()
-        self._wire_internal()
+        super().__init__("VMU", index, parent)
 
+    # ── Display API ──────────────────────────────────────────────────────────
     def display_state(
         self,
         enabled: bool,
@@ -339,130 +361,42 @@ class VMUCard(QFrame):
         voltage_name: str,
     ) -> None:
         self._enabled = enabled
-        _set_check(self._enable_cb, enabled)
+        _set_checkbox_signal_free(self._enable_cb, enabled)
         self._content.setEnabled(enabled)
-        _set_combo(self._mode_combo, mode)
-        _set_text(self._vname_edit, voltage_name)
+        _set_combo_signal_free(self._mode_combo, mode)
+        _set_linetxt_signal_free(self._vname_edit, voltage_name)
         self._refresh_card_style(enabled)
-        if enabled:
-            self._enable_cb.setText(f"VMU{self._index}")
-        else:
-            self._enable_cb.setText(f"VMU{self._index} (disabled)")
+        self._update_enable_label(enabled)
 
-    def display_mode_usable(self, usable: bool) -> None:
-        """Called when measurement mode disables VMU (Sampling / QSCV)."""
-        self.setEnabled(usable)
-
-    def _setup_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(6)
-
-        header = QWidget()
-        hh = QHBoxLayout(header)
-        hh.setContentsMargins(0, 0, 0, 0)
-        hh.setSpacing(8)
-        self._enable_cb = QCheckBox(f"VMU{self._index}")
-        self._enable_cb.setChecked(True)
-        hh.addWidget(self._enable_cb)
-        hh.addStretch()
-        root.addWidget(header)
-
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(unit_card_separator_stylesheet())
-        root.addWidget(sep)
-
-        self._content = QWidget()
-        cv = QVBoxLayout(self._content)
-        cv.setContentsMargins(0, 0, 0, 0)
-        cv.setSpacing(4)
-
+    # ── Private ──────────────────────────────────────────────────────────
+    def _setup_content(self, content_layout: QVBoxLayout) -> None:
         self._mode_combo = QComboBox()
-        for m in ("V", "DVOLT"):
-            self._mode_combo.addItem(m, m)
-        cv.addWidget(_make_row("Mode", self._mode_combo))
+        for mode_value in ("V", "DVOLT"):
+            self._mode_combo.addItem(mode_value, mode_value)
+        content_layout.addWidget(_make_row("Mode", self._mode_combo))
 
         self._vname_edit = _make_name_edit()
-        cv.addWidget(_make_row("V-Name", self._vname_edit))
+        content_layout.addWidget(_make_row("V-Name", self._vname_edit))
 
         # Informational label — VMUs have no sweep function
         note = QLabel("Monitor only — no function")
-        note.setStyleSheet(
-            f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
-            "background: transparent; font-style: italic;"
-        )
-        cv.addWidget(note)
+        note.setStyleSheet(unit_card_note_stylesheet())
+        content_layout.addWidget(note)
 
-        root.addWidget(self._content)
-
-    def _apply_styles(self) -> None:
-        self.setStyleSheet(unit_card_enabled_stylesheet())
-        self._enable_cb.setStyleSheet(unit_enable_checkbox_stylesheet())
+    def _apply_content_styles(self) -> None:
         self._mode_combo.setStyleSheet(unit_card_combo_stylesheet())
 
-    def _wire_internal(self) -> None:
-        self._enable_cb.toggled.connect(self._on_enable_toggled)
+    def _wire_content(self) -> None:
         self._mode_combo.currentTextChanged.connect(self.mode_changed)
         self._vname_edit.textChanged.connect(self.vname_changed)
 
-    def _on_enable_toggled(self, checked: bool) -> None:
-        self._enabled = checked
-        self._content.setEnabled(checked)
-        self._refresh_card_style(checked)
-        if checked:
-            self._enable_cb.setText(f"VMU{self._index}")
-        else:
-            self._enable_cb.setText(f"VMU{self._index} (disabled)")
-        self.enabled_toggled.emit(checked)
 
-    def _refresh_card_style(self, enabled: bool) -> None:
-        self.setStyleSheet(
-            unit_card_enabled_stylesheet(self._hovered)
-            if enabled
-            else unit_card_disabled_stylesheet(self._hovered)
-        )
-
-    def enterEvent(self, event) -> None:  # noqa: N802
-        self._hovered = True
-        self._refresh_card_style(self._enabled)
-        super().enterEvent(event)
-
-    def leaveEvent(self, event) -> None:  # noqa: N802
-        self._hovered = False
-        self._refresh_card_style(self._enabled)
-        super().leaveEvent(event)
-
-    def mousePressEvent(self, event) -> None:  # noqa: N802
-        if (
-            event.button() == Qt.MouseButton.LeftButton
-            and not self._enable_cb.underMouse()
-        ):
-            self._enable_cb.setChecked(not self._enabled)
-        super().mousePressEvent(event)
-
-
-class VSUCard(QFrame):
-    """Configuration card for one VSU channel."""
-
-    enabled_toggled = Signal(bool)
+class VSUCard(_BaseUnitCard):
     function_changed = Signal(str)
     vname_changed = Signal(str)
 
     def __init__(self, index: int, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._index = index
-        self._enabled = True
-        self._hovered = False
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setObjectName("unit_card")
-        self.setFixedWidth(_CARD_WIDTH)
-        self.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum
-        )
-        self._setup_ui()
-        self._apply_styles()
-        self._wire_internal()
+        super().__init__("VSU", index, parent)
 
     def display_state(
         self,
@@ -471,114 +405,42 @@ class VSUCard(QFrame):
         voltage_name: str,
     ) -> None:
         self._enabled = enabled
-        _set_check(self._enable_cb, enabled)
+        _set_checkbox_signal_free(self._enable_cb, enabled)
         self._content.setEnabled(enabled)
-        _set_combo(self._func_combo, function)
-        _set_text(self._vname_edit, voltage_name)
+        _set_combo_signal_free(self._func_combo, function)
+        _set_linetxt_signal_free(self._vname_edit, voltage_name)
         self._refresh_card_style(enabled)
-        if enabled:
-            self._enable_cb.setText(f"VSU{self._index}")
-        else:
-            self._enable_cb.setText(f"VSU{self._index} (disabled)")
+        self._update_enable_label(enabled)
 
-    def display_available_functions(self, functions: List[str]) -> None:
+    def display_available_functions(self, functions: list[str]) -> None:
         current = self._func_combo.currentData() or ""
-        _populate_combo(self._func_combo, functions, current)
+        _populate_combo_signal_free(self._func_combo, functions, current)
 
-    def _setup_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(6)
-
-        header = QWidget()
-        hh = QHBoxLayout(header)
-        hh.setContentsMargins(0, 0, 0, 0)
-        hh.setSpacing(8)
-        self._enable_cb = QCheckBox(f"VSU{self._index}")
-        self._enable_cb.setChecked(True)
-        hh.addWidget(self._enable_cb)
-        hh.addStretch()
-
+    @override
+    def _extend_header(self, header_layout: QHBoxLayout) -> None:
         # VSU mode is always V — show as a static badge
         mode_badge = QLabel("V")
-        mode_badge.setStyleSheet(
-            f"color: {P.ACCENT_HOVER}; font-size: {P.FONT_SIZE_XS}; "
-            f"font-weight: bold; background: {P.ACCENT_MUTED}; "
-            f"padding: 1px 6px; border-radius: {P.RADIUS_SM};"
-        )
-        hh.addWidget(mode_badge)
+        mode_badge.setStyleSheet(unit_card_mode_badge_stylesheet())
+        header_layout.addWidget(mode_badge)
 
-        root.addWidget(header)
-
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(unit_card_separator_stylesheet())
-        root.addWidget(sep)
-
-        self._content = QWidget()
-        cv = QVBoxLayout(self._content)
-        cv.setContentsMargins(0, 0, 0, 0)
-        cv.setSpacing(4)
-
+    def _setup_content(self, content_layout: QVBoxLayout) -> None:
         self._func_combo = QComboBox()
-        for f in ("CONST", "VAR1", "VAR2", "VAR1'"):
-            self._func_combo.addItem(f, f)
-        cv.addWidget(_make_row("Function", self._func_combo))
+        for function_value in ("CONST", "VAR1", "VAR2", "VAR1'"):
+            self._func_combo.addItem(function_value, function_value)
+        content_layout.addWidget(_make_row("Function", self._func_combo))
 
         self._vname_edit = _make_name_edit()
-        cv.addWidget(_make_row("V-Name", self._vname_edit))
+        content_layout.addWidget(_make_row("V-Name", self._vname_edit))
 
-        root.addWidget(self._content)
-
-    def _apply_styles(self) -> None:
-        self.setStyleSheet(unit_card_enabled_stylesheet())
-        self._enable_cb.setStyleSheet(unit_enable_checkbox_stylesheet())
+    def _apply_content_styles(self) -> None:
         self._func_combo.setStyleSheet(unit_card_combo_stylesheet())
 
-    def _wire_internal(self) -> None:
-        self._enable_cb.toggled.connect(self._on_enable_toggled)
+    def _wire_content(self) -> None:
         self._func_combo.currentTextChanged.connect(self.function_changed)
         self._vname_edit.textChanged.connect(self.vname_changed)
 
-    def _on_enable_toggled(self, checked: bool) -> None:
-        self._enabled = checked
-        self._content.setEnabled(checked)
-        self._refresh_card_style(checked)
-        if checked:
-            self._enable_cb.setText(f"VSU{self._index}")
-        else:
-            self._enable_cb.setText(f"VSU{self._index} (disabled)")
-        self.enabled_toggled.emit(checked)
-
-    def _refresh_card_style(self, enabled: bool) -> None:
-        self.setStyleSheet(
-            unit_card_enabled_stylesheet(self._hovered)
-            if enabled
-            else unit_card_disabled_stylesheet(self._hovered)
-        )
-
-    def enterEvent(self, event) -> None:  # noqa: N802
-        self._hovered = True
-        self._refresh_card_style(self._enabled)
-        super().enterEvent(event)
-
-    def leaveEvent(self, event) -> None:  # noqa: N802
-        self._hovered = False
-        self._refresh_card_style(self._enabled)
-        super().leaveEvent(event)
-
-    def mousePressEvent(self, event) -> None:  # noqa: N802
-        if (
-            event.button() == Qt.MouseButton.LeftButton
-            and not self._enable_cb.underMouse()
-        ):
-            self._enable_cb.setChecked(not self._enabled)
-        super().mousePressEvent(event)
-
 
 # ── Configuration panel ──────────────────────────────────────────────────────
-
-
 class _ConfigPanel(QFrame):
     """
     Fixed top panel: instrument model selector, measurement mode selector.
@@ -596,17 +458,17 @@ class _ConfigPanel(QFrame):
 
     # ── Display API ──────────────────────────────────────────────────────────
 
-    def display_available_modes(self, modes: List[str]) -> None:
+    def display_available_modes(self, modes: list[str]) -> None:
         current = self._mode_combo.currentData() or ""
-        _populate_combo(self._mode_combo, modes, current)
+        _populate_combo_signal_free(self._mode_combo, modes, current)
 
     def display_state(
         self,
         model: str,
         mode: str,
     ) -> None:
-        _set_combo(self._model_combo, model)
-        _set_combo(self._mode_combo, mode)
+        _set_combo_signal_free(self._model_combo, model)
+        _set_combo_signal_free(self._mode_combo, mode)
 
     # ── Private ──────────────────────────────────────────────────────────────
 
@@ -617,36 +479,36 @@ class _ConfigPanel(QFrame):
 
         # ── Row 1: selectors ─────────────────────────────────────────────────
         selectors_row = QWidget()
-        sr = QHBoxLayout(selectors_row)
-        sr.setContentsMargins(0, 0, 0, 0)
-        sr.setSpacing(40)
+        selectors_layout = QHBoxLayout(selectors_row)
+        selectors_layout.setContentsMargins(0, 0, 0, 0)
+        selectors_layout.setSpacing(40)
 
         # Instrument model
         model_col = QVBoxLayout()
         model_col.setSpacing(4)
-        model_lbl = QLabel("INSTRUMENT MODEL")
-        model_lbl.setStyleSheet(config_section_label_stylesheet())
-        model_col.addWidget(model_lbl)
+        model_label = QLabel("INSTRUMENT MODEL")
+        model_label.setStyleSheet(config_section_label_stylesheet())
+        model_col.addWidget(model_label)
         self._model_combo = QComboBox()
-        for m in ("4155B", "4156B", "4155C", "4156C"):
-            self._model_combo.addItem(m, m)
-        self._model_combo.setCurrentIndex(2)  # default: 4155C
+        for model_value in ("4155B", "4156B", "4155C", "4156C"):
+            self._model_combo.addItem(model_value, model_value)
+        self._model_combo.setCurrentIndex(1)  # default: 4155C
         model_col.addWidget(self._model_combo)
-        sr.addLayout(model_col)
+        selectors_layout.addLayout(model_col)
 
         # Measurement mode
         mode_col = QVBoxLayout()
         mode_col.setSpacing(4)
-        mode_lbl = QLabel("MEASUREMENT MODE")
-        mode_lbl.setStyleSheet(config_section_label_stylesheet())
-        mode_col.addWidget(mode_lbl)
+        mode_label = QLabel("MEASUREMENT MODE")
+        mode_label.setStyleSheet(config_section_label_stylesheet())
+        mode_col.addWidget(mode_label)
         self._mode_combo = QComboBox()
-        for mo in ("SWEEP", "SAMPLING", "QSCV"):
-            self._mode_combo.addItem(mo, mo)
+        for mode_value in ("SWEEP", "SAMPLING", "QSCV"):
+            self._mode_combo.addItem(mode_value, mode_value)
         mode_col.addWidget(self._mode_combo)
-        sr.addLayout(mode_col)
+        selectors_layout.addLayout(mode_col)
 
-        sr.addStretch()
+        selectors_layout.addStretch()
         root.addWidget(selectors_row)
 
     def _apply_styles(self) -> None:
@@ -666,38 +528,38 @@ class _ConfigPanel(QFrame):
 # ── Unit group container ─────────────────────────────────────────────────────
 
 
-def _make_unit_group(title: str, cards: List[QFrame]) -> QWidget:
+def _make_unit_group(title: str, cards: list[QFrame]) -> QWidget:
     """Return a titled section containing a horizontal row of cards."""
     group = QWidget()
-    v = QVBoxLayout(group)
-    v.setContentsMargins(0, 0, 0, 0)
-    v.setSpacing(10)
+    group_layout = QVBoxLayout(group)
+    group_layout.setContentsMargins(0, 0, 0, 0)
+    group_layout.setSpacing(10)
 
     # Header row: label + horizontal rule
     header_row = QWidget()
-    hr = QHBoxLayout(header_row)
-    hr.setContentsMargins(0, 0, 0, 0)
-    hr.setSpacing(12)
+    header_layout = QHBoxLayout(header_row)
+    header_layout.setContentsMargins(0, 0, 0, 0)
+    header_layout.setSpacing(12)
 
-    lbl = QLabel(title)
-    lbl.setStyleSheet(unit_group_header_stylesheet())
-    hr.addWidget(lbl)
+    title_label = QLabel(title)
+    title_label.setStyleSheet(unit_group_header_stylesheet())
+    header_layout.addWidget(title_label)
 
-    sep = QFrame()
-    sep.setFrameShape(QFrame.Shape.HLine)
-    sep.setStyleSheet(unit_group_separator_stylesheet())
-    hr.addWidget(sep, stretch=1)
-    v.addWidget(header_row)
+    separator = QFrame()
+    separator.setFrameShape(QFrame.Shape.HLine)
+    separator.setStyleSheet(unit_group_separator_stylesheet())
+    header_layout.addWidget(separator, stretch=1)
+    group_layout.addWidget(header_row)
 
     # Card row
     cards_widget = QWidget()
-    ch = QHBoxLayout(cards_widget)
-    ch.setContentsMargins(0, 0, 0, 0)
-    ch.setSpacing(12)
-    ch.setAlignment(Qt.AlignmentFlag.AlignLeft)
+    cards_layout = QHBoxLayout(cards_widget)
+    cards_layout.setContentsMargins(0, 0, 0, 0)
+    cards_layout.setSpacing(12)
+    cards_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
     for card in cards:
-        ch.addWidget(card)
-    v.addWidget(cards_widget)
+        cards_layout.addWidget(card)
+    group_layout.addWidget(cards_widget)
 
     return group
 
@@ -731,7 +593,6 @@ class ChannelsPageView(BasePage):
     ---------------------------------------
     display_config(...)                 full page refresh from config snapshot
     display_available_modes(modes)      update mode combo options
-    display_vmu_section_visible(bool)   show/hide VMU group
     display_smu_functions(idx, fns)     update one SMU's function combo
     display_smu_function_locked(idx, b) lock/unlock function combo (COMM mode)
     display_vmu_card_usable(idx, bool)  enable/disable one VMU (mode-based)
@@ -761,9 +622,9 @@ class ChannelsPageView(BasePage):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._smu_cards: Dict[int, SMUCard] = {}
-        self._vmu_cards: Dict[int, VMUCard] = {}
-        self._vsu_cards: Dict[int, VSUCard] = {}
+        self._smu_cards: dict[int, SMUCard] = {}
+        self._vmu_cards: dict[int, VMUCard] = {}
+        self._vsu_cards: dict[int, VSUCard] = {}
         self._setup_ui()
         self._wire_cards()
 
@@ -775,16 +636,16 @@ class ChannelsPageView(BasePage):
         mode: str,
         gndu: bool,
         inlink: bool,
-        smu_states: Dict[int, dict],
-        vmu_states: Dict[int, dict],
-        vsu_states: Dict[int, dict],
+        smu_states: dict[int, dict],
+        vmu_states: dict[int, dict],
+        vsu_states: dict[int, dict],
     ) -> None:
         """
         Full snapshot refresh.  All dicts contain plain-string field values.
         """
         self._config_panel.display_state(model, mode)
-        _set_check(self._gndu_cb, gndu)
-        _set_check(self._inlink_cb, inlink)
+        _set_checkbox_signal_free(self._gndu_cb, gndu)
+        _set_checkbox_signal_free(self._inlink_cb, inlink)
         for idx, state in smu_states.items():
             self._smu_cards[idx].display_state(**state)
         for idx, state in vmu_states.items():
@@ -796,23 +657,28 @@ class ChannelsPageView(BasePage):
         """Update the bottom panel validation status label."""
         self._configure_btn.setEnabled(is_valid)
         if is_valid:
-            self._validation_lbl.setText(f"✅ {message}")
+            self._validation_lbl.setText(
+                tr_ui(CommandWizardText.CHAN_VALIDATION_VALID).format(
+                    message=message
+                )
+            )
             self._validation_lbl.setStyleSheet(
                 validation_status_stylesheet("valid")
             )
         else:
-            self._validation_lbl.setText(f"⚠️ {message}")
+            self._validation_lbl.setText(
+                tr_ui(CommandWizardText.CHAN_VALIDATION_INVALID).format(
+                    message=message
+                )
+            )
             self._validation_lbl.setStyleSheet(
                 validation_status_stylesheet("warning")
             )
 
-    def display_available_modes(self, modes: List[str]) -> None:
+    def display_available_modes(self, modes: list[str]) -> None:
         self._config_panel.display_available_modes(modes)
 
-    def display_vmu_section_visible(self, visible: bool) -> None:
-        self._vmu_group.setVisible(visible)
-
-    def display_smu_functions(self, index: int, functions: List[str]) -> None:
+    def display_smu_functions(self, index: int, functions: list[str]) -> None:
         self._smu_cards[index].display_available_functions(functions)
 
     def display_smu_function_locked(self, index: int, locked: bool) -> None:
@@ -821,7 +687,7 @@ class ChannelsPageView(BasePage):
     def display_vmu_card_usable(self, index: int, usable: bool) -> None:
         self._vmu_cards[index].display_mode_usable(usable)
 
-    def display_vsu_functions(self, index: int, functions: List[str]) -> None:
+    def display_vsu_functions(self, index: int, functions: list[str]) -> None:
         self._vsu_cards[index].display_available_functions(functions)
 
     # ── Private ──────────────────────────────────────────────────────────────
@@ -840,45 +706,46 @@ class ChannelsPageView(BasePage):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
-        scroll.viewport().setStyleSheet("background: transparent;")
+        scroll.setStyleSheet(units_scroll_area_stylesheet())
+        scroll.viewport().setStyleSheet(units_scroll_viewport_stylesheet())
         scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
 
         units_widget = QWidget()
-        units_widget.setStyleSheet(f"background-color: {P.BG_DEEP};")
-        uv = QVBoxLayout(units_widget)
-        uv.setContentsMargins(24, 24, 24, 32)
-        uv.setSpacing(28)
-        uv.setAlignment(Qt.AlignmentFlag.AlignTop)
+        units_widget.setStyleSheet(units_container_stylesheet())
+        units_layout = QVBoxLayout(units_widget)
+        units_layout.setContentsMargins(24, 24, 24, 32)
+        units_layout.setSpacing(28)
+        units_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # SMU section (always visible)
+        # SMU section
         smu_cards = []
-        for i in range(1, 5):
-            card = SMUCard(i)
-            self._smu_cards[i] = card
+        for index in range(1, 5):
+            card = SMUCard(index)
+            self._smu_cards[index] = card
             smu_cards.append(card)
-        uv.addWidget(
+        units_layout.addWidget(
             _make_unit_group("SOURCE MONITOR UNITS  (SMU)", smu_cards)
         )
 
-        # VMU section (hidden for 4155 models)
+        # VMU section
         vmu_cards = []
-        for i in range(1, 3):
-            card = VMUCard(i)
-            self._vmu_cards[i] = card
+        for index in range(1, 3):
+            card = VMUCard(index)
+            self._vmu_cards[index] = card
             vmu_cards.append(card)
-        self._vmu_group = _make_unit_group("VOLTAGE MONITOR UNITS ", vmu_cards)
-        uv.addWidget(self._vmu_group)
+        units_layout.addWidget(
+            _make_unit_group("VOLTAGE MONITOR UNITS ", vmu_cards)
+        )
 
-        # VSU section (always visible)
+        # VSU section
         vsu_cards = []
-        for i in range(1, 3):
-            card = VSUCard(i)
-            self._vsu_cards[i] = card
+        for index in range(1, 3):
+            card = VSUCard(index)
+            self._vsu_cards[index] = card
             vsu_cards.append(card)
-        uv.addWidget(
+        units_layout.addWidget(
             _make_unit_group("VOLTAGE SOURCE UNITS  (VSU)", vsu_cards)
         )
 
@@ -934,43 +801,65 @@ class ChannelsPageView(BasePage):
         # SMU cards
         for idx, card in self._smu_cards.items():
             card.enabled_toggled.connect(
-                lambda v, i=idx: self.smu_enabled_changed.emit(i, v)
+                lambda value, index=idx: self.smu_enabled_changed.emit(
+                    index, value
+                )
             )
             card.mode_changed.connect(
-                lambda v, i=idx: self.smu_mode_changed.emit(i, v)
+                lambda value, index=idx: self.smu_mode_changed.emit(
+                    index, value
+                )
             )
             card.function_changed.connect(
-                lambda v, i=idx: self.smu_function_changed.emit(i, v)
+                lambda value, index=idx: self.smu_function_changed.emit(
+                    index, value
+                )
             )
             card.vname_changed.connect(
-                lambda v, i=idx: self.smu_vname_changed.emit(i, v)
+                lambda value, index=idx: self.smu_vname_changed.emit(
+                    index, value
+                )
             )
             card.iname_changed.connect(
-                lambda v, i=idx: self.smu_iname_changed.emit(i, v)
+                lambda value, index=idx: self.smu_iname_changed.emit(
+                    index, value
+                )
             )
 
         # VMU cards
         for idx, card in self._vmu_cards.items():
             card.enabled_toggled.connect(
-                lambda v, i=idx: self.vmu_enabled_changed.emit(i, v)
+                lambda value, index=idx: self.vmu_enabled_changed.emit(
+                    index, value
+                )
             )
             card.mode_changed.connect(
-                lambda v, i=idx: self.vmu_mode_changed.emit(i, v)
+                lambda value, index=idx: self.vmu_mode_changed.emit(
+                    index, value
+                )
             )
             card.vname_changed.connect(
-                lambda v, i=idx: self.vmu_vname_changed.emit(i, v)
+                lambda value, index=idx: self.vmu_vname_changed.emit(
+                    index, value
+                )
             )
 
         # VSU cards
         for idx, card in self._vsu_cards.items():
             card.enabled_toggled.connect(
-                lambda v, i=idx: self.vsu_enabled_changed.emit(i, v)
+                lambda value, index=idx: self.vsu_enabled_changed.emit(
+                    index, value
+                )
             )
             card.function_changed.connect(
-                lambda v, i=idx: self.vsu_function_changed.emit(i, v)
+                lambda value, index=idx: self.vsu_function_changed.emit(
+                    index, value
+                )
             )
             card.vname_changed.connect(
-                lambda v, i=idx: self.vsu_vname_changed.emit(i, v)
+                lambda value, index=idx: self.vsu_vname_changed.emit(
+                    index, value
+                )
             )
 
         self._configure_btn.clicked.connect(self.configure_measure_clicked)

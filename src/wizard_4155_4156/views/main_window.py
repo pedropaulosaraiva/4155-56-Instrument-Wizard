@@ -10,7 +10,7 @@ Layout
 ├──────┬───────────────────────────────────────────┤
 │      │                                           │
 │ Nav  │          QStackedWidget                   │  expands
-│ Bar  │          (one BasePage per index)          │
+│ Bar  │          (one BasePage per index)         │
 │      │                                           │
 └──────┴───────────────────────────────────────────┘
 │               QStatusBar                         │  fixed height

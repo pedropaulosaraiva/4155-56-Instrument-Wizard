@@ -62,6 +62,10 @@ class CommandWizardText(StrEnum):
     MEAS_CONFIG_ERROR = "Configuration error:\n{error}"
     MEAS_FILE_ERROR = "Could not load setup file:\n{error}"
 
+    # ── Channels page ────────────────────────────────────────────────────────
+    CHAN_VALIDATION_VALID = "✅ {message}"
+    CHAN_VALIDATION_INVALID = "⚠️ {message}"
+
     # ── Table View page ──────────────────────────────────────────────────────
     TABLE_PAGE_TITLE = "Table View"
     TABLE_EMPTY = "No measurement data yet. Run a measurement to populate."

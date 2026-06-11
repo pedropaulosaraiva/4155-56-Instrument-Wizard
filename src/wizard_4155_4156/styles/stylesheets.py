@@ -546,6 +546,18 @@ def channels_page_stylesheet() -> str:
     return f"background-color: {P.BG_DEEP};"
 
 
+def units_scroll_area_stylesheet() -> str:
+    return "background: transparent; border: none;"
+
+
+def units_scroll_viewport_stylesheet() -> str:
+    return "background: transparent;"
+
+
+def units_container_stylesheet() -> str:
+    return f"background-color: {P.BG_DEEP};"
+
+
 def config_panel_stylesheet() -> str:
     return f"""
         QFrame#config_panel {{
@@ -661,6 +673,23 @@ def unit_card_row_label_stylesheet() -> str:
     return (
         f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_SM}; "
         "background: transparent;"
+    )
+
+
+def unit_card_note_stylesheet() -> str:
+    """Italic informational note inside a unit card (e.g. VMU monitor-only)."""
+    return (
+        f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
+        f"background: transparent; font-style: italic;"
+    )
+
+
+def unit_card_mode_badge_stylesheet() -> str:
+    """Static mode badge in a unit-card header (e.g. the VSU 'V' badge)."""
+    return (
+        f"color: {P.ACCENT_HOVER}; font-size: {P.FONT_SIZE_XS}; "
+        f"font-weight: bold; background: {P.ACCENT_MUTED}; "
+        f"padding: 1px 6px; border-radius: {P.RADIUS_SM};"
     )
 
 

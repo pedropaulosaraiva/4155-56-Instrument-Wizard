@@ -19,7 +19,7 @@ View driving
 
 Public API for other presenters
   get_config() → ChannelsConfig
-    Returns a shallow copy of the current configuration.
+    Returns a deep copy of the current configuration.
     SweepConfigPresenter and MeasurementsPresenter will call this when they
     need to know which channels are active and what their variable names are.
 
@@ -44,20 +44,13 @@ import copy
 from PySide6.QtCore import QObject, Signal
 
 from wizard_4155_4156.models.channels import (
-    MEASUREMENT_MODE_SCPI_MAP,
-    SMU_MODE_SCPI_MAP,
-    UNIT_FUNCTION_SCPI_MAP,
-    VMU_MODE_SCPI_MAP,
     ChannelsConfig,
     ChannelsConstraints,
     InstrumentModel,
     MeasurementMode,
-    SMUConfig,
     SMUMode,
     UnitFunction,
-    VMUConfig,
     VMUMode,
-    VSUConfig,
 )
 from wizard_4155_4156.views.pages.channels_page import ChannelsPageView
 
@@ -104,8 +97,7 @@ class ChannelsPresenter(QObject):
             self._config.measurement_mode, allowed_modes
         )
 
-        # Push the new allowed mode list first, then push full state
-        self._view.display_available_modes([m.value for m in allowed_modes])
+        # _push_full_state re-pushes the allowed mode list and full state.
         self._push_full_state()
 
     def _on_measurement_mode_changed(self, value: str) -> None:
@@ -189,9 +181,10 @@ class ChannelsPresenter(QObject):
 
     def _on_vmu_mode(self, index: int, value: str) -> None:
         try:
-            self._config.vmu[index].mode = VMUMode(value)
+            new_mode = VMUMode(value)
         except ValueError:
-            pass
+            return
+        self._config.vmu[index].mode = new_mode
         self._update_validation()
 
     def _on_vmu_vname(self, index: int, name: str) -> None:
@@ -259,7 +252,6 @@ class ChannelsPresenter(QObject):
         allowed_modes = ChannelsConstraints.allowed_modes(model)
         allowed_smu_fns = ChannelsConstraints.smu_functions(mode)
         allowed_vsu_fns = ChannelsConstraints.vsu_functions(mode)
-        vmu_visible = ChannelsConstraints.vmu_panel_visible(model)
         vmu_usable = ChannelsConstraints.vmu_usable_in_mode(mode)
 
         # Build SMU state dicts
@@ -307,7 +299,6 @@ class ChannelsPresenter(QObject):
 
         # Structural changes
         self._view.display_available_modes([m.value for m in allowed_modes])
-        self._view.display_vmu_section_visible(vmu_visible)
 
         # Per-card function lists and COMM locks for SMUs
         for idx, smu in cfg.smu.items():
@@ -342,60 +333,8 @@ class ChannelsPresenter(QObject):
             self._view.display_validation_status(False, first_err)
 
     def _on_configure_measure(self) -> None:
-        cfg = self._config
-
         # Never generate a measurement page from an invalid channel layout;
         # the validation label already shows the blocking error.
-        if ChannelsConstraints.validate_config(cfg):
+        if ChannelsConstraints.validate_config(self._config):
             return
-
-        channels = {}
-
-        # SMUs
-        for i in range(1, 5):
-            smu = cfg.smu[i]
-            unit_key = f"SMU{i}"
-            if smu.enabled:
-                channels[unit_key] = {
-                    "v_name": smu.voltage_name,
-                    "i_name": smu.current_name,
-                    "function": UNIT_FUNCTION_SCPI_MAP[smu.function],
-                    "smu_mode": SMU_MODE_SCPI_MAP[smu.mode],
-                }
-            else:
-                channels[unit_key] = {"disable": 1}
-
-        # VMUs
-        has_vmu = cfg.instrument_model.has_vmu()
-        vmu_usable = ChannelsConstraints.vmu_usable_in_mode(
-            cfg.measurement_mode
-        )
-        for i in range(1, 3):
-            vmu = cfg.vmu[i]
-            unit_key = f"VMU{i}"
-            if has_vmu and vmu_usable and vmu.enabled:
-                channels[unit_key] = {
-                    "v_name": vmu.voltage_name,
-                    "vmu_mode": VMU_MODE_SCPI_MAP[vmu.mode],
-                }
-            else:
-                channels[unit_key] = {"disable": 1}
-
-        # VSUs
-        for i in range(1, 3):
-            vsu = cfg.vsu[i]
-            unit_key = f"VSU{i}"
-            if vsu.enabled:
-                channels[unit_key] = {
-                    "v_name": vsu.voltage_name,
-                    "function": UNIT_FUNCTION_SCPI_MAP[vsu.function],
-                }
-            else:
-                channels[unit_key] = {"disable": 1}
-
-        config_dict = {
-            "mode": MEASUREMENT_MODE_SCPI_MAP[cfg.measurement_mode],
-            "channels": channels,
-        }
-
-        self.measure_configured.emit(config_dict)
+        self.measure_configured.emit(self._config.to_measure_dict())

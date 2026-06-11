@@ -3,7 +3,8 @@ styles/theme.py
 ---------------
 Central design-token registry for the Wizard 4155/4156 application.
 
-All color, spacing, and typography values live here.
+# TODO: remove "should" in the phrase bellow if all color,... live here
+All color, spacing, and typography values should live here.
 Views and stylesheets MUST reference PALETTE constants —
 never hard-code hex strings anywhere else in the codebase.
 """
@@ -24,7 +25,7 @@ class _Palette:
     BORDER: str = "#3e3e42"
     BORDER_FOCUS: str = "#007acc"
 
-    # ── Accent (VS Code / AutoCAD blue) ──────────────────────────────────────
+    # ── Accent (shades of blue) ──────────────────────────────────────
     ACCENT: str = "#007acc"
     ACCENT_HOVER: str = "#0098ff"
     ACCENT_PRESSED: str = "#005f9e"
@@ -66,7 +67,8 @@ class _Palette:
     RADIUS_MD: str = "6px"
     RADIUS_LG: str = "8px"
     RADIUS_PILL: str = "14px"
-
+    # TODO: int values bellow go to Qt layout math,
+    # while the str values are for QSS strings so this shouldn't be mixed
     TOP_BAR_HEIGHT: int = 84  # px — ConnectionTopBar fixed height
     CARD_WIDTH: int = 220  # px — ProjectCard fixed width
     CARD_HEIGHT: int = 180  # px — ProjectCard fixed height

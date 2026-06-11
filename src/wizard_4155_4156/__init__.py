@@ -1,4 +1,9 @@
-"""main.py — application entry point."""
+"""
+__init__.py
+-----------
+application entry point.
+"""
+
 import sys
 
 from wizard_4155_4156.app import run
