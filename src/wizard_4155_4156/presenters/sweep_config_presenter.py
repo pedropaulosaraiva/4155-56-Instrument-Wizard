@@ -97,6 +97,8 @@ class SweepConfigPresenter(QObject):
             "var2_is_voltage": True,
             "var1_is_vsu": False,
             "var2_is_vsu": False,
+            "vard_is_vsu": False,
+            "interlock_open": False,
             "active_channels": [],
             "available_vars": [],
         }
@@ -144,6 +146,7 @@ class SweepConfigPresenter(QObject):
         v.var1_step_committed.connect(self._on_var1_step)
         v.var1_comp_committed.connect(self._on_var1_comp)
         v.var1_pcomp_committed.connect(self._on_var1_pcomp)
+        v.var1_pcomp_enabled_changed.connect(self._on_var1_pcomp_enabled)
 
         # VAR2
         v.var2_start_committed.connect(self._on_var2_start)
@@ -151,12 +154,14 @@ class SweepConfigPresenter(QObject):
         v.var2_points_changed.connect(self._on_var2_points)
         v.var2_comp_committed.connect(self._on_var2_comp)
         v.var2_pcomp_committed.connect(self._on_var2_pcomp)
+        v.var2_pcomp_enabled_changed.connect(self._on_var2_pcomp_enabled)
 
         # VARD
         v.vard_offset_committed.connect(self._on_vard_offset)
         v.vard_ratio_committed.connect(self._on_vard_ratio)
         v.vard_comp_committed.connect(self._on_vard_comp)
         v.vard_pcomp_committed.connect(self._on_vard_pcomp)
+        v.vard_pcomp_enabled_changed.connect(self._on_vard_pcomp_enabled)
 
         # Channels + vars
         v.smu_standby_changed.connect(self._on_smu_standby)
@@ -200,6 +205,7 @@ class SweepConfigPresenter(QObject):
         var2_is_v: bool = True
         var1_is_vsu: bool = False
         var2_is_vsu: bool = False
+        vard_is_vsu: bool = False
 
         # ── SMUs ──────────────────────────────────────────────────────────────
         for idx, smu in ch_cfg.smu.items():
@@ -228,7 +234,7 @@ class SweepConfigPresenter(QObject):
             elif fn == "VAR2":
                 var2_ch, var2_is_v, var2_is_vsu = ch_id, is_v, False
             elif fn == "VAR1'":
-                vard_ch = ch_id
+                vard_ch, vard_is_vsu = ch_id, False
 
         # ── VMUs ──────────────────────────────────────────────────────────────
         for idx, vmu in ch_cfg.vmu.items():
@@ -270,10 +276,8 @@ class SweepConfigPresenter(QObject):
             elif fn == "VAR2":
                 var2_ch, var2_is_v, var2_is_vsu = ch_id, True, True
             elif fn == "VAR1'":
-                vard_ch = ch_id
-                # VARD from a VSU → offset uses VSU voltage range (±20 V)
-                # Presenter sets is_vsu=True on the VARD context so the view
-                # applies the correct offset bounds.
+                # VARD from a VSU has no compliance / power compliance
+                vard_ch, vard_is_vsu = ch_id, True
 
         # Filter display_vars to only keep currently available variables
         self._config.display_vars = [
@@ -339,6 +343,8 @@ class SweepConfigPresenter(QObject):
             "var2_is_voltage": var2_is_v,
             "var1_is_vsu": var1_is_vsu,
             "var2_is_vsu": var2_is_vsu,
+            "vard_is_vsu": vard_is_vsu,
+            "interlock_open": bool(ch_cfg.interlock_open),
             "active_channels": active,
             "available_vars": list(dict.fromkeys(available_vars)),
         }
@@ -358,11 +364,13 @@ class SweepConfigPresenter(QObject):
             ctx["has_var1"], ctx["has_var2"], ctx["has_vard"]
         )
 
+        interlock_open = ctx["interlock_open"]
         if ctx["has_var1"] and ctx["var1_channel"]:
             self._view.display_var1_context(
                 ctx["var1_channel"],
                 is_voltage=ctx["var1_is_voltage"],
                 is_vsu=ctx["var1_is_vsu"],
+                interlock_open=interlock_open,
             )
 
         if ctx["has_var2"] and ctx["var2_channel"]:
@@ -370,6 +378,7 @@ class SweepConfigPresenter(QObject):
                 ctx["var2_channel"],
                 is_voltage=ctx["var2_is_voltage"],
                 is_vsu=ctx["var2_is_vsu"],
+                interlock_open=interlock_open,
             )
 
         if ctx["has_vard"] and ctx["vard_channel"]:
@@ -377,13 +386,15 @@ class SweepConfigPresenter(QObject):
             self._view.display_vard_context(
                 ctx["vard_channel"],
                 is_voltage=ctx["var1_is_voltage"],
-                is_vsu=ctx["var1_is_vsu"],
+                is_vsu=ctx["vard_is_vsu"],
+                interlock_open=interlock_open,
             )
 
         self._view.display_config(self._config_snapshot())
         self._view.display_constants_setup(
             ctx["active_channels"],
             cfg.constants,
+            interlock_open=interlock_open,
         )
         self._view.display_available_vars(
             ctx["available_vars"], cfg.display_vars
@@ -470,6 +481,10 @@ class SweepConfigPresenter(QObject):
         self._config.var1.power_compliance = val
         self._update_validation()
 
+    def _on_var1_pcomp_enabled(self, enabled: bool) -> None:
+        self._config.var1.power_compliance_enabled = enabled
+        self._update_validation()
+
     def _on_var2_start(self, val: float) -> None:
         self._config.var2.start = val
         self._update_validation()
@@ -490,6 +505,10 @@ class SweepConfigPresenter(QObject):
         self._config.var2.power_compliance = val
         self._update_validation()
 
+    def _on_var2_pcomp_enabled(self, enabled: bool) -> None:
+        self._config.var2.power_compliance_enabled = enabled
+        self._update_validation()
+
     def _on_vard_offset(self, val: float) -> None:
         self._config.vard.offset = val
         self._update_validation()
@@ -504,6 +523,10 @@ class SweepConfigPresenter(QObject):
 
     def _on_vard_pcomp(self, val: float) -> None:
         self._config.vard.power_compliance = val
+        self._update_validation()
+
+    def _on_vard_pcomp_enabled(self, enabled: bool) -> None:
+        self._config.vard.power_compliance_enabled = enabled
         self._update_validation()
 
     def _on_smu_standby(self, ch_id: str, on: bool) -> None:
@@ -561,7 +584,9 @@ class SweepConfigPresenter(QObject):
             var1_is_vsu=self._ctx.get("var1_is_vsu", False),
             var2_is_voltage=self._ctx.get("var2_is_voltage", True),
             var2_is_vsu=self._ctx.get("var2_is_vsu", False),
+            vard_is_vsu=self._ctx.get("vard_is_vsu", False),
             active_channels=self._ctx.get("active_channels"),
+            interlock_open=self._ctx.get("interlock_open", False),
         )
 
         for i, err in enumerate(model_errors):
@@ -606,6 +631,8 @@ class SweepConfigPresenter(QObject):
           power_compliance field → "pcompliance"
           wait_multiplier field  → "wait_time"  (backward-compat with spec)
           Disabled channels      → {"disable": 1}
+          VSU-driven VARx omit "compliance"/"pcompliance" (VSUs cannot
+          measure current); "pcompliance" is omitted when switched off.
         """
         cfg = self._config
         ch_cfg = self._channels_config
@@ -672,9 +699,11 @@ class SweepConfigPresenter(QObject):
                 "start": v1.start,
                 "stop": v1.stop,
                 "step": v1.step,
-                "compliance": v1.compliance,
-                "pcompliance": v1.power_compliance,
             }
+            if not self._ctx.get("var1_is_vsu"):
+                sweep_json["var1"]["compliance"] = v1.compliance
+                if v1.power_compliance_enabled:
+                    sweep_json["var1"]["pcompliance"] = v1.power_compliance
 
         if self._ctx.get("has_var2"):
             v2 = cfg.var2
@@ -682,18 +711,22 @@ class SweepConfigPresenter(QObject):
                 "start": v2.start,
                 "step": v2.step,
                 "points": v2.points,
-                "compliance": v2.compliance,
-                "pcompliance": v2.power_compliance,
             }
+            if not self._ctx.get("var2_is_vsu"):
+                sweep_json["var2"]["compliance"] = v2.compliance
+                if v2.power_compliance_enabled:
+                    sweep_json["var2"]["pcompliance"] = v2.power_compliance
 
         if self._ctx.get("has_vard"):
             vd = cfg.vard
             sweep_json["vard"] = {
                 "offset": vd.offset,
                 "ratio": vd.ratio,
-                "compliance": vd.compliance,
-                "pcompliance": vd.power_compliance,
             }
+            if not self._ctx.get("vard_is_vsu"):
+                sweep_json["vard"]["compliance"] = vd.compliance
+                if vd.power_compliance_enabled:
+                    sweep_json["vard"]["pcompliance"] = vd.power_compliance
 
         if cfg.constants:
             sweep_json["constants"] = copy.deepcopy(cfg.constants)
@@ -730,6 +763,7 @@ class SweepConfigPresenter(QObject):
                 "step": cfg.var1.step,
                 "compliance": cfg.var1.compliance,
                 "power_compliance": cfg.var1.power_compliance,
+                "power_compliance_enabled": cfg.var1.power_compliance_enabled,
             },
             "var2": {
                 "start": cfg.var2.start,
@@ -737,12 +771,14 @@ class SweepConfigPresenter(QObject):
                 "points": cfg.var2.points,
                 "compliance": cfg.var2.compliance,
                 "power_compliance": cfg.var2.power_compliance,
+                "power_compliance_enabled": cfg.var2.power_compliance_enabled,
             },
             "vard": {
                 "offset": cfg.vard.offset,
                 "ratio": cfg.vard.ratio,
                 "compliance": cfg.vard.compliance,
                 "power_compliance": cfg.vard.power_compliance,
+                "power_compliance_enabled": cfg.vard.power_compliance_enabled,
             },
             "constants": copy.deepcopy(cfg.constants),
         }

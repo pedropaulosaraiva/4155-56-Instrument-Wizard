@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 from wizard_4155_4156.models.sweep_config import (
     COMP_I_MAX,
     COMP_I_MIN,
+    COMP_V_ILOCK_MAX,
     COMP_V_MAX,
     COMP_V_MIN,
     CURRENT_MAX,
@@ -53,6 +54,7 @@ from wizard_4155_4156.models.sweep_config import (
     RANGE_VALUES_VMU_V,
     SHORT_TIME_MAX,
     SHORT_TIME_MIN,
+    VOLTAGE_ILOCK_MAX,
     VOLTAGE_MAX,
     VOLTAGE_MIN,
     VSU_VOLTAGE_MAX,
@@ -273,6 +275,9 @@ class SciDoubleEdit(QWidget):
         self._max = max_v
         if unit and self._unit_lbl:
             self._unit_lbl.setText(unit)
+        self._edit.setToolTip(
+            f"Range: {min_v:.3g} – {max_v:.3g} {unit}".rstrip()
+        )
 
     def set_error(self, msg: str = "") -> None:
         pass
@@ -875,6 +880,7 @@ class ConstantRow(QWidget):
         unit_mode: str,
         initial_source: float,
         initial_compliance: Optional[float] = None,
+        interlock_open: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -897,7 +903,11 @@ class ConstantRow(QWidget):
         if unit_type == "VSU":
             min_s, max_s, unit_s = VSU_VOLTAGE_MIN, VSU_VOLTAGE_MAX, "V"
         elif unit_mode in ("V", "VPULSE"):
-            min_s, max_s, unit_s = VOLTAGE_MIN, VOLTAGE_MAX, "V"
+            if interlock_open:
+                min_s, max_s = -VOLTAGE_ILOCK_MAX, VOLTAGE_ILOCK_MAX
+            else:
+                min_s, max_s = VOLTAGE_MIN, VOLTAGE_MAX
+            unit_s = "V"
         else:
             min_s, max_s, unit_s = CURRENT_MIN, CURRENT_MAX, "A"
 
@@ -918,7 +928,9 @@ class ConstantRow(QWidget):
             if unit_mode in ("V", "VPULSE"):
                 min_c, max_c, unit_c = COMP_I_MIN, COMP_I_MAX, "A"
             else:
-                min_c, max_c, unit_c = COMP_V_MIN, COMP_V_MAX, "V"
+                min_c = COMP_V_MIN
+                max_c = COMP_V_ILOCK_MAX if interlock_open else COMP_V_MAX
+                unit_c = "V"
 
             comp_val = (
                 initial_compliance if initial_compliance is not None else 0.01
@@ -955,6 +967,7 @@ class ConstantsSection(SectionFrame):
         self,
         active_channels: List[dict],
         constants_config: Dict[str, dict],
+        interlock_open: bool = False,
     ) -> None:
         while self.body().count():
             item = self.body().takeAt(0)
@@ -1008,6 +1021,7 @@ class ConstantsSection(SectionFrame):
                 unit_mode=ch.get("mode", ""),
                 initial_source=source_val,
                 initial_compliance=comp_val,
+                interlock_open=interlock_open,
                 parent=self,
             )
             row.source_changed.connect(self.const_source_changed)

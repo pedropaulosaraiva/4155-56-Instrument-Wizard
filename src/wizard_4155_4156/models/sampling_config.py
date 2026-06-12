@@ -459,6 +459,7 @@ class SamplingConstraints:
         cfg: SamplingConfig,
         active_channels: List[dict],
         available_vars: List[str],
+        interlock_open: bool = False,
     ) -> Tuple[List[str], List[str]]:
         """
         Validate the full sampling configuration.
@@ -491,7 +492,9 @@ class SamplingConstraints:
             )
         )
         errors.extend(
-            validate_constant_sources(cfg.constants, active_channels)
+            validate_constant_sources(
+                cfg.constants, active_channels, interlock_open
+            )
         )
         if len(cfg.display_vars) > DISPLAY_VARS_MAX:
             errors.append(

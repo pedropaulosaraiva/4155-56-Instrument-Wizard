@@ -509,9 +509,10 @@ class SamplingConfigPageView(BasePage):
         self,
         active_channels: List[dict],
         constants_config: Dict[str, dict],
+        interlock_open: bool = False,
     ) -> None:
         self._constants_sec.display_constants(
-            active_channels, constants_config
+            active_channels, constants_config, interlock_open
         )
 
     def display_validation_status(

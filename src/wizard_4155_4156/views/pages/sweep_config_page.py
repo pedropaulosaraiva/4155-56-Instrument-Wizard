@@ -27,6 +27,7 @@ from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -65,6 +66,7 @@ from wizard_4155_4156.models.sweep_config import (
 from wizard_4155_4156.styles.stylesheets import (
     export_btn_stylesheet,
     sweep_page_stylesheet,
+    unit_enable_checkbox_stylesheet,
     validation_status_stylesheet,
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
@@ -104,6 +106,55 @@ from wizard_4155_4156.views.widgets.config_sections import (
 )
 
 
+class _PCompWidget(QWidget):
+    """Power-compliance value edit with an LED on/off toggle on its right.
+
+    The LED lights green when power compliance is enabled and stays unlit
+    when disabled (the JSON omits "pcompliance").  Disabled is the default
+    state.
+    """
+
+    value_committed = Signal(float)
+    enabled_changed = Signal(bool)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        h = QHBoxLayout(self)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(8)
+
+        self._edit = _SciDoubleEdit(0.01, PCOMP_MIN, PCOMP_MAX, "W")
+        self._on_cb = QCheckBox()
+        self._on_cb.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._on_cb.setStyleSheet(unit_enable_checkbox_stylesheet())
+        self._on_cb.setToolTip("Power compliance ON / OFF")
+        self._on_cb.setChecked(False)
+        self._edit.setEnabled(False)
+
+        h.addWidget(self._edit, stretch=1)
+        h.addWidget(self._on_cb, stretch=1)
+
+        self._edit.value_committed.connect(self.value_committed)
+        self._on_cb.toggled.connect(self._on_toggled)
+
+    def _on_toggled(self, checked: bool) -> None:
+        self._edit.setEnabled(checked)
+        self.enabled_changed.emit(checked)
+
+    def display_state(self, value: float, enabled: bool) -> None:
+        self._edit.set_value(value)
+        self._on_cb.blockSignals(True)
+        self._on_cb.setChecked(enabled)
+        self._on_cb.blockSignals(False)
+        self._edit.setEnabled(enabled)
+
+    def is_pcomp_enabled(self) -> bool:
+        return self._on_cb.isChecked()
+
+    def get_value(self) -> Optional[float]:
+        return self._edit.get_value()
+
+
 class _SweepTimingSection(_SectionFrame):
     delay_committed = Signal(float)
     hold_time_committed = Signal(float)
@@ -126,7 +177,9 @@ class _SweepTimingSection(_SectionFrame):
         )
         self.body().addWidget(_form_row("Hold Time", self._hold_edit))
 
-        self._stop_seg = _SegmentedGroup(["COMPLIANCE", "END"], "COMPLIANCE")
+        self._stop_seg = _SegmentedGroup(
+            ["ABNORMAL", "COMPLIANCE", "OFF"], "COMPLIANCE"
+        )
         self.body().addWidget(_form_row("Sweep Stop", self._stop_seg))
 
         self._delay_edit.value_committed.connect(self.delay_committed)
@@ -157,9 +210,11 @@ class _VAR1Section(_SectionFrame):
     step_committed = Signal(float)
     comp_committed = Signal(float)
     pcomp_committed = Signal(float)
+    pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("VAR1  —  Primary Sweep", parent)
+        self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
             f"color: {P.ACCENT_HOVER}; font-size: {P.FONT_SIZE_SM}; "
@@ -177,18 +232,20 @@ class _VAR1Section(_SectionFrame):
             0.1, VOLTAGE_STEP_MIN, VOLTAGE_STEP_MAX, "V", disallow_zero=True
         )
         self._comp_edit = _SciDoubleEdit(0.01, COMP_I_MIN, COMP_I_MAX, "A")
-        self._pcomp_edit = _SciDoubleEdit(0.01, PCOMP_MIN, PCOMP_MAX, "W")
+        self._pcomp_widget = _PCompWidget()
 
-        for label, widget in [
-            ("Mode", self._mode_seg),
-            ("Spacing", self._spacing_seg),
-            ("Start", self._start_edit),
-            ("Stop", self._stop_edit),
-            ("Step", self._step_edit),
-            ("Compliance", self._comp_edit),
-            ("Power Compliance", self._pcomp_edit),
+        self._comp_row = _form_row("Compliance", self._comp_edit)
+        self._pcomp_row = _form_row("Power Compliance", self._pcomp_widget)
+        for row in [
+            _form_row("Mode", self._mode_seg),
+            _form_row("Spacing", self._spacing_seg),
+            _form_row("Start", self._start_edit),
+            _form_row("Stop", self._stop_edit),
+            _form_row("Step", self._step_edit),
+            self._comp_row,
+            self._pcomp_row,
         ]:
-            self.body().addWidget(_form_row(label, widget))
+            self.body().addWidget(row)
 
         self._mode_seg.selection_changed.connect(self.mode_changed)
         self._spacing_seg.selection_changed.connect(self.spacing_changed)
@@ -197,7 +254,8 @@ class _VAR1Section(_SectionFrame):
         self._stop_edit.value_committed.connect(self.stop_committed)
         self._step_edit.value_committed.connect(self.step_committed)
         self._comp_edit.value_committed.connect(self.comp_committed)
-        self._pcomp_edit.value_committed.connect(self.pcomp_committed)
+        self._pcomp_widget.value_committed.connect(self.pcomp_committed)
+        self._pcomp_widget.enabled_changed.connect(self.pcomp_enabled_changed)
 
     def _on_spacing_changed(self, spacing: str) -> None:
         is_linear = spacing == "LINEAR"
@@ -214,6 +272,7 @@ class _VAR1Section(_SectionFrame):
         step: float,
         compliance: float,
         pcomp: float,
+        pcomp_enabled: bool,
     ) -> None:
         self._mode_seg.set_value(mode)
         self._spacing_seg.set_value(spacing)
@@ -222,23 +281,36 @@ class _VAR1Section(_SectionFrame):
         self._stop_edit.set_value(stop)
         self._step_edit.set_value(step)
         self._comp_edit.set_value(compliance)
-        self._pcomp_edit.set_value(pcomp)
+        self._pcomp_widget.display_state(pcomp, pcomp_enabled)
 
     def display_context(self, channel_label: str) -> None:
         self._channel_lbl.setText(f"Assigned: {channel_label}")
 
-    def update_ranges(self, is_voltage: bool, is_vsu: bool = False) -> None:
+    def update_ranges(
+        self,
+        is_voltage: bool,
+        is_vsu: bool = False,
+        interlock_open: bool = False,
+    ) -> None:
         """Called by the view when sweep-type context changes."""
         SC = SweepConstraints
-        src_min, src_max = SC.source_range(is_voltage, is_vsu)
+        self._is_vsu = is_vsu
+        self._comp_row.setVisible(not is_vsu)
+        self._pcomp_row.setVisible(not is_vsu)
+        src_min, src_max = SC.source_range(is_voltage, is_vsu, interlock_open)
         if is_vsu:
-            # VSU step follows total VSU range width
-            stp_min, stp_max = 0.0, abs(src_max - src_min)
+            # VSU step spans the full range width in either direction
+            stp_max = abs(src_max - src_min)
+            stp_min = -stp_max
         else:
             stp_min, stp_max = SC.step_range(
-                is_voltage, is_var2_or_offset=False
+                is_voltage,
+                is_var2_or_offset=False,
+                interlock_open=interlock_open,
             )
-        cmp_min, cmp_max = SC.compliance_range(is_voltage or is_vsu)
+        cmp_min, cmp_max = SC.compliance_range(
+            is_voltage or is_vsu, interlock_open
+        )
         src_u = SC.source_unit(is_voltage or is_vsu)
         cmp_u = SC.compliance_unit(is_voltage or is_vsu)
 
@@ -274,12 +346,18 @@ class _VAR1Section(_SectionFrame):
         if self._spacing_seg.current_value() == "LINEAR":
             if self._step_edit.get_value() is None:
                 errors["var1_step"] = "VAR1 Step: value is empty or invalid"
-        if self._comp_edit.get_value() is None:
-            errors["var1_comp"] = "VAR1 Compliance: value is empty or invalid"
-        if self._pcomp_edit.get_value() is None:
-            errors["var1_pcomp"] = (
-                "VAR1 Power Compliance: value is empty or invalid"
-            )
+        if not self._is_vsu:
+            if self._comp_edit.get_value() is None:
+                errors["var1_comp"] = (
+                    "VAR1 Compliance: value is empty or invalid"
+                )
+            if (
+                self._pcomp_widget.is_pcomp_enabled()
+                and self._pcomp_widget.get_value() is None
+            ):
+                errors["var1_pcomp"] = (
+                    "VAR1 Power Compliance: value is empty or invalid"
+                )
         return errors
 
 
@@ -289,9 +367,11 @@ class _VAR2Section(_SectionFrame):
     points_changed = Signal(int)
     comp_committed = Signal(float)
     pcomp_committed = Signal(float)
+    pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("VAR2  —  Stepped Sweep", parent)
+        self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
             f"color: {P.STATUS_WARN}; font-size: {P.FONT_SIZE_SM}; "
@@ -308,22 +388,25 @@ class _VAR2Section(_SectionFrame):
             f"Range: {VAR2_POINTS_MIN} – {VAR2_POINTS_MAX}"
         )
         self._comp_edit = _SciDoubleEdit(0.01, COMP_I_MIN, COMP_I_MAX, "A")
-        self._pcomp_edit = _SciDoubleEdit(0.01, PCOMP_MIN, PCOMP_MAX, "W")
+        self._pcomp_widget = _PCompWidget()
 
-        for label, widget in [
-            ("Start", self._start_edit),
-            ("Step", self._step_edit),
-            ("Points", self._points_sb),
-            ("Compliance", self._comp_edit),
-            ("Power Compliance", self._pcomp_edit),
+        self._comp_row = _form_row("Compliance", self._comp_edit)
+        self._pcomp_row = _form_row("Power Compliance", self._pcomp_widget)
+        for row in [
+            _form_row("Start", self._start_edit),
+            _form_row("Step", self._step_edit),
+            _form_row("Points", self._points_sb),
+            self._comp_row,
+            self._pcomp_row,
         ]:
-            self.body().addWidget(_form_row(label, widget))
+            self.body().addWidget(row)
 
         self._start_edit.value_committed.connect(self.start_committed)
         self._step_edit.value_committed.connect(self.step_committed)
         self._points_sb.valueChanged.connect(self.points_changed)
         self._comp_edit.value_committed.connect(self.comp_committed)
-        self._pcomp_edit.value_committed.connect(self.pcomp_committed)
+        self._pcomp_widget.value_committed.connect(self.pcomp_committed)
+        self._pcomp_widget.enabled_changed.connect(self.pcomp_enabled_changed)
 
     def display_state(
         self,
@@ -332,6 +415,7 @@ class _VAR2Section(_SectionFrame):
         points: int,
         compliance: float,
         pcomp: float,
+        pcomp_enabled: bool,
     ) -> None:
         self._start_edit.set_value(start)
         self._step_edit.set_value(step)
@@ -339,16 +423,28 @@ class _VAR2Section(_SectionFrame):
         self._points_sb.setValue(points)
         self._points_sb.blockSignals(False)
         self._comp_edit.set_value(compliance)
-        self._pcomp_edit.set_value(pcomp)
+        self._pcomp_widget.display_state(pcomp, pcomp_enabled)
 
     def display_context(self, channel_label: str) -> None:
         self._channel_lbl.setText(f"Assigned: {channel_label}")
 
-    def update_ranges(self, is_voltage: bool, is_vsu: bool = False) -> None:
+    def update_ranges(
+        self,
+        is_voltage: bool,
+        is_vsu: bool = False,
+        interlock_open: bool = False,
+    ) -> None:
         SC = SweepConstraints
-        src_min, src_max = SC.source_range(is_voltage, is_vsu)
-        stp_min, stp_max = SC.step_range(is_voltage, is_var2_or_offset=True)
-        cmp_min, cmp_max = SC.compliance_range(is_voltage or is_vsu)
+        self._is_vsu = is_vsu
+        self._comp_row.setVisible(not is_vsu)
+        self._pcomp_row.setVisible(not is_vsu)
+        src_min, src_max = SC.source_range(is_voltage, is_vsu, interlock_open)
+        stp_min, stp_max = SC.step_range(
+            is_voltage, is_var2_or_offset=True, interlock_open=interlock_open
+        )
+        cmp_min, cmp_max = SC.compliance_range(
+            is_voltage or is_vsu, interlock_open
+        )
         src_u = SC.source_unit(is_voltage or is_vsu)
         cmp_u = SC.compliance_unit(is_voltage or is_vsu)
         self._start_edit.update_bounds(src_min, src_max, src_u)
@@ -364,12 +460,18 @@ class _VAR2Section(_SectionFrame):
             errors["var2_start"] = "VAR2 Start: value is empty or invalid"
         if self._step_edit.get_value() is None:
             errors["var2_step"] = "VAR2 Step: value is empty or invalid"
-        if self._comp_edit.get_value() is None:
-            errors["var2_comp"] = "VAR2 Compliance: value is empty or invalid"
-        if self._pcomp_edit.get_value() is None:
-            errors["var2_pcomp"] = (
-                "VAR2 Power Compliance: value is empty or invalid"
-            )
+        if not self._is_vsu:
+            if self._comp_edit.get_value() is None:
+                errors["var2_comp"] = (
+                    "VAR2 Compliance: value is empty or invalid"
+                )
+            if (
+                self._pcomp_widget.is_pcomp_enabled()
+                and self._pcomp_widget.get_value() is None
+            ):
+                errors["var2_pcomp"] = (
+                    "VAR2 Power Compliance: value is empty or invalid"
+                )
         return errors
 
 
@@ -378,9 +480,11 @@ class _VARDSection(_SectionFrame):
     ratio_committed = Signal(float)
     comp_committed = Signal(float)
     pcomp_committed = Signal(float)
+    pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("VARD  —  VAR1 Derivative", parent)
+        self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
             f"color: #c586c0; font-size: {P.FONT_SIZE_SM}; "
@@ -400,41 +504,61 @@ class _VARDSection(_SectionFrame):
         )
         self._ratio_edit = _SciDoubleEdit(1.0, RATIO_MIN, RATIO_MAX, "×")
         self._comp_edit = _SciDoubleEdit(0.01, COMP_I_MIN, COMP_I_MAX, "A")
-        self._pcomp_edit = _SciDoubleEdit(0.01, PCOMP_MIN, PCOMP_MAX, "W")
+        self._pcomp_widget = _PCompWidget()
 
-        for label, widget in [
-            ("Offset", self._offset_edit),
-            ("Ratio", self._ratio_edit),
-            ("Compliance", self._comp_edit),
-            ("Power Compliance", self._pcomp_edit),
+        self._comp_row = _form_row("Compliance", self._comp_edit)
+        self._pcomp_row = _form_row("Power Compliance", self._pcomp_widget)
+        for row in [
+            _form_row("Offset", self._offset_edit),
+            _form_row("Ratio", self._ratio_edit),
+            self._comp_row,
+            self._pcomp_row,
         ]:
-            self.body().addWidget(_form_row(label, widget))
+            self.body().addWidget(row)
 
         self._offset_edit.value_committed.connect(self.offset_committed)
         self._ratio_edit.value_committed.connect(self.ratio_committed)
         self._comp_edit.value_committed.connect(self.comp_committed)
-        self._pcomp_edit.value_committed.connect(self.pcomp_committed)
+        self._pcomp_widget.value_committed.connect(self.pcomp_committed)
+        self._pcomp_widget.enabled_changed.connect(self.pcomp_enabled_changed)
 
     def display_state(
-        self, offset: float, ratio: float, compliance: float, pcomp: float
+        self,
+        offset: float,
+        ratio: float,
+        compliance: float,
+        pcomp: float,
+        pcomp_enabled: bool,
     ) -> None:
         self._offset_edit.set_value(offset)
         self._ratio_edit.set_value(ratio)
         self._comp_edit.set_value(compliance)
-        self._pcomp_edit.set_value(pcomp)
+        self._pcomp_widget.display_state(pcomp, pcomp_enabled)
 
     def display_context(self, channel_label: str) -> None:
         self._channel_lbl.setText(f"Assigned: {channel_label}")
 
-    def update_ranges(self, is_voltage: bool, is_vsu: bool = False) -> None:
+    def update_ranges(
+        self,
+        is_voltage: bool,
+        is_vsu: bool = False,
+        interlock_open: bool = False,
+    ) -> None:
         SC = SweepConstraints
+        self._is_vsu = is_vsu
+        self._comp_row.setVisible(not is_vsu)
+        self._pcomp_row.setVisible(not is_vsu)
         if is_vsu:
             off_min, off_max = VARD_OFFSET_V_MIN, VARD_OFFSET_V_MAX
         elif is_voltage:
-            off_min, off_max = VARD_OFFSET_V_MIN, VARD_OFFSET_V_MAX
+            off_min, off_max = SC.step_range(
+                True, is_var2_or_offset=True, interlock_open=interlock_open
+            )
         else:
             off_min, off_max = VARD_OFFSET_I_MIN, VARD_OFFSET_I_MAX
-        cmp_min, cmp_max = SC.compliance_range(is_voltage or is_vsu)
+        cmp_min, cmp_max = SC.compliance_range(
+            is_voltage or is_vsu, interlock_open
+        )
         src_u = SC.source_unit(is_voltage or is_vsu)
         cmp_u = SC.compliance_unit(is_voltage or is_vsu)
         self._offset_edit.update_bounds(off_min, off_max, src_u)
@@ -446,12 +570,18 @@ class _VARDSection(_SectionFrame):
             errors["vard_offset"] = "VARD Offset: value is empty or invalid"
         if self._ratio_edit.get_value() is None:
             errors["vard_ratio"] = "VARD Ratio: value is empty or invalid"
-        if self._comp_edit.get_value() is None:
-            errors["vard_comp"] = "VARD Compliance: value is empty or invalid"
-        if self._pcomp_edit.get_value() is None:
-            errors["vard_pcomp"] = (
-                "VARD Power Compliance: value is empty or invalid"
-            )
+        if not self._is_vsu:
+            if self._comp_edit.get_value() is None:
+                errors["vard_comp"] = (
+                    "VARD Compliance: value is empty or invalid"
+                )
+            if (
+                self._pcomp_widget.is_pcomp_enabled()
+                and self._pcomp_widget.get_value() is None
+            ):
+                errors["vard_pcomp"] = (
+                    "VARD Power Compliance: value is empty or invalid"
+                )
         return errors
 
 
@@ -487,17 +617,20 @@ class SweepConfigPageView(BasePage):
     var1_step_committed = Signal(float)
     var1_comp_committed = Signal(float)
     var1_pcomp_committed = Signal(float)
+    var1_pcomp_enabled_changed = Signal(bool)
 
     var2_start_committed = Signal(float)
     var2_step_committed = Signal(float)
     var2_points_changed = Signal(int)
     var2_comp_committed = Signal(float)
     var2_pcomp_committed = Signal(float)
+    var2_pcomp_enabled_changed = Signal(bool)
 
     vard_offset_committed = Signal(float)
     vard_ratio_committed = Signal(float)
     vard_comp_committed = Signal(float)
     vard_pcomp_committed = Signal(float)
+    vard_pcomp_enabled_changed = Signal(bool)
 
     smu_standby_changed = Signal(str, bool)
     display_var_toggled = Signal(str, bool)
@@ -553,6 +686,7 @@ class SweepConfigPageView(BasePage):
             v1.get("step", 0.1),
             v1.get("compliance", 0.01),
             v1.get("power_compliance", 0.01),
+            v1.get("power_compliance_enabled", False),
         )
         v2 = snap.get("var2", {})
         self._var2_sec.display_state(
@@ -561,6 +695,7 @@ class SweepConfigPageView(BasePage):
             v2.get("points", 3),
             v2.get("compliance", 0.01),
             v2.get("power_compliance", 0.01),
+            v2.get("power_compliance_enabled", False),
         )
         vd = snap.get("vard", {})
         self._vard_sec.display_state(
@@ -568,6 +703,7 @@ class SweepConfigPageView(BasePage):
             vd.get("ratio", 1.0),
             vd.get("compliance", 0.01),
             vd.get("power_compliance", 0.01),
+            vd.get("power_compliance_enabled", False),
         )
 
     def display_var_sections(
@@ -578,21 +714,33 @@ class SweepConfigPageView(BasePage):
         self._vard_sec.setVisible(has_vard)
 
     def display_var1_context(
-        self, channel_label: str, is_voltage: bool, is_vsu: bool = False
+        self,
+        channel_label: str,
+        is_voltage: bool,
+        is_vsu: bool = False,
+        interlock_open: bool = False,
     ) -> None:
-        self._var1_sec.update_ranges(is_voltage, is_vsu)
+        self._var1_sec.update_ranges(is_voltage, is_vsu, interlock_open)
         self._var1_sec.display_context(channel_label)
 
     def display_var2_context(
-        self, channel_label: str, is_voltage: bool, is_vsu: bool = False
+        self,
+        channel_label: str,
+        is_voltage: bool,
+        is_vsu: bool = False,
+        interlock_open: bool = False,
     ) -> None:
-        self._var2_sec.update_ranges(is_voltage, is_vsu)
+        self._var2_sec.update_ranges(is_voltage, is_vsu, interlock_open)
         self._var2_sec.display_context(channel_label)
 
     def display_vard_context(
-        self, channel_label: str, is_voltage: bool, is_vsu: bool = False
+        self,
+        channel_label: str,
+        is_voltage: bool,
+        is_vsu: bool = False,
+        interlock_open: bool = False,
     ) -> None:
-        self._vard_sec.update_ranges(is_voltage, is_vsu)
+        self._vard_sec.update_ranges(is_voltage, is_vsu, interlock_open)
         self._vard_sec.display_context(channel_label)
 
     def display_available_vars(
@@ -641,9 +789,10 @@ class SweepConfigPageView(BasePage):
         self,
         active_channels: List[dict],
         constants_config: Dict[str, dict],
+        interlock_open: bool = False,
     ) -> None:
         self._constants_sec.display_constants(
-            active_channels, constants_config
+            active_channels, constants_config, interlock_open
         )
 
     def get_input_errors(self) -> Dict[str, str]:
@@ -736,7 +885,6 @@ class SweepConfigPageView(BasePage):
             self._summary_sec,
             self._meas_sec,
             self._ranges_sec,
-            self._timing_sec,
             self._display_vars_sec,
         ):
             left_v.addWidget(w)
@@ -759,6 +907,7 @@ class SweepConfigPageView(BasePage):
             self._var2_sec,
             self._vard_sec,
             self._constants_sec,
+            self._timing_sec,
         ):
             right_v.addWidget(w)
         right_v.addStretch()
@@ -791,6 +940,7 @@ class SweepConfigPageView(BasePage):
         v1.step_committed.connect(self.var1_step_committed)
         v1.comp_committed.connect(self.var1_comp_committed)
         v1.pcomp_committed.connect(self.var1_pcomp_committed)
+        v1.pcomp_enabled_changed.connect(self.var1_pcomp_enabled_changed)
 
         v2 = self._var2_sec
         v2.start_committed.connect(self.var2_start_committed)
@@ -798,12 +948,14 @@ class SweepConfigPageView(BasePage):
         v2.points_changed.connect(self.var2_points_changed)
         v2.comp_committed.connect(self.var2_comp_committed)
         v2.pcomp_committed.connect(self.var2_pcomp_committed)
+        v2.pcomp_enabled_changed.connect(self.var2_pcomp_enabled_changed)
 
         vd = self._vard_sec
         vd.offset_committed.connect(self.vard_offset_committed)
         vd.ratio_committed.connect(self.vard_ratio_committed)
         vd.comp_committed.connect(self.vard_comp_committed)
         vd.pcomp_committed.connect(self.vard_pcomp_committed)
+        vd.pcomp_enabled_changed.connect(self.vard_pcomp_enabled_changed)
 
         self._display_vars_sec.var_toggled.connect(self.display_var_toggled)
         self._ranges_sec.range_changed.connect(self.range_changed)

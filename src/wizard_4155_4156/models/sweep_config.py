@@ -19,13 +19,14 @@ Long integration cycles: 2 – 100 PLC
 Wait-time multiplier   : 0.0 – 10.0 (dimensionless, not seconds)
 Hold time              : 0.0 – 655.35 s
 Delay time             : 0.0 – 65.535 s
-SMU voltage sweep      : ±100 V  |  step 0 – 200 V
+SMU voltage sweep      : ±100 V  |  step ±200 V
 SMU current sweep      : ±0.1 A  |  step ±0.2 A
 VAR2 / VARD step (V)   : ±200 V
 VARD offset (V/I)      : ±200 V / ±0.2 A
 VSU voltage            : ±20 V
 Compliance (I)         : 1 pA – 0.1 A   (when sweeping V)
 Compliance (V)         : 1 mV – 100 V   (when sweeping I)
+Interlock open         : SMU voltage ±40 V | step ±80 V | compliance (V) ≤ 40 V
 Power compliance       : 1 mW – 20 W
 VAR2 points            : 1 – 128
 VAR1 points            : 1 – 1001  (cross-rule)
@@ -49,8 +50,11 @@ class IntegrationMode(str, Enum):
 
 
 class SweepStop(str, Enum):
+    """Values match SweepStopModeType in SCPI/literals_definition.py."""
+
+    ABNORMAL = "ABNORMAL"
     COMPLIANCE = "COMPLIANCE"
-    END = "END"
+    OFF = "OFF"
 
 
 class VAR1Mode(str, Enum):
@@ -86,8 +90,13 @@ DELAY_MAX: float = 65.535  # s
 # SMU voltage source
 VOLTAGE_MIN: float = -100.0  # V
 VOLTAGE_MAX: float = 100.0  # V
-VOLTAGE_STEP_MIN: float = 0.0  # V — step is always positive for V sweep
+VOLTAGE_STEP_MIN: float = -200.0  # V — negative step sweeps downward
 VOLTAGE_STEP_MAX: float = 200.0  # V
+
+# Interlock terminal open → SMU output limited to ±40 V
+VOLTAGE_ILOCK_MAX: float = 40.0  # V — start/stop/source cap
+V_STEP_ILOCK_MAX: float = 80.0  # V — step/offset cap (±2× source range)
+COMP_V_ILOCK_MAX: float = 40.0  # V — voltage compliance cap
 
 # SMU current source
 CURRENT_MIN: float = -0.1  # A
@@ -199,6 +208,7 @@ class VAR1Config:
     step: float = 0.1
     compliance: float = 0.01
     power_compliance: float = 0.01
+    power_compliance_enabled: bool = False
 
 
 @dataclass
@@ -208,6 +218,7 @@ class VAR2Config:
     points: int = 3
     compliance: float = 0.01
     power_compliance: float = 0.01
+    power_compliance_enabled: bool = False
 
 
 @dataclass
@@ -218,6 +229,7 @@ class VARDConfig:
     ratio: float = 1.0
     compliance: float = 0.01
     power_compliance: float = 0.01
+    power_compliance_enabled: bool = False
 
 
 @dataclass
@@ -244,13 +256,17 @@ class SweepConfig:
 def validate_constant_sources(
     constants: Dict[str, Dict[str, float]],
     active_channels: List[dict],
+    interlock_open: bool = False,
 ) -> List[str]:
     """
     Validate constant-source values and compliances against the hardware
     limits of each active CONST channel.  Shared by SweepConstraints and
     SamplingConstraints (models/sampling_config.py).
+    With the interlock terminal open, SMU voltage limits drop to ±40 V.
     """
     errors: List[str] = []
+    v_max = VOLTAGE_ILOCK_MAX if interlock_open else VOLTAGE_MAX
+    comp_v_max = COMP_V_ILOCK_MAX if interlock_open else COMP_V_MAX
     for ch in active_channels or []:
         if not (
             ch.get("function") == "CONST"
@@ -272,9 +288,9 @@ def validate_constant_sources(
                     )
             elif unit_type == "SMU":
                 if mode in ("V", "VPULSE"):
-                    if not (VOLTAGE_MIN <= source <= VOLTAGE_MAX):
+                    if not (-v_max <= source <= v_max):
                         errors.append(
-                            f"{unit_id} Constant Source: invalid value (range: {VOLTAGE_MIN:.3g} – {VOLTAGE_MAX:.3g} V)"
+                            f"{unit_id} Constant Source: invalid value (range: {-v_max:.3g} – {v_max:.3g} V)"
                         )
                 elif mode in ("I", "IPULSE"):
                     if not (CURRENT_MIN <= source <= CURRENT_MAX):
@@ -291,9 +307,9 @@ def validate_constant_sources(
                             f"{unit_id} Constant Compliance: invalid value (range: {COMP_I_MIN:.3g} – {COMP_I_MAX:.3g} A)"
                         )
                 elif mode in ("I", "IPULSE"):
-                    if not (COMP_V_MIN <= compliance <= COMP_V_MAX):
+                    if not (COMP_V_MIN <= compliance <= comp_v_max):
                         errors.append(
-                            f"{unit_id} Constant Compliance: invalid value (range: {COMP_V_MIN:.3g} – {COMP_V_MAX:.3g} V)"
+                            f"{unit_id} Constant Compliance: invalid value (range: {COMP_V_MIN:.3g} – {comp_v_max:.3g} V)"
                         )
     return errors
 
@@ -312,34 +328,40 @@ class SweepConstraints:
 
     @staticmethod
     def source_range(
-        is_voltage: bool, is_vsu: bool = False
+        is_voltage: bool, is_vsu: bool = False, interlock_open: bool = False
     ) -> Tuple[float, float]:
         if is_vsu:
             return VSU_VOLTAGE_MIN, VSU_VOLTAGE_MAX
-        return (
-            (VOLTAGE_MIN, VOLTAGE_MAX)
-            if is_voltage
-            else (CURRENT_MIN, CURRENT_MAX)
-        )
+        if is_voltage:
+            if interlock_open:
+                return -VOLTAGE_ILOCK_MAX, VOLTAGE_ILOCK_MAX
+            return VOLTAGE_MIN, VOLTAGE_MAX
+        return CURRENT_MIN, CURRENT_MAX
 
     @staticmethod
     def step_range(
         is_voltage: bool,
         is_var2_or_offset: bool = False,
+        interlock_open: bool = False,
     ) -> Tuple[float, float]:
         """VAR2 step and VARD offset use a wider ±200 V range."""
         if is_voltage:
+            if interlock_open:
+                return -V_STEP_ILOCK_MAX, V_STEP_ILOCK_MAX
             if is_var2_or_offset:
                 return VAR2_V_STEP_MIN, VAR2_V_STEP_MAX
             return VOLTAGE_STEP_MIN, VOLTAGE_STEP_MAX
         return CURRENT_STEP_MIN, CURRENT_STEP_MAX
 
     @staticmethod
-    def compliance_range(sweep_is_voltage: bool) -> Tuple[float, float]:
+    def compliance_range(
+        sweep_is_voltage: bool, interlock_open: bool = False
+    ) -> Tuple[float, float]:
+        if sweep_is_voltage:
+            return COMP_I_MIN, COMP_I_MAX
         return (
-            (COMP_I_MIN, COMP_I_MAX)
-            if sweep_is_voltage
-            else (COMP_V_MIN, COMP_V_MAX)
+            COMP_V_MIN,
+            COMP_V_ILOCK_MAX if interlock_open else COMP_V_MAX,
         )
 
     @staticmethod
@@ -368,14 +390,18 @@ class SweepConstraints:
                 return None
             return round(abs((stop - start) / step)) + 1
         else:
-            if start <= 0 or stop <= start:
+            # Log scaling applies to the magnitude only: start/stop may be
+            # negative but must share polarity (cannot cross or touch zero).
+            if start == 0 or stop == 0 or (start < 0) != (stop < 0):
+                return None
+            if stop == start:
                 return None
             n_per_decade = 10
             if spacing_val == "L25":
                 n_per_decade = 25
             elif spacing_val == "L50":
                 n_per_decade = 50
-            decades = math.log10(stop / start)
+            decades = abs(math.log10(abs(stop) / abs(start)))
             return math.floor(decades * n_per_decade) + 1
 
     @staticmethod
@@ -388,7 +414,9 @@ class SweepConstraints:
         var1_is_vsu: bool = False,
         var2_is_voltage: bool = True,
         var2_is_vsu: bool = False,
+        vard_is_vsu: bool = False,
         active_channels: List[dict] = None,
+        interlock_open: bool = False,
     ) -> List[str]:
         """
         Runs rigorous logic validation checks on the SweepConfig configuration.
@@ -432,38 +460,12 @@ class SweepConstraints:
                 f"Hold Time: invalid value (range: {HOLD_TIME_MIN:.3g} – {HOLD_TIME_MAX:.3g} s)"
             )
 
-        # Range determination helpers
-        def get_src_range(
-            is_v: bool, is_vsu_flag: bool
-        ) -> Tuple[float, float]:
-            if is_vsu_flag:
-                return VSU_VOLTAGE_MIN, VSU_VOLTAGE_MAX
-            return (
-                (VOLTAGE_MIN, VOLTAGE_MAX)
-                if is_v
-                else (CURRENT_MIN, CURRENT_MAX)
-            )
-
-        def get_step_range(
-            is_v: bool, is_var2_or_offset: bool
-        ) -> Tuple[float, float]:
-            if is_v:
-                return (
-                    (VAR2_V_STEP_MIN, VAR2_V_STEP_MAX)
-                    if is_var2_or_offset
-                    else (VOLTAGE_STEP_MIN, VOLTAGE_STEP_MAX)
-                )
-            return (CURRENT_STEP_MIN, CURRENT_STEP_MAX)
-
-        def get_comp_range(is_v: bool) -> Tuple[float, float]:
-            return (
-                (COMP_I_MIN, COMP_I_MAX) if is_v else (COMP_V_MIN, COMP_V_MAX)
-            )
-
         # 3. VAR1
         if has_var1:
             v1 = cfg.var1
-            src_min, src_max = get_src_range(var1_is_voltage, var1_is_vsu)
+            src_min, src_max = SweepConstraints.source_range(
+                var1_is_voltage, var1_is_vsu, interlock_open
+            )
             if not (src_min <= v1.start <= src_max):
                 errors.append(
                     f"VAR1 Start: invalid value (range: {src_min:.3g} – {src_max:.3g})"
@@ -474,36 +476,61 @@ class SweepConstraints:
                 )
 
             if v1.spacing == SweepSpacing.LINEAR:
-                stp_min, stp_max = get_step_range(
-                    var1_is_voltage, is_var2_or_offset=False
-                )
-                if v1.step <= 0:
-                    errors.append("VAR1 Step: cannot be zero or negative")
+                if var1_is_vsu:
+                    # VSU step spans the full ±20 V range width in either direction
+                    stp_max = abs(src_max - src_min)
+                    stp_min = -stp_max
+                else:
+                    stp_min, stp_max = SweepConstraints.step_range(
+                        var1_is_voltage,
+                        is_var2_or_offset=False,
+                        interlock_open=interlock_open,
+                    )
+                if v1.step == 0:
+                    errors.append("VAR1 Step: cannot be zero")
                 elif not (stp_min <= v1.step <= stp_max):
                     errors.append(
                         f"VAR1 Step: invalid value (range: {stp_min:.3g} – {stp_max:.3g})"
                     )
-            else:
-                # Log spacing constraints
-                if v1.start <= 0:
+                elif v1.step > 0 and v1.stop <= v1.start:
                     errors.append(
-                        "VAR1: Start must be greater than zero for logarithmic sweeps."
+                        "VAR1: Stop must be greater than Start when Step is positive."
                     )
-                if v1.stop <= v1.start:
-                    errors.append("VAR1: Stop must be greater than Start.")
+                elif v1.step < 0 and v1.stop >= v1.start:
+                    errors.append(
+                        "VAR1: Stop must be less than Start when Step is negative."
+                    )
+            else:
+                # Log spacing constraints: scaling applies to the magnitude
+                # only, so negative values are allowed, but the sweep cannot
+                # cross or touch zero.
+                if v1.start == 0 or v1.stop == 0:
+                    errors.append(
+                        "VAR1: Start and Stop cannot be zero for logarithmic sweeps."
+                    )
+                elif (v1.start < 0) != (v1.stop < 0):
+                    errors.append(
+                        "VAR1: Start and Stop must have the same polarity for logarithmic sweeps."
+                    )
+                elif v1.stop == v1.start:
+                    errors.append(
+                        "VAR1: Stop must differ from Start for logarithmic sweeps."
+                    )
 
-            if v1.spacing == SweepSpacing.LINEAR and v1.stop <= v1.start:
-                errors.append("VAR1: Stop must be greater than Start.")
-
-            comp_min, comp_max = get_comp_range(var1_is_voltage or var1_is_vsu)
-            if not (comp_min <= v1.compliance <= comp_max):
-                errors.append(
-                    f"VAR1 Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+            if not var1_is_vsu:
+                comp_min, comp_max = SweepConstraints.compliance_range(
+                    var1_is_voltage, interlock_open
                 )
-            if not (PCOMP_MIN <= v1.power_compliance <= PCOMP_MAX):
-                errors.append(
-                    f"VAR1 Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
-                )
+                if not (comp_min <= v1.compliance <= comp_max):
+                    errors.append(
+                        f"VAR1 Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+                    )
+                if v1.power_compliance_enabled and not (
+                    PCOMP_MIN <= v1.power_compliance <= PCOMP_MAX
+                ):
+                    errors.append(
+                        f"VAR1 Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                    )
 
             # Point count & total points checks
             # (only if basic VAR1 parameters are logical)
@@ -532,13 +559,17 @@ class SweepConstraints:
         # 4. VAR2
         if has_var2:
             v2 = cfg.var2
-            src_min, src_max = get_src_range(var2_is_voltage, var2_is_vsu)
+            src_min, src_max = SweepConstraints.source_range(
+                var2_is_voltage, var2_is_vsu, interlock_open
+            )
             if not (src_min <= v2.start <= src_max):
                 errors.append(
                     f"VAR2 Start: invalid value (range: {src_min:.3g} – {src_max:.3g})"
                 )
-            stp_min, stp_max = get_step_range(
-                var2_is_voltage, is_var2_or_offset=True
+            stp_min, stp_max = SweepConstraints.step_range(
+                var2_is_voltage,
+                is_var2_or_offset=True,
+                interlock_open=interlock_open,
             )
             if v2.step == 0:
                 errors.append("VAR2 Step: cannot be zero")
@@ -550,23 +581,29 @@ class SweepConstraints:
                 errors.append(
                     f"VAR2 Points: invalid value (range: {VAR2_POINTS_MIN} – {VAR2_POINTS_MAX})"
                 )
-            comp_min, comp_max = get_comp_range(var2_is_voltage or var2_is_vsu)
-            if not (comp_min <= v2.compliance <= comp_max):
-                errors.append(
-                    f"VAR2 Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+            if not var2_is_vsu:
+                comp_min, comp_max = SweepConstraints.compliance_range(
+                    var2_is_voltage, interlock_open
                 )
-            if not (PCOMP_MIN <= v2.power_compliance <= PCOMP_MAX):
-                errors.append(
-                    f"VAR2 Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
-                )
+                if not (comp_min <= v2.compliance <= comp_max):
+                    errors.append(
+                        f"VAR2 Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+                    )
+                if v2.power_compliance_enabled and not (
+                    PCOMP_MIN <= v2.power_compliance <= PCOMP_MAX
+                ):
+                    errors.append(
+                        f"VAR2 Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                    )
 
         # 5. VARD
         if has_vard:
             vd = cfg.vard
-            if var1_is_vsu:
-                off_min, off_max = VARD_OFFSET_V_MIN, VARD_OFFSET_V_MAX
-            elif var1_is_voltage:
-                off_min, off_max = VARD_OFFSET_V_MIN, VARD_OFFSET_V_MAX
+            if var1_is_vsu or var1_is_voltage:
+                if interlock_open and not vard_is_vsu:
+                    off_min, off_max = -V_STEP_ILOCK_MAX, V_STEP_ILOCK_MAX
+                else:
+                    off_min, off_max = VARD_OFFSET_V_MIN, VARD_OFFSET_V_MAX
             else:
                 off_min, off_max = VARD_OFFSET_I_MIN, VARD_OFFSET_I_MAX
             if not (off_min <= vd.offset <= off_max):
@@ -577,25 +614,60 @@ class SweepConstraints:
                 errors.append(
                     f"VARD Ratio: invalid value (range: {RATIO_MIN:.3g} – {RATIO_MAX:.3g})"
                 )
-            comp_min, comp_max = get_comp_range(var1_is_voltage or var1_is_vsu)
-            if not (comp_min <= vd.compliance <= comp_max):
-                errors.append(
-                    f"VARD Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+            # Resultant output (VAR1 × ratio + offset) must stay within the
+            # VARD unit's source range over the whole VAR1 sweep.  The output
+            # is monotonic in VAR1, so checking both endpoints suffices.
+            if has_var1:
+                out_a = cfg.var1.start * vd.ratio + vd.offset
+                out_b = cfg.var1.stop * vd.ratio + vd.offset
+                out_lo, out_hi = min(out_a, out_b), max(out_a, out_b)
+                o_min, o_max = SweepConstraints.source_range(
+                    var1_is_voltage, vard_is_vsu, interlock_open
                 )
-            if not (PCOMP_MIN <= vd.power_compliance <= PCOMP_MAX):
-                errors.append(
-                    f"VARD Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                if out_lo < o_min or out_hi > o_max:
+                    errors.append(
+                        f"VARD Output: VAR1 x Ratio + Offset spans "
+                        f"{out_lo:.3g} – {out_hi:.3g} "
+                        f"(allowed: {o_min:.3g} – {o_max:.3g})"
+                    )
+            if not vard_is_vsu:
+                # Compliance direction follows the VAR1 sweep type
+                comp_min, comp_max = SweepConstraints.compliance_range(
+                    var1_is_voltage or var1_is_vsu, interlock_open
                 )
+                if not (comp_min <= vd.compliance <= comp_max):
+                    errors.append(
+                        f"VARD Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+                    )
+                if vd.power_compliance_enabled and not (
+                    PCOMP_MIN <= vd.power_compliance <= PCOMP_MAX
+                ):
+                    errors.append(
+                        f"VARD Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                    )
 
-        # 6. Display variables limit
+        # 6. Sweep stop vs power compliance cross-rule
+        any_pcomp = (
+            (has_var1 and not var1_is_vsu and cfg.var1.power_compliance_enabled)
+            or (has_var2 and not var2_is_vsu and cfg.var2.power_compliance_enabled)
+            or (has_vard and not vard_is_vsu and cfg.vard.power_compliance_enabled)
+        )
+        if any_pcomp and cfg.sweep_stop == SweepStop.OFF:
+            errors.append(
+                "Sweep stop must be ABNORMAL or COMPLIANCE when power compliance is set"
+            )
+
+        # 7. Display variables limit
         if len(cfg.display_vars) > DISPLAY_VARS_MAX:
             errors.append(
                 f"Too many display variables selected: {len(cfg.display_vars)} (maximum is {DISPLAY_VARS_MAX})."
             )
 
-        # 7. Constant Sources Validation
+        # 8. Constant Sources Validation
         errors.extend(
-            validate_constant_sources(cfg.constants, active_channels)
+            validate_constant_sources(
+                cfg.constants, active_channels, interlock_open
+            )
         )
 
         return errors

@@ -277,7 +277,9 @@ class SamplingConfigPresenter(QObject):
             ctx["measured_vars"], cfg.stop_condition.name
         )
         self._view.display_constants_setup(
-            ctx["active_channels"], cfg.constants
+            ctx["active_channels"],
+            cfg.constants,
+            interlock_open=bool(self._channels_config.interlock_open),
         )
         self._refresh_dependent_state()
         self._update_validation()
@@ -472,6 +474,7 @@ class SamplingConfigPresenter(QObject):
             self._config,
             self._ctx["active_channels"],
             self._ctx["measured_vars"],
+            interlock_open=bool(self._channels_config.interlock_open),
         )
         for i, err in enumerate(model_errors):
             errors[f"model_err_{i}"] = err
