@@ -21,12 +21,12 @@ C models only  — QSCV measurement mode available
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 # ── Enumerations ─────────────────────────────────────────────────────────────
 
 
-class InstrumentModel(str, Enum):
+class InstrumentModel(StrEnum):
     HP4155B = "4155B"
     HP4156B = "4156B"
     HP4155C = "4155C"
@@ -37,17 +37,13 @@ class InstrumentModel(str, Enum):
         return self in {InstrumentModel.HP4155C, InstrumentModel.HP4156C}
 
 
-class MeasurementMode(str, Enum):
+class MeasurementMode(StrEnum):
     SWEEP = "SWEEP"
     SAMPLING = "SAMPLING"
     QSCV = "QSCV"
 
 
-class SMUMode(str, Enum):
-    """
-    Source function of an SMU channel (maps directly to SCPI MODE argument).
-    """
-
+class SMUMode(StrEnum):
     V = "V"
     I = "I"  # noqa: E741
     VPULSE = "VPULSE"
@@ -55,19 +51,17 @@ class SMUMode(str, Enum):
     COMM = "COMM"  # SMU acts as a common return — function locked to CONST
 
 
-class VMUMode(str, Enum):
-    """Measurement mode of a VMU channel."""
-
+class VMUMode(StrEnum):
     V = "V"
     DVOLT = "DVOLT"
 
 
-class UnitFunction(str, Enum):
+class UnitFunction(StrEnum):
     """
     Source/sweep function of a unit channel.
     Values are the exact SCPI strings sent to :PAGE:CHAN:<unit>:FUNC.
-    VAR1_PRIME (VAR1') is the derivative step — only meaningful for SMUs
-    in Sweep mode.
+    VAR1_PRIME (VAR1') is the synchronous step — only meaningful for source
+    units in Sweep mode.
     """
 
     CONST = "CONST"
@@ -101,7 +95,7 @@ class SMUConfig:
 class VMUConfig:
     enabled: bool = True
     mode: VMUMode = VMUMode.V
-    voltage_name: str = "VM"
+    voltage_name: str = "VMU"
 
 
 @dataclass
@@ -110,7 +104,7 @@ class VSUConfig:
 
     enabled: bool = True
     function: UnitFunction = UnitFunction.CONST
-    voltage_name: str = "VS"
+    voltage_name: str = "VSU"
 
 
 # ── Top-level session configuration ──────────────────────────────────────────
@@ -354,7 +348,7 @@ class ChannelsConstraints:
 
         # 1.1.1) Two units or more share the same voltage/current name
         norm_names = [
-            name.strip().upper()
+            name.strip().upper()  # TODO: remove case insensitive?
             for name in ChannelsConstraints._active_variable_names(cfg)
             if name.strip()
         ]

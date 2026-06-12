@@ -26,7 +26,6 @@ Public API for other presenters
 Constraint summary (4155/56 rules)
 ------------------------------------
 Model ────────────────────────────────────────────────────────────
-  4155B / 4155C  → VMU panel hidden
   4155B / 4156B  → QSCV mode unavailable; clamped to SWEEP on switch
 
 Mode ─────────────────────────────────────────────────────────────
@@ -34,7 +33,7 @@ Mode ─────────────────────────
   SAMPLING → SMU: CONST only;            VSU: CONST only; VMU: active
   QSCV     → SMU: CONST/VAR1;            VSU: CONST only; VMU: disabled
 
-SMU mode COMM → function locked to CONST; combo disabled in view.
+SMU mode COMM → function locked to CONST; combo disabled in the view.
 """
 
 from __future__ import annotations
@@ -154,14 +153,14 @@ class ChannelsPresenter(QObject):
 
     def _on_smu_function(self, index: int, value: str) -> None:
         try:
-            fn = UnitFunction(value)
+            function = UnitFunction(value)
         except ValueError:
             return
         allowed = ChannelsConstraints.smu_functions(
             self._config.measurement_mode
         )
         self._config.smu[index].function = ChannelsConstraints.clamp_function(
-            fn, allowed
+            function, allowed
         )
         self._update_validation()
 
@@ -199,14 +198,14 @@ class ChannelsPresenter(QObject):
 
     def _on_vsu_function(self, index: int, value: str) -> None:
         try:
-            fn = UnitFunction(value)
+            function = UnitFunction(value)
         except ValueError:
             return
         allowed = ChannelsConstraints.vsu_functions(
             self._config.measurement_mode
         )
         self._config.vsu[index].function = ChannelsConstraints.clamp_function(
-            fn, allowed
+            function, allowed
         )
         self._update_validation()
 
@@ -217,27 +216,31 @@ class ChannelsPresenter(QObject):
     # ── Private helpers ──────────────────────────────────────────────────────
 
     def _connect_view_signals(self) -> None:
-        v = self._view
+        view = self._view
 
-        v.instrument_model_changed.connect(self._on_instrument_model_changed)
-        v.measurement_mode_changed.connect(self._on_measurement_mode_changed)
-        v.gndu_changed.connect(self._on_gndu_changed)
-        v.inlink_changed.connect(self._on_inlink_changed)
+        view.instrument_model_changed.connect(
+            self._on_instrument_model_changed
+        )
+        view.measurement_mode_changed.connect(
+            self._on_measurement_mode_changed
+        )
+        view.gndu_changed.connect(self._on_gndu_changed)
+        view.inlink_changed.connect(self._on_inlink_changed)
 
-        v.smu_enabled_changed.connect(self._on_smu_enabled)
-        v.smu_mode_changed.connect(self._on_smu_mode)
-        v.smu_function_changed.connect(self._on_smu_function)
-        v.smu_vname_changed.connect(self._on_smu_vname)
-        v.smu_iname_changed.connect(self._on_smu_iname)
+        view.smu_enabled_changed.connect(self._on_smu_enabled)
+        view.smu_mode_changed.connect(self._on_smu_mode)
+        view.smu_function_changed.connect(self._on_smu_function)
+        view.smu_vname_changed.connect(self._on_smu_vname)
+        view.smu_iname_changed.connect(self._on_smu_iname)
 
-        v.vmu_enabled_changed.connect(self._on_vmu_enabled)
-        v.vmu_mode_changed.connect(self._on_vmu_mode)
-        v.vmu_vname_changed.connect(self._on_vmu_vname)
+        view.vmu_enabled_changed.connect(self._on_vmu_enabled)
+        view.vmu_mode_changed.connect(self._on_vmu_mode)
+        view.vmu_vname_changed.connect(self._on_vmu_vname)
 
-        v.vsu_enabled_changed.connect(self._on_vsu_enabled)
-        v.vsu_function_changed.connect(self._on_vsu_function)
-        v.vsu_vname_changed.connect(self._on_vsu_vname)
-        v.configure_measure_clicked.connect(self._on_configure_measure)
+        view.vsu_enabled_changed.connect(self._on_vsu_enabled)
+        view.vsu_function_changed.connect(self._on_vsu_function)
+        view.vsu_vname_changed.connect(self._on_vsu_vname)
+        view.configure_measure_clicked.connect(self._on_configure_measure)
 
     def _push_full_state(self) -> None:
         """
@@ -245,9 +248,9 @@ class ChannelsPresenter(QObject):
         Called on init and after any change that affects multiple units
         (model switch, mode switch).
         """
-        cfg = self._config
-        mode = cfg.measurement_mode
-        model = cfg.instrument_model
+        config = self._config
+        mode = config.measurement_mode
+        model = config.instrument_model
 
         allowed_modes = ChannelsConstraints.allowed_modes(model)
         allowed_smu_fns = ChannelsConstraints.smu_functions(mode)
@@ -256,66 +259,68 @@ class ChannelsPresenter(QObject):
 
         # Build SMU state dicts
         smu_states = {
-            idx: {
+            index: {
                 "enabled": smu.enabled,
                 "mode": smu.mode.value,
                 "function": smu.function.value,
                 "voltage_name": smu.voltage_name,
                 "current_name": smu.current_name,
             }
-            for idx, smu in cfg.smu.items()
+            for index, smu in config.smu.items()
         }
 
         # Build VMU state dicts
         vmu_states = {
-            idx: {
+            index: {
                 "enabled": vmu.enabled,
                 "mode": vmu.mode.value,
                 "voltage_name": vmu.voltage_name,
             }
-            for idx, vmu in cfg.vmu.items()
+            for index, vmu in config.vmu.items()
         }
 
         # Build VSU state dicts
         vsu_states = {
-            idx: {
+            index: {
                 "enabled": vsu.enabled,
                 "function": vsu.function.value,
                 "voltage_name": vsu.voltage_name,
             }
-            for idx, vsu in cfg.vsu.items()
+            for index, vsu in config.vsu.items()
         }
 
         # Full refresh
         self._view.display_config(
             model=model.value,
             mode=mode.value,
-            gndu=cfg.gndu_to_common,
-            inlink=cfg.inlink_enabled,
+            gndu=config.gndu_to_common,
+            inlink=config.inlink_enabled,
             smu_states=smu_states,
             vmu_states=vmu_states,
             vsu_states=vsu_states,
         )
 
         # Structural changes
-        self._view.display_available_modes([m.value for m in allowed_modes])
+        self._view.display_available_modes([
+            mode.value for mode in allowed_modes
+        ])
 
         # Per-card function lists and COMM locks for SMUs
-        for idx, smu in cfg.smu.items():
+        for index, smu in config.smu.items():
             self._view.display_smu_functions(
-                idx, [f.value for f in allowed_smu_fns]
+                index, [function.value for function in allowed_smu_fns]
             )
             locked = ChannelsConstraints.smu_function_locked(smu.mode)
-            self._view.display_smu_function_locked(idx, locked)
+            self._view.display_smu_function_locked(index, locked)
 
         # VMU usability per mode
-        for idx in cfg.vmu:
-            self._view.display_vmu_card_usable(idx, vmu_usable)
+        for index in config.vmu:
+            self._view.display_vmu_card_usable(index, vmu_usable)
 
         # Per-card function lists for VSUs
-        for idx in cfg.vsu:
+        for index in config.vsu:
             self._view.display_vsu_functions(
-                idx, [f.value for f in allowed_vsu_fns]
+                index, [function.value for function in allowed_vsu_fns]
             )
 
         self._update_validation()
