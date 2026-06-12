@@ -65,6 +65,8 @@ class CommandWizardText(StrEnum):
     # ── Channels page ────────────────────────────────────────────────────────
     CHAN_VALIDATION_VALID = "✅ {message}"
     CHAN_VALIDATION_INVALID = "⚠️ {message}"
+    CHAN_OPT_COMMON_TO_GROUND = "Common circuit is connected to ground"
+    CHAN_OPT_INTERLOCK_OPEN = "Interlock terminal is open"
 
     # ── Table View page ──────────────────────────────────────────────────────
     TABLE_PAGE_TITLE = "Table View"

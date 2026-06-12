@@ -107,6 +107,52 @@ class VSUConfig:
     voltage_name: str = "VSU"
 
 
+# ── Default first-page layout ────────────────────────────────────────────────
+
+DEFAULT_INSTRUMENT_MODEL: InstrumentModel = InstrumentModel.HP4156B
+DEFAULT_MEASUREMENT_MODE: MeasurementMode = MeasurementMode.SWEEP
+
+# (mode, function) per 1-based SMU index.
+_DEFAULT_SMU_LAYOUT: dict[int, tuple[SMUMode, UnitFunction]] = {
+    1: (SMUMode.COMM, UnitFunction.CONST),
+    2: (SMUMode.V, UnitFunction.VAR1),
+    3: (SMUMode.I, UnitFunction.VAR2),
+    4: (SMUMode.V, UnitFunction.CONST),
+}
+
+# Function per 1-based VSU index (VSU mode is always V).
+_DEFAULT_VSU_FUNCTIONS: dict[int, UnitFunction] = {
+    1: UnitFunction.VAR1_PRIME,
+    2: UnitFunction.CONST,
+}
+
+
+def _default_smu_configs() -> dict[int, SMUConfig]:
+    return {
+        index: SMUConfig(
+            mode=mode,
+            function=function,
+            voltage_name=f"V{index}",
+            current_name=f"I{index}",
+        )
+        for index, (mode, function) in _DEFAULT_SMU_LAYOUT.items()
+    }
+
+
+def _default_vmu_configs() -> dict[int, VMUConfig]:
+    return {
+        index: VMUConfig(enabled=False, voltage_name=f"VMU{index}")
+        for index in range(1, VMU_COUNT + 1)
+    }
+
+
+def _default_vsu_configs() -> dict[int, VSUConfig]:
+    return {
+        index: VSUConfig(function=function, voltage_name=f"VSU{index}")
+        for index, function in _DEFAULT_VSU_FUNCTIONS.items()
+    }
+
+
 # ── Top-level session configuration ──────────────────────────────────────────
 
 
@@ -118,29 +164,14 @@ class ChannelsConfig:
     (SMU1 → smu[1], VMU2 → vmu[2], …).
     """
 
-    instrument_model: InstrumentModel = InstrumentModel.HP4155C
-    measurement_mode: MeasurementMode = MeasurementMode.SWEEP
-    gndu_to_common: bool = True
-    inlink_enabled: bool = False
+    instrument_model: InstrumentModel = DEFAULT_INSTRUMENT_MODEL
+    measurement_mode: MeasurementMode = DEFAULT_MEASUREMENT_MODE
+    common_to_ground: bool = True
+    interlock_open: bool = True
 
-    smu: dict[int, SMUConfig] = field(
-        default_factory=lambda: {
-            i: SMUConfig(voltage_name=f"V{i}", current_name=f"I{i}")
-            for i in range(1, SMU_COUNT + 1)
-        }
-    )
-    vmu: dict[int, VMUConfig] = field(
-        default_factory=lambda: {
-            i: VMUConfig(voltage_name=f"VMU{i}")
-            for i in range(1, VMU_COUNT + 1)
-        }
-    )
-    vsu: dict[int, VSUConfig] = field(
-        default_factory=lambda: {
-            i: VSUConfig(voltage_name=f"VSU{i}")
-            for i in range(1, VSU_COUNT + 1)
-        }
-    )
+    smu: dict[int, SMUConfig] = field(default_factory=_default_smu_configs)
+    vmu: dict[int, VMUConfig] = field(default_factory=_default_vmu_configs)
+    vsu: dict[int, VSUConfig] = field(default_factory=_default_vsu_configs)
 
     def to_measure_dict(self) -> dict:
         """

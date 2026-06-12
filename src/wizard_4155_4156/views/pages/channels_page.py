@@ -8,7 +8,7 @@ Layout
 ┌─────────────────────────────────────────────────────┐
 │  _ConfigPanel (fixed height, no scroll)             │
 │   Instrument model | Measurement mode               │
-│   GNDU to Common   | InLink Available               │
+│   Common to Ground | Interlock Open                 │
 ├─────────────────────────────────────────────────────┤
 │  QScrollArea                                        │
 │   ── SOURCE MONITOR UNITS ──────────────────────    │
@@ -492,7 +492,8 @@ class _ConfigPanel(QFrame):
         self._model_combo = QComboBox()
         for model_value in ("4155B", "4156B", "4155C", "4156C"):
             self._model_combo.addItem(model_value, model_value)
-        self._model_combo.setCurrentIndex(1)  # default: 4155C
+        # No hardcoded default here: the presenter pushes the authoritative
+        # model on init via display_state (passive-view contract).
         model_col.addWidget(self._model_combo)
         selectors_layout.addLayout(model_col)
 
@@ -575,8 +576,8 @@ class ChannelsPageView(BasePage):
     ------------------------------------------
     instrument_model_changed(str)
     measurement_mode_changed(str)
-    gndu_changed(bool)
-    inlink_changed(bool)
+    ground_changed(bool)
+    interlock_changed(bool)
     smu_enabled_changed(int, bool)      index, value
     smu_mode_changed(int, str)
     smu_function_changed(int, str)
@@ -602,8 +603,8 @@ class ChannelsPageView(BasePage):
     # ── User-intent signals ──────────────────────────────────────────────────
     instrument_model_changed = Signal(str)
     measurement_mode_changed = Signal(str)
-    gndu_changed = Signal(bool)
-    inlink_changed = Signal(bool)
+    ground_changed = Signal(bool)
+    interlock_changed = Signal(bool)
 
     smu_enabled_changed = Signal(int, bool)
     smu_mode_changed = Signal(int, str)
@@ -634,8 +635,8 @@ class ChannelsPageView(BasePage):
         self,
         model: str,
         mode: str,
-        gndu: bool,
-        inlink: bool,
+        common_to_ground: bool,
+        interlock_open: bool,
         smu_states: dict[int, dict],
         vmu_states: dict[int, dict],
         vsu_states: dict[int, dict],
@@ -644,8 +645,8 @@ class ChannelsPageView(BasePage):
         Full snapshot refresh.  All dicts contain plain-string field values.
         """
         self._config_panel.display_state(model, mode)
-        _set_checkbox_signal_free(self._gndu_cb, gndu)
-        _set_checkbox_signal_free(self._inlink_cb, inlink)
+        _set_checkbox_signal_free(self._ground_cb, common_to_ground)
+        _set_checkbox_signal_free(self._interlock_cb, interlock_open)
         for idx, state in smu_states.items():
             self._smu_cards[idx].display_state(**state)
         for idx, state in vmu_states.items():
@@ -761,15 +762,19 @@ class ChannelsPageView(BasePage):
         bp_layout.setContentsMargins(24, 16, 24, 16)
         bp_layout.setSpacing(32)
 
-        self._gndu_cb = QCheckBox("GNDU Connected to Common")
-        self._gndu_cb.setChecked(True)
-        self._gndu_cb.setStyleSheet(global_option_checkbox_stylesheet())
-        bp_layout.addWidget(self._gndu_cb)
+        self._ground_cb = QCheckBox(
+            tr_ui(CommandWizardText.CHAN_OPT_COMMON_TO_GROUND)
+        )
+        self._ground_cb.setChecked(True)
+        self._ground_cb.setStyleSheet(global_option_checkbox_stylesheet())
+        bp_layout.addWidget(self._ground_cb)
 
-        self._inlink_cb = QCheckBox("InLink Available")
-        self._inlink_cb.setChecked(False)
-        self._inlink_cb.setStyleSheet(global_option_checkbox_stylesheet())
-        bp_layout.addWidget(self._inlink_cb)
+        self._interlock_cb = QCheckBox(
+            tr_ui(CommandWizardText.CHAN_OPT_INTERLOCK_OPEN)
+        )
+        self._interlock_cb.setChecked(False)
+        self._interlock_cb.setStyleSheet(global_option_checkbox_stylesheet())
+        bp_layout.addWidget(self._interlock_cb)
 
         self._validation_lbl = QLabel()
         bp_layout.addWidget(self._validation_lbl)
@@ -795,8 +800,8 @@ class ChannelsPageView(BasePage):
         self._config_panel.measurement_mode_changed.connect(
             self.measurement_mode_changed
         )
-        self._gndu_cb.toggled.connect(self.gndu_changed)
-        self._inlink_cb.toggled.connect(self.inlink_changed)
+        self._ground_cb.toggled.connect(self.ground_changed)
+        self._interlock_cb.toggled.connect(self.interlock_changed)
 
         # SMU cards
         for idx, card in self._smu_cards.items():

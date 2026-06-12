@@ -68,7 +68,7 @@ class ChannelsPresenter(QObject):
     ) -> None:
         super().__init__(parent)
         self._view = view
-        self._config = ChannelsConfig()  # default: 4155C, SWEEP mode
+        self._config = ChannelsConfig()  # default: 4156B, SWEEP mode
         self._connect_view_signals()
         self._push_full_state()  # initialise view from default config
 
@@ -123,12 +123,12 @@ class ChannelsPresenter(QObject):
 
         self._push_full_state()
 
-    def _on_gndu_changed(self, checked: bool) -> None:
-        self._config.gndu_to_common = checked
+    def _on_ground_changed(self, checked: bool) -> None:
+        self._config.common_to_ground = checked
         self._update_validation()
 
-    def _on_inlink_changed(self, checked: bool) -> None:
-        self._config.inlink_enabled = checked
+    def _on_interlock_changed(self, checked: bool) -> None:
+        self._config.interlock_open = checked
         self._update_validation()
 
     # SMU handlers ────────────────────────────────────────────────────────────
@@ -224,8 +224,8 @@ class ChannelsPresenter(QObject):
         view.measurement_mode_changed.connect(
             self._on_measurement_mode_changed
         )
-        view.gndu_changed.connect(self._on_gndu_changed)
-        view.inlink_changed.connect(self._on_inlink_changed)
+        view.ground_changed.connect(self._on_ground_changed)
+        view.interlock_changed.connect(self._on_interlock_changed)
 
         view.smu_enabled_changed.connect(self._on_smu_enabled)
         view.smu_mode_changed.connect(self._on_smu_mode)
@@ -293,8 +293,8 @@ class ChannelsPresenter(QObject):
         self._view.display_config(
             model=model.value,
             mode=mode.value,
-            gndu=config.gndu_to_common,
-            inlink=config.inlink_enabled,
+            common_to_ground=config.common_to_ground,
+            interlock_open=config.interlock_open,
             smu_states=smu_states,
             vmu_states=vmu_states,
             vsu_states=vsu_states,
