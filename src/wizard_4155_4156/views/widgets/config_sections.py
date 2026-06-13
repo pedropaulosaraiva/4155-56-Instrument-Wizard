@@ -65,17 +65,17 @@ from wizard_4155_4156.models.sweep_config import (
 from wizard_4155_4156.styles.stylesheets import (
     channel_row_badge_stylesheet,
     export_btn_stylesheet,
+    form_label_stylesheet,
+    section_card_stylesheet,
     segmented_btn_checked_stylesheet,
     segmented_btn_unchecked_stylesheet,
-    sweep_form_label_stylesheet,
-    sweep_section_card_stylesheet,
     sweep_spinbox_stylesheet,
-    sweep_unit_label_stylesheet,
     unit_card_combo_stylesheet,
     unit_card_line_edit_stylesheet,
     unit_enable_checkbox_stylesheet,
     unit_group_header_stylesheet,
     unit_group_separator_stylesheet,
+    unit_label_stylesheet,
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 
@@ -91,7 +91,7 @@ def form_row(
     h.setSpacing(10)
     lbl = QLabel(label_text)
     lbl.setFixedWidth(label_width)
-    lbl.setStyleSheet(sweep_form_label_stylesheet())
+    lbl.setStyleSheet(form_label_stylesheet())
     lbl.setAlignment(
         Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
     )
@@ -242,7 +242,7 @@ class SciDoubleEdit(QWidget):
 
         if unit:
             self._unit_lbl = QLabel(unit)
-            self._unit_lbl.setStyleSheet(sweep_unit_label_stylesheet())
+            self._unit_lbl.setStyleSheet(unit_label_stylesheet())
             self._unit_lbl.setFixedWidth(32)
             h.addWidget(self._unit_lbl)
         else:
@@ -373,7 +373,12 @@ class SegmentedGroup(QWidget):
 
 
 class SectionFrame(QFrame):
-    def __init__(self, title: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        title: str,
+        parent: QWidget | None = None,
+        accent: str | None = None,
+    ) -> None:
         super().__init__(parent)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -384,17 +389,17 @@ class SectionFrame(QFrame):
         hr.setContentsMargins(0, 0, 0, 0)
         hr.setSpacing(12)
         lbl = QLabel(title.upper())
-        lbl.setStyleSheet(unit_group_header_stylesheet())
+        lbl.setStyleSheet(unit_group_header_stylesheet(accent))
         hr.addWidget(lbl)
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(unit_group_separator_stylesheet())
+        sep.setStyleSheet(unit_group_separator_stylesheet(accent))
         hr.addWidget(sep, stretch=1)
         root.addWidget(header_row)
 
         self._card = QFrame()
         self._card.setObjectName("section_card")
-        self._card.setStyleSheet(sweep_section_card_stylesheet())
+        self._card.setStyleSheet(section_card_stylesheet(accent))
         self._body = QVBoxLayout(self._card)
         self._body.setContentsMargins(16, 14, 16, 14)
         self._body.setSpacing(10)
@@ -448,9 +453,9 @@ class ChannelSummarySection(SectionFrame):
         self.body().addWidget(create_horizontal_divider())
 
         fn_colors = {
-            "VAR1": P.STATUS_OK,
-            "VAR2": P.STATUS_WARN,
-            "VAR1'": "#c586c0",
+            "VAR1": P.FUNC_VAR1,
+            "VAR2": P.FUNC_VAR2,
+            "VAR1'": P.FUNC_VARD,
             "CONST": P.TEXT_MUTED,
             "COMM": P.TEXT_DISABLED,
             "MONITOR": P.TEXT_DISABLED,
@@ -584,7 +589,7 @@ class ChannelSummarySection(SectionFrame):
                 sc_layout.setSpacing(0)
 
                 spacer = QLabel("—")
-                spacer.setStyleSheet(sweep_form_label_stylesheet())
+                spacer.setStyleSheet(form_label_stylesheet())
                 spacer.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
                 sc_layout.addWidget(spacer)
@@ -949,7 +954,7 @@ class ConstantRow(QWidget):
         else:
             self.compliance_edit = None
             spacer = QLabel("—")
-            spacer.setStyleSheet(sweep_form_label_stylesheet())
+            spacer.setStyleSheet(form_label_stylesheet())
             spacer.setAlignment(Qt.AlignmentFlag.AlignCenter)
             spacer.setFixedWidth(160)
             h.addWidget(spacer, stretch=1)

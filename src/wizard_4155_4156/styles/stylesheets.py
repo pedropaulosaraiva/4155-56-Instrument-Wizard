@@ -629,35 +629,40 @@ def global_option_checkbox_stylesheet() -> str:
     """
 
 
-def unit_group_header_stylesheet() -> str:
+def unit_group_header_stylesheet(accent: str | None = None) -> str:
     return (
-        f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_XS}; "
+        f"color: {accent or P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_XS}; "
         f"font-weight: bold; letter-spacing: 2px; background: transparent;"
     )
 
 
-def unit_group_separator_stylesheet() -> str:
-    return f"background-color: {P.BORDER}; max-height: 1px;"
+def unit_group_separator_stylesheet(accent: str | None = None) -> str:
+    return f"background-color: {accent or P.BORDER}; max-height: 1px;"
 
 
-def unit_card_enabled_stylesheet(hover: bool = False) -> str:
-    border_color = P.ACCENT if hover else P.BORDER
+def unit_card_stylesheet(
+    enabled: bool = True, accent: str | None = None
+) -> str:
+    """Unit card with QSS-driven hover — no enter/leave code in widgets.
+
+    Enabled cards lift and take the accent border on hover; disabled cards
+    keep their sunken look but still show the accent border, since they
+    remain clickable to re-enable.
+    """
+    hover_border = accent or P.ACCENT
+    if enabled:
+        bg, border, bg_hover = P.BG_PANEL, P.BORDER, P.BG_ELEVATED
+    else:
+        bg, border, bg_hover = P.BG_DEEP, P.BG_ELEVATED, P.BG_DEEP
     return f"""
         QFrame#unit_card {{
-            background-color: {P.BG_PANEL};
-            border: 1px solid {border_color};
+            background-color: {bg};
+            border: 1px solid {border};
             border-radius: {P.RADIUS_LG};
         }}
-    """
-
-
-def unit_card_disabled_stylesheet(hover: bool = False) -> str:
-    border_color = P.ACCENT if hover else P.BG_ELEVATED
-    return f"""
-        QFrame#unit_card {{
-            background-color: {P.BG_DEEP};
-            border: 1px solid {border_color};
-            border-radius: {P.RADIUS_LG};
+        QFrame#unit_card:hover {{
+            background-color: {bg_hover};
+            border-color: {hover_border};
         }}
     """
 
@@ -817,19 +822,43 @@ def configure_measure_button_stylesheet() -> str:
     """
 
 
-# ── Sweep Config Page ────────────────────────────────────────────────────────
+# ── Measurement-config pages (sweep, sampling, and future modes) ─────────────
 
 
-def sweep_page_stylesheet() -> str:
+def config_page_stylesheet() -> str:
     return f"background-color: {P.BG_DEEP};"
 
 
-def sweep_section_card_stylesheet() -> str:
+def section_card_stylesheet(accent: str | None = None) -> str:
+    """Section card with an optional colored accent stripe on its left edge.
+
+    Sections are informational, not clickable, so the background stays at a
+    static elevated shade — only the border lights up to the section accent
+    (global accent blue for neutral sections) on hover.  Background shifts
+    on hover are reserved for clickable cards (see unit_card_stylesheet).
+    The left corners are squared when a stripe is present so it ends flat
+    instead of curling around the corner radius.
+
+    Shared by every SectionFrame-based page — pass ``accent`` from the page
+    to color a section; nothing page-specific belongs in here.
+    """
+    left_stripe = (
+        f"border-left: 3px solid {accent}; "
+        "border-top-left-radius: 0px; "
+        "border-bottom-left-radius: 0px;"
+        if accent
+        else ""
+    )
+    hover_color = accent or P.ACCENT
     return f"""
         QFrame#section_card {{
-            background-color: {P.BG_PANEL};
+            background-color: {P.BG_ELEVATED};
             border: 1px solid {P.BORDER};
             border-radius: {P.RADIUS_LG};
+            {left_stripe}
+        }}
+        QFrame#section_card:hover {{
+            border-color: {hover_color};
         }}
     """
 
@@ -862,13 +891,13 @@ def input_error_stylesheet() -> str:
     """
 
 
-def sweep_form_label_stylesheet() -> str:
-    return f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_SM}; background: transparent;"
+def form_label_stylesheet() -> str:
+    return f"color: {P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_SM}; background: transparent;"
 
 
-def sweep_unit_label_stylesheet() -> str:
+def unit_label_stylesheet() -> str:
     return (
-        f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_SM}; "
+        f"color: {P.STATUS_INFO}; font-size: {P.FONT_SIZE_SM}; font-weight: bold; "
         f"font-family: {P.FONT_FAMILY_MONO}; background: transparent; min-width: 26px;"
     )
 

@@ -57,9 +57,8 @@ from wizard_4155_4156.styles.stylesheets import (
     configure_measure_button_stylesheet,
     global_option_checkbox_stylesheet,
     unit_card_combo_stylesheet,
-    unit_card_disabled_stylesheet,
-    unit_card_enabled_stylesheet,
     unit_card_line_edit_stylesheet,
+    unit_card_stylesheet,
     unit_card_mode_badge_stylesheet,
     unit_card_note_stylesheet,
     unit_card_row_label_stylesheet,
@@ -72,6 +71,7 @@ from wizard_4155_4156.styles.stylesheets import (
     units_scroll_viewport_stylesheet,
     validation_status_stylesheet,
 )
+from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
 
 # ── Internal helpers ─────────────────────────────────────────────────────────
@@ -149,6 +149,8 @@ class _BaseUnitCard(QFrame):
 
     Owns the common card chrome (header checkbox, separator, content
     container), hover/enable styling, and the enable-toggle behavior.
+    Hover feedback is pure QSS (unit_card_stylesheet) — the optional
+    ``accent`` tints the hover border to the unit group's color.
     Subclasses declare their own user-intent signals and fill in their
     specific rows via _setup_content(); optional hooks _extend_header(),
     _apply_content_styles() and _wire_content() cover the rest.
@@ -161,12 +163,13 @@ class _BaseUnitCard(QFrame):
         prefix: str,
         index: int,
         parent: QWidget | None = None,
+        accent: str | None = None,
     ) -> None:
         super().__init__(parent)
         self._prefix = prefix
         self._index = index
         self._enabled = True
-        self._hovered = False
+        self._accent = accent
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setObjectName("unit_card")
         self.setFixedWidth(_CARD_WIDTH)
@@ -223,7 +226,7 @@ class _BaseUnitCard(QFrame):
         raise NotImplementedError
 
     def _apply_styles(self) -> None:
-        self.setStyleSheet(unit_card_enabled_stylesheet())
+        self.setStyleSheet(unit_card_stylesheet(True, self._accent))
         self._enable_cb.setStyleSheet(unit_enable_checkbox_stylesheet())
         self._apply_content_styles()
 
@@ -252,21 +255,7 @@ class _BaseUnitCard(QFrame):
         self.enabled_toggled.emit(checked)
 
     def _refresh_card_style(self, enabled: bool) -> None:
-        self.setStyleSheet(
-            unit_card_enabled_stylesheet(self._hovered)
-            if enabled
-            else unit_card_disabled_stylesheet(self._hovered)
-        )
-
-    def enterEvent(self, event) -> None:  # noqa: N802
-        self._hovered = True
-        self._refresh_card_style(self._enabled)
-        super().enterEvent(event)
-
-    def leaveEvent(self, event) -> None:  # noqa: N802
-        self._hovered = False
-        self._refresh_card_style(self._enabled)
-        super().leaveEvent(event)
+        self.setStyleSheet(unit_card_stylesheet(enabled, self._accent))
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
         if (
@@ -284,7 +273,7 @@ class SMUCard(_BaseUnitCard):
     iname_changed = Signal(str)
 
     def __init__(self, index: int, parent: QWidget | None = None) -> None:
-        super().__init__("SMU", index, parent)
+        super().__init__("SMU", index, parent, accent=P.UNIT_SMU)
 
     # ── Display API ──────────────────────────────────────────────────────────
 
@@ -351,7 +340,7 @@ class VMUCard(_BaseUnitCard):
     vname_changed = Signal(str)
 
     def __init__(self, index: int, parent: QWidget | None = None) -> None:
-        super().__init__("VMU", index, parent)
+        super().__init__("VMU", index, parent, accent=P.UNIT_VMU)
 
     # ── Display API ──────────────────────────────────────────────────────────
     def display_state(
@@ -396,7 +385,7 @@ class VSUCard(_BaseUnitCard):
     vname_changed = Signal(str)
 
     def __init__(self, index: int, parent: QWidget | None = None) -> None:
-        super().__init__("VSU", index, parent)
+        super().__init__("VSU", index, parent, accent=P.UNIT_VSU)
 
     def display_state(
         self,
@@ -529,7 +518,9 @@ class _ConfigPanel(QFrame):
 # ── Unit group container ─────────────────────────────────────────────────────
 
 
-def _make_unit_group(title: str, cards: list[QFrame]) -> QWidget:
+def _make_unit_group(
+    title: str, cards: list[QFrame], accent: str | None = None
+) -> QWidget:
     """Return a titled section containing a horizontal row of cards."""
     group = QWidget()
     group_layout = QVBoxLayout(group)
@@ -543,12 +534,12 @@ def _make_unit_group(title: str, cards: list[QFrame]) -> QWidget:
     header_layout.setSpacing(12)
 
     title_label = QLabel(title)
-    title_label.setStyleSheet(unit_group_header_stylesheet())
+    title_label.setStyleSheet(unit_group_header_stylesheet(accent))
     header_layout.addWidget(title_label)
 
     separator = QFrame()
     separator.setFrameShape(QFrame.Shape.HLine)
-    separator.setStyleSheet(unit_group_separator_stylesheet())
+    separator.setStyleSheet(unit_group_separator_stylesheet(accent))
     header_layout.addWidget(separator, stretch=1)
     group_layout.addWidget(header_row)
 
@@ -727,7 +718,9 @@ class ChannelsPageView(BasePage):
             self._smu_cards[index] = card
             smu_cards.append(card)
         units_layout.addWidget(
-            _make_unit_group("SOURCE MONITOR UNITS  (SMU)", smu_cards)
+            _make_unit_group(
+                "SOURCE MONITOR UNITS  (SMU)", smu_cards, accent=P.UNIT_SMU
+            )
         )
 
         # VMU section
@@ -737,7 +730,9 @@ class ChannelsPageView(BasePage):
             self._vmu_cards[index] = card
             vmu_cards.append(card)
         units_layout.addWidget(
-            _make_unit_group("VOLTAGE MONITOR UNITS ", vmu_cards)
+            _make_unit_group(
+                "VOLTAGE MONITOR UNITS ", vmu_cards, accent=P.UNIT_VMU
+            )
         )
 
         # VSU section
@@ -747,7 +742,9 @@ class ChannelsPageView(BasePage):
             self._vsu_cards[index] = card
             vsu_cards.append(card)
         units_layout.addWidget(
-            _make_unit_group("VOLTAGE SOURCE UNITS  (VSU)", vsu_cards)
+            _make_unit_group(
+                "VOLTAGE SOURCE UNITS  (VSU)", vsu_cards, accent=P.UNIT_VSU
+            )
         )
 
         scroll.setWidget(units_widget)

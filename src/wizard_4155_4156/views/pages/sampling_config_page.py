@@ -39,8 +39,8 @@ from wizard_4155_4156.models.sampling_config import (
     SAMPLES_MIN,
 )
 from wizard_4155_4156.styles.stylesheets import (
+    config_page_stylesheet,
     export_btn_stylesheet,
-    sweep_page_stylesheet,
     unit_card_combo_stylesheet,
     unit_enable_checkbox_stylesheet,
     validation_status_stylesheet,
@@ -101,7 +101,7 @@ class _SamplingSetupSection(_SectionFrame):
     filter_changed = Signal(str)  # ON | OFF
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Sampling Parameters", parent)
+        super().__init__("Sampling Parameters", parent, accent=P.STATUS_INFO)
 
         self._mode_seg = _SegmentedGroup(
             list(_SAMPLING_MODE_DISPLAY_TO_SCPI.keys()), "LINEAR"
@@ -254,7 +254,7 @@ class _StopConditionSection(_SectionFrame):
     enable_delay_committed = Signal(float)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Stop Condition", parent)
+        super().__init__("Stop Condition", parent, accent=P.STATUS_CAUTION)
         self._allowed = True
 
         self._enable_cb = QCheckBox("Enable stop condition")
@@ -581,7 +581,7 @@ class SamplingConfigPageView(BasePage):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-        self.setStyleSheet(sweep_page_stylesheet())
+        self.setStyleSheet(config_page_stylesheet())
 
         # Header
         header = QWidget()

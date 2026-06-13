@@ -45,6 +45,17 @@ class _Palette:
     STATUS_CAUTION: str = "#ce9178"  # non-blocking warnings (amber)
     STATUS_INFO: str = "#9cdcfe"
 
+    # ── Sweep function colors (VARx color language) ──────────────────────────
+    # Shared by the channel-summary badges and the VARx section accents.
+    FUNC_VAR1: str = "#4ec9b0"  # teal (same hue as STATUS_OK)
+    FUNC_VAR2: str = "#dcdcaa"  # amber (same hue as STATUS_WARN)
+    FUNC_VARD: str = "#c586c0"  # purple
+
+    # ── Unit-type colors (channels page group accents) ───────────────────────
+    UNIT_SMU: str = "#0098ff"  # blue (same hue as ACCENT_HOVER)
+    UNIT_VMU: str = "#9cdcfe"  # light blue (same hue as STATUS_INFO)
+    UNIT_VSU: str = "#4ec9b0"  # teal (same hue as STATUS_OK)
+
     # ── Navigation bar ───────────────────────────────────────────────────────
     NAV_ACTIVE_BG: str = "#094771"
     NAV_ACTIVE_INDICATOR: str = "#007acc"

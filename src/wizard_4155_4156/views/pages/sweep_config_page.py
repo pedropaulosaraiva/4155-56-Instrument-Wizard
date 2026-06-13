@@ -64,8 +64,8 @@ from wizard_4155_4156.models.sweep_config import (
     SweepConstraints,
 )
 from wizard_4155_4156.styles.stylesheets import (
+    config_page_stylesheet,
     export_btn_stylesheet,
-    sweep_page_stylesheet,
     unit_enable_checkbox_stylesheet,
     validation_status_stylesheet,
 )
@@ -213,11 +213,11 @@ class _VAR1Section(_SectionFrame):
     pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("VAR1  —  Primary Sweep", parent)
+        super().__init__("VAR1  —  Primary Sweep", parent, accent=P.FUNC_VAR1)
         self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
-            f"color: {P.ACCENT_HOVER}; font-size: {P.FONT_SIZE_SM}; "
+            f"color: {P.FUNC_VAR1}; font-size: {P.FONT_SIZE_SM}; "
             "background: transparent; font-style: italic;"
         )
         self.body().addWidget(self._channel_lbl)
@@ -370,11 +370,11 @@ class _VAR2Section(_SectionFrame):
     pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("VAR2  —  Stepped Sweep", parent)
+        super().__init__("VAR2  —  Stepped Sweep", parent, accent=P.FUNC_VAR2)
         self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
-            f"color: {P.STATUS_WARN}; font-size: {P.FONT_SIZE_SM}; "
+            f"color: {P.FUNC_VAR2}; font-size: {P.FONT_SIZE_SM}; "
             "background: transparent; font-style: italic;"
         )
         self.body().addWidget(self._channel_lbl)
@@ -483,11 +483,11 @@ class _VARDSection(_SectionFrame):
     pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("VARD  —  VAR1 Derivative", parent)
+        super().__init__("VARD  —  VAR1 Derivative", parent, accent=P.FUNC_VARD)
         self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
-            f"color: #c586c0; font-size: {P.FONT_SIZE_SM}; "
+            f"color: {P.FUNC_VARD}; font-size: {P.FONT_SIZE_SM}; "
             "background: transparent; font-style: italic;"
         )
         self.body().addWidget(self._channel_lbl)
@@ -817,7 +817,7 @@ class SweepConfigPageView(BasePage):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-        self.setStyleSheet(sweep_page_stylesheet())
+        self.setStyleSheet(config_page_stylesheet())
 
         # Header
         header = QWidget()

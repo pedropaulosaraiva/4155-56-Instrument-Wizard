@@ -58,9 +58,9 @@ from wizard_4155_4156.styles.stylesheets import (
     meas_status_label_stylesheet,
     meas_summary_box_stylesheet,
     measurements_page_stylesheet,
+    section_card_stylesheet,
     section_title_stylesheet,
     subsection_title_stylesheet,
-    sweep_section_card_stylesheet,
     table_empty_label_stylesheet,
 )
 from wizard_4155_4156.views.pages import BasePage
@@ -73,7 +73,7 @@ def _make_card(title_text: str) -> tuple[QFrame, QVBoxLayout]:
     """Return a titled section card and its content layout."""
     card = QFrame()
     card.setObjectName("section_card")
-    card.setStyleSheet(sweep_section_card_stylesheet())
+    card.setStyleSheet(section_card_stylesheet())
 
     outer = QVBoxLayout(card)
     outer.setContentsMargins(16, 12, 16, 16)
