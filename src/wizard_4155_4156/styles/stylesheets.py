@@ -1092,3 +1092,127 @@ def table_empty_label_stylesheet() -> str:
         f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_LG}; "
         f"background: transparent;"
     )
+
+
+# ── Settings Dialog ──────────────────────────────────────────────────────
+
+
+def settings_dialog_stylesheet() -> str:
+    return f"""
+        QDialog {{
+            background-color: {P.BG_DEEP};
+        }}
+        QLabel {{
+            color: {P.TEXT_SECONDARY};
+            font-size: {P.FONT_SIZE_MD};
+            background: transparent;
+        }}
+        QLabel#section {{
+            color: {P.TEXT_PRIMARY};
+            font-size: 14px;
+            font-weight: bold;
+        }}
+        QLabel#hint {{
+            color: {P.TEXT_DISABLED};
+            font-size: {P.FONT_SIZE_XS};
+            font-style: italic;
+        }}
+        QLineEdit {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 6px 10px;
+            font-size: {P.FONT_SIZE_MD};
+        }}
+        QLineEdit:focus {{ border-color: {P.ACCENT}; }}
+        QComboBox {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 6px 10px;
+            font-size: {P.FONT_SIZE_MD};
+        }}
+        QComboBox:focus {{ border-color: {P.ACCENT}; }}
+        QComboBox::drop-down {{ border: none; width: 22px; }}
+        QComboBox QAbstractItemView {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_SECONDARY};
+            selection-background-color: {P.ACCENT_MUTED};
+            border: 1px solid {P.BORDER};
+        }}
+        QCheckBox {{
+            color: {P.TEXT_SECONDARY};
+            font-size: {P.FONT_SIZE_MD};
+            spacing: 8px;
+            background: transparent;
+        }}
+        QCheckBox:disabled {{ color: {P.TEXT_DISABLED}; }}
+        QCheckBox::indicator {{
+            width: 15px; height: 15px;
+            border-radius: {P.RADIUS_SM};
+            border: 1px solid {P.BORDER};
+        }}
+        QCheckBox::indicator:checked {{
+            background-color: {P.ACCENT};
+            border-color: {P.ACCENT};
+        }}
+        QPushButton {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 8px 18px;
+            font-size: {P.FONT_SIZE_MD};
+            font-weight: bold;
+        }}
+        QPushButton:hover {{
+            background-color: {P.BG_ELEVATED};
+            border-color: {P.ACCENT};
+        }}
+        QPushButton#primary {{
+            background-color: {P.ACCENT};
+            color: {P.TEXT_WHITE};
+            border: none;
+        }}
+        QPushButton#primary:hover {{ background-color: {P.ACCENT_HOVER}; }}
+    """
+
+
+# ── Measurement Runs (CRUD) Page ─────────────────────────────────────────
+
+
+def runs_page_stylesheet() -> str:
+    return f"background-color: {P.BG_DEEP};"
+
+
+def runs_panel_title_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_PRIMARY}; font-size: 14px; font-weight: bold; "
+        f"background: transparent;"
+    )
+
+
+def runs_list_stylesheet() -> str:
+    return f"""
+        QListWidget {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+            font-size: {P.FONT_SIZE_SM};
+            outline: 0;
+        }}
+        QListWidget::item {{
+            padding: 8px 10px;
+            border-bottom: 1px solid {P.BORDER};
+        }}
+        QListWidget::item:selected {{
+            background-color: {P.ACCENT_MUTED};
+            color: {P.TEXT_WHITE};
+        }}
+        QListWidget::item:hover {{
+            background-color: {P.BG_ELEVATED};
+        }}
+    """

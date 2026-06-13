@@ -67,6 +67,7 @@ class Page(IntEnum):
     MEASUREMENTS = 3
     GRAPH = 4
     TABLE = 5
+    RUNS = 6
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +110,7 @@ from wizard_4155_4156.views.pages.home_page import HomePageView  # noqa: E402
 from wizard_4155_4156.views.pages.measurements_page import (  # noqa: E402
     MeasurementsPageView,
 )
+from wizard_4155_4156.views.pages.runs_page import RunsPageView  # noqa: E402
 from wizard_4155_4156.views.pages.sampling_config_page import (  # noqa: E402
     SamplingConfigPageView,
 )
@@ -134,4 +136,5 @@ __all__ = [
     "MeasurementsPageView",
     "GraphPage",
     "TablePageView",
+    "RunsPageView",
 ]

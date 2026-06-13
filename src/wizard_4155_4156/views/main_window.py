@@ -27,6 +27,7 @@ Responsibilities
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -38,6 +39,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.db.engine import PROJECT_EXTENSION, ProjectManager
+from wizard_4155_4156.db.global_settings import GlobalSettingsManager
+from wizard_4155_4156.extra_widgets.settings_dialog import SettingsDialog
 from wizard_4155_4156.models.project import RecentProjectsManager
 from wizard_4155_4156.presenters.channels_presenter import ChannelsPresenter
 from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
@@ -48,6 +52,7 @@ from wizard_4155_4156.presenters.measure_config_factory import (
 from wizard_4155_4156.presenters.measurements_presenter import (
     MeasurementsPresenter,
 )
+from wizard_4155_4156.presenters.runs_presenter import RunsPresenter
 from wizard_4155_4156.styles.stylesheets import (
     application_stylesheet,
     status_bar_stylesheet,
@@ -65,6 +70,7 @@ from wizard_4155_4156.views.pages import (
     HomePageView,
     MeasurementsPageView,
     Page,
+    RunsPageView,
     TablePageView,
 )
 
@@ -77,6 +83,10 @@ class MainWindow(QMainWindow):
 
         # ── Core models ──────────────────────────────────────────────────────
         self._recent_manager = RecentProjectsManager()
+        # Per-project SQLite database (one open project at a time) and global
+        # JSON settings.  Mirror RecentProjectsManager's ownership pattern.
+        self._project_manager = ProjectManager()
+        self._global_settings = GlobalSettingsManager()
 
         # ── Build UI ─────────────────────────────────────────────────────────
         self._build_menu()
@@ -94,6 +104,9 @@ class MainWindow(QMainWindow):
         )
         self._home_presenter.new_project_triggered.connect(
             self._on_new_project
+        )
+        self._home_presenter.settings_requested.connect(
+            self._show_settings_dialog
         )
 
         # ── ChannelsPresenter ────────────────────────────────────────────────
@@ -138,6 +151,18 @@ class MainWindow(QMainWindow):
             connector_presenter=self._connector_presenter,
             parent=self,
         )
+
+        # ── RunsPresenter ────────────────────────────────────────────────────
+        # CRUD browser over the open project database.  Reads the live config
+        # through the same factory and stamps author/org from global settings.
+        self._runs_presenter = RunsPresenter(
+            view=self._runs_page,
+            project_manager=self._project_manager,
+            config_provider=self._measure_factory,
+            settings_manager=self._global_settings,
+            parent=self,
+        )
+        self._runs_presenter.execution_data_ready.connect(self.on_data_ready)
 
         # Trigger initial bus scan AFTER signal wiring so scan_results
         # reaches the modal's combo box via the connected Slot.
@@ -201,6 +226,8 @@ class MainWindow(QMainWindow):
         stack.addWidget(self._channels_page)
         self._measurements_page = MeasurementsPageView()
         stack.addWidget(self._measurements_page)
+        self._runs_page = RunsPageView()
+        stack.addWidget(self._runs_page)
         self._graph_page = GraphPage()
         stack.addWidget(self._graph_page)
         self._table_page = TablePageView()
@@ -211,6 +238,7 @@ class MainWindow(QMainWindow):
             Page.CHANNELS: self._channels_page,
             Page.MEASURE_CONFIG: None,  # generated lazily
             Page.MEASUREMENTS: self._measurements_page,
+            Page.RUNS: self._runs_page,
             Page.GRAPH: self._graph_page,
             Page.TABLE: self._table_page,
         }
@@ -282,11 +310,7 @@ class MainWindow(QMainWindow):
 
         pref_act = QAction("Preferences…", self)
         pref_act.setShortcut("Ctrl+,")
-        pref_act.triggered.connect(
-            lambda: self._status_bar.showMessage(
-                "Preferences not yet implemented.", 3000
-            )
-        )
+        pref_act.triggered.connect(self._show_settings_dialog)
         opt_menu.addAction(pref_act)
 
     # =========================================================================
@@ -316,13 +340,62 @@ class MainWindow(QMainWindow):
     # =========================================================================
 
     def _on_project_file_opened(self, path: str) -> None:
+        """Open an existing .wiz4155 project database."""
+        try:
+            self._project_manager.open(path)
+        except FileNotFoundError:
+            self._status_bar.showMessage(f"Project not found: {path}", 6000)
+            # Drop the stale entry from recents and refresh the home view.
+            self._home_presenter._on_remove_project(path)  # noqa: SLF001
+            self._update_recent_menu()
+            return
+        except Exception as exc:  # noqa: BLE001
+            self._status_bar.showMessage(
+                f"Could not open project: {exc}", 6000
+            )
+            return
         self._update_recent_menu()
-        self._status_bar.showMessage(f"Opened: {path}", 5000)
-        # TODO: switch to project editor page and load file
+        self._activate_project(path)
 
     def _on_new_project(self) -> None:
-        self._status_bar.showMessage("New project requested…", 3000)
-        # TODO: switch to project editor / wizard page
+        """Create a new standalone .wiz4155 project database."""
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "New Project",
+            "",
+            f"Project Database (*{PROJECT_EXTENSION})",
+        )
+        if not path:
+            return
+        if not path.endswith(PROJECT_EXTENSION):
+            path += PROJECT_EXTENSION
+        try:
+            self._project_manager.create(path)
+        except Exception as exc:  # noqa: BLE001
+            self._status_bar.showMessage(
+                f"Could not create project: {exc}", 6000
+            )
+            return
+        # Record it in recents (also refreshes the home view) and open it.
+        self._home_presenter.register_opened_file(path)
+        self._update_recent_menu()
+        self._activate_project(path)
+
+    def _activate_project(self, path: str) -> None:
+        """Common post-open/create steps: title, runs page, navigation."""
+        name = self._project_manager.current_name
+        self.setWindowTitle(
+            f"Wizard 4155/4156 — Semiconductor Analyzer  ·  {name}"
+        )
+        self._runs_presenter.set_database(self._project_manager.current_db)
+        self._navigate_to(Page.RUNS)
+        self._status_bar.showMessage(f"Project ready: {path}", 5000)
+
+    def _show_settings_dialog(self) -> None:
+        dlg = SettingsDialog(self._global_settings.get(), self)
+        if dlg.exec():
+            self._global_settings.save(dlg.get_settings())
+            self._status_bar.showMessage("Settings saved.", 3000)
 
     def _on_measure_configured(self, _config_dict: dict) -> None:
         """
@@ -382,7 +455,7 @@ class MainWindow(QMainWindow):
             act.setData(proj.path)
             act.triggered.connect(
                 lambda _checked, p=proj.path: (
-                    self._home_presenter.register_opened_file(p)
+                    self._home_presenter._on_project_opened(p)  # noqa: SLF001
                 )
             )
             self._recent_menu.addAction(act)
@@ -415,4 +488,5 @@ class MainWindow(QMainWindow):
         that are already being torn down, causing a segfault.
         """
         self._connector_presenter.cleanup()
+        self._project_manager.close()
         super().closeEvent(event)

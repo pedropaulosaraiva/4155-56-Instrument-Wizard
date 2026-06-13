@@ -36,6 +36,7 @@ class HomePresenter(QObject):
 
     project_file_opened = Signal(str)
     new_project_triggered = Signal()
+    settings_requested = Signal()
 
     def __init__(
         self,
@@ -67,6 +68,7 @@ class HomePresenter(QObject):
         self._view.project_opened.connect(self._on_project_opened)
         self._view.project_remove_requested.connect(self._on_remove_project)
         self._view.clear_history_requested.connect(self._on_clear_history)
+        self._view.settings_requested.connect(self.settings_requested)
 
     def _refresh_view(self) -> None:
         self._view.display_recent_projects(self._model.get_projects())
@@ -82,7 +84,7 @@ class HomePresenter(QObject):
             self._view,
             "Open Project",
             "",
-            "Project Files (*.yaml *.yml *.json);;All Files (*.*)",
+            "Project Database (*.wiz4155);;All Files (*.*)",
         )
         if path:
             self._on_project_opened(path)

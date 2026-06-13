@@ -11,6 +11,7 @@ dependencies = [
     "numpy==2.4.6",
     "pyside6==6.11.1",
     "pyvisa==1.16.2",
+    "sqlalchemy>=2.0.50",
 ]
 
 [project.scripts]

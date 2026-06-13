@@ -48,6 +48,7 @@ _NAV_ITEMS: list[tuple[Page, str, str]] = [
         "Measure Config (generate from the Channels page)",
     ),
     (Page.MEASUREMENTS, "📋", "Measurements & Run"),
+    (Page.RUNS, "🗄️", "Measurement Runs (project database)"),
     (Page.GRAPH, "📈", "Graph View"),
     (Page.TABLE, "📊", "Table View"),
 ]

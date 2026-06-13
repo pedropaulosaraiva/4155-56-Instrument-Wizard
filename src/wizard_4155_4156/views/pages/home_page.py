@@ -167,6 +167,7 @@ class QuickActionsPanel(QFrame):
 
     new_project_requested = Signal()
     open_project_requested = Signal()
+    settings_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -209,6 +210,7 @@ class QuickActionsPanel(QFrame):
 
         self.btn_docs = self._make_resource_btn("📖", "Documentation")
         self.btn_settings = self._make_resource_btn("⚙️", "Settings")
+        self.btn_settings.clicked.connect(self.settings_requested.emit)
         self.btn_help = self._make_resource_btn("❓", "Help & Support")
 
         for btn in (self.btn_docs, self.btn_settings, self.btn_help):
@@ -403,6 +405,7 @@ class HomePageView(BasePage):
     project_opened = Signal(str)          # path
     project_remove_requested = Signal(str)  # path
     clear_history_requested = Signal()
+    settings_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -451,4 +454,7 @@ class HomePageView(BasePage):
         )
         self._recent_panel.clear_requested.connect(
             self.clear_history_requested
+        )
+        self._quick_actions.settings_requested.connect(
+            self.settings_requested
         )
