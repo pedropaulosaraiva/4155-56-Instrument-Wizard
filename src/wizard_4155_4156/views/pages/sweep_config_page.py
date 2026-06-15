@@ -635,7 +635,8 @@ class SweepConfigPageView(BasePage):
     smu_standby_changed = Signal(str, bool)
     display_var_toggled = Signal(str, bool)
     export_requested = Signal()
-    save_requested = Signal(str)  # chosen file path
+    save_requested = Signal(str)  # chosen file path (Save JSON)
+    save_to_db_requested = Signal()  # save setup into the project database
     save_message_expired = Signal()  # transient "Saved" toast timed out
     range_changed = Signal(str, str, object)
     const_source_changed = Signal(str, float)
@@ -754,6 +755,7 @@ class SweepConfigPageView(BasePage):
         self._save_msg_timer.stop()
         self._export_btn.setEnabled(is_valid)
         self._save_btn.setEnabled(is_valid)
+        self._save_db_btn.setEnabled(is_valid)
         if is_valid:
             self._validation_lbl.setText(f"✅ {message}")
             self._validation_lbl.setStyleSheet(
@@ -844,7 +846,11 @@ class SweepConfigPageView(BasePage):
         self._save_msg_timer.timeout.connect(self.save_message_expired)
 
         hh.addStretch()
-        self._save_btn = QPushButton("Save Setup")
+        self._save_db_btn = QPushButton("Save Setup")
+        self._save_db_btn.setStyleSheet(export_btn_stylesheet())
+        self._save_db_btn.clicked.connect(self.save_to_db_requested)
+        hh.addWidget(self._save_db_btn)
+        self._save_btn = QPushButton("Save JSON")
         self._save_btn.setStyleSheet(export_btn_stylesheet())
         self._save_btn.clicked.connect(self._on_save_clicked)
         hh.addWidget(self._save_btn)

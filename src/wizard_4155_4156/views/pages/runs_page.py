@@ -16,8 +16,8 @@ from typing import Any, Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -31,16 +31,21 @@ from PySide6.QtWidgets import (
 )
 
 from wizard_4155_4156.db.repository import ExecRow, SetupRow
+from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
+    SetupMetadataDialog,
+)
 from wizard_4155_4156.styles.stylesheets import (
-    configure_measure_button_stylesheet,
     config_preview_tree_stylesheet,
     error_bar_stylesheet,
-    export_btn_stylesheet,
     meas_status_label_stylesheet,
     recent_panel_header_stylesheet,
+    runs_empty_label_stylesheet,
     runs_list_stylesheet,
     runs_page_stylesheet,
+    runs_panel_stylesheet,
     runs_panel_title_stylesheet,
+    runs_primary_button_stylesheet,
+    runs_secondary_button_stylesheet,
 )
 from wizard_4155_4156.views.pages import BasePage
 
@@ -48,21 +53,22 @@ _ID_ROLE = Qt.ItemDataRole.UserRole
 
 
 class RunsPageView(BasePage):
-    """Three-pane browser: setups | executions | detail, with a toolbar."""
+    """Three-pane browser: setups | executions | detail."""
 
     page_activated = Signal()
     setup_selected = Signal(int)
     execution_selected = Signal(int)
-    create_setup_requested = Signal(str, str)         # name, description
+    create_setup_requested = Signal(str, str)             # name, description
     edit_setup_metadata_requested = Signal(int, str, str)  # id, name, desc
     delete_setup_requested = Signal(int)
     delete_execution_requested = Signal(int)
-    insert_sample_execution_requested = Signal(int)   # setup id
-    view_execution_data_requested = Signal(int)       # execution id
+    insert_sample_execution_requested = Signal(int)       # setup id
+    view_execution_data_requested = Signal(int)           # execution id
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setStyleSheet(runs_page_stylesheet())
+        self._setup_rows: dict[int, SetupRow] = {}
         self._setup_ui()
         self._update_button_state()
 
@@ -74,16 +80,16 @@ class RunsPageView(BasePage):
     # ── Display API (called by presenter) ────────────────────────────────────
 
     def display_setups(self, rows: list[SetupRow]) -> None:
+        self._setup_rows = {row.id: row for row in rows}
         self._setups.clear()
-        for row in rows:
-            label = (
-                f"{row.name}\n"
-                f"   {row.type_label} · {row.instrument_model} · "
-                f"{row.execution_count} run(s)"
+        self._setups_title.setText(f"Setups ({len(rows)})")
+        if not rows:
+            self._add_placeholder(
+                self._setups,
+                "No setups yet.\nSave the current configuration to create one.",
             )
-            item = QListWidgetItem(label)
-            item.setData(_ID_ROLE, row.id)
-            self._setups.addItem(item)
+        for row in rows:
+            self._setups.addItem(self._make_setup_item(row))
         # Selection cleared by clear(); dependent panes reset.
         self.display_executions([])
         self.display_setup_detail(None, "")
@@ -93,23 +99,20 @@ class RunsPageView(BasePage):
         """Programmatically select the setup row with the given id."""
         for i in range(self._setups.count()):
             item = self._setups.item(i)
-            if int(item.data(_ID_ROLE)) == setup_id:
+            if item.data(_ID_ROLE) == setup_id:
                 self._setups.setCurrentItem(item)
                 return
 
     def display_executions(self, rows: list[ExecRow]) -> None:
         self._executions.clear()
-        for row in rows:
-            tag = "  (sample)" if row.is_synthetic else ""
-            stamp = row.execution_date.strftime("%d/%m/%Y %H:%M")
-            label = (
-                f"{row.name}{tag}\n"
-                f"   {stamp} · {row.instrument_model} · "
-                f"{row.variable_count} var(s)"
+        self._exec_title.setText(f"Executions ({len(rows)})")
+        if not rows:
+            self._add_placeholder(
+                self._executions,
+                "No executions.\nUse “Insert sample” to add one.",
             )
-            item = QListWidgetItem(label)
-            item.setData(_ID_ROLE, row.id)
-            self._executions.addItem(item)
+        for row in rows:
+            self._executions.addItem(self._make_exec_item(row))
         self._update_button_state()
 
     def display_setup_detail(
@@ -117,6 +120,7 @@ class RunsPageView(BasePage):
     ) -> None:
         self._detail.clear()
         self._summary.setText(summary)
+        self._summary.setVisible(bool(summary))
         if config:
             self._populate_tree(self._detail, config)
             self._detail.expandToDepth(0)
@@ -129,7 +133,10 @@ class RunsPageView(BasePage):
         self._status.setText(text)
 
     def display_empty(self, message: str) -> None:
+        self._setup_rows = {}
         self._setups.clear()
+        self._setups_title.setText("Setups (0)")
+        self._add_placeholder(self._setups, message)
         self.display_executions([])
         self.display_setup_detail(None, "")
         self._status.setText(message)
@@ -139,12 +146,10 @@ class RunsPageView(BasePage):
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(20, 16, 20, 16)
-        root.setSpacing(12)
+        root.setContentsMargins(22, 18, 22, 16)
+        root.setSpacing(14)
 
-        header = QLabel("Measurement Runs")
-        header.setStyleSheet(recent_panel_header_stylesheet())
-        root.addWidget(header)
+        root.addLayout(self._build_header())
 
         self._error = QLabel("")
         self._error.setStyleSheet(error_bar_stylesheet())
@@ -152,12 +157,14 @@ class RunsPageView(BasePage):
         self._error.setVisible(False)
         root.addWidget(self._error)
 
-        root.addLayout(self._build_toolbar())
-
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setHandleWidth(14)
         splitter.addWidget(self._build_setups_pane())
         splitter.addWidget(self._build_executions_pane())
         splitter.addWidget(self._build_detail_pane())
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 3)
+        splitter.setStretchFactor(2, 4)
         splitter.setSizes([320, 320, 460])
         root.addWidget(splitter, stretch=1)
 
@@ -165,79 +172,83 @@ class RunsPageView(BasePage):
         self._status.setStyleSheet(meas_status_label_stylesheet())
         root.addWidget(self._status)
 
-    def _build_toolbar(self) -> QHBoxLayout:
-        bar = QHBoxLayout()
-        bar.setSpacing(8)
-
+    def _build_header(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(12)
+        title = QLabel("🗄️  Measurement Runs")
+        title.setStyleSheet(recent_panel_header_stylesheet())
+        row.addWidget(title)
+        row.addStretch()
         self._btn_create = QPushButton("➕  Save current config as setup")
-        self._btn_create.setStyleSheet(export_btn_stylesheet())
+        self._btn_create.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_create.clicked.connect(self._on_create_clicked)
-
-        self._btn_edit = QPushButton("✎  Edit metadata")
-        self._btn_edit.setStyleSheet(configure_measure_button_stylesheet())
-        self._btn_edit.setFixedHeight(34)
-        self._btn_edit.clicked.connect(self._on_edit_clicked)
-
-        self._btn_delete_setup = QPushButton("🗑  Delete setup")
-        self._btn_delete_setup.setStyleSheet(
-            configure_measure_button_stylesheet()
-        )
-        self._btn_delete_setup.setFixedHeight(34)
-        self._btn_delete_setup.clicked.connect(self._on_delete_setup_clicked)
-
-        self._btn_sample = QPushButton("⚡  Insert sample execution")
-        self._btn_sample.setStyleSheet(configure_measure_button_stylesheet())
-        self._btn_sample.setFixedHeight(34)
-        self._btn_sample.clicked.connect(self._on_sample_clicked)
-
-        bar.addWidget(self._btn_create)
-        bar.addWidget(self._btn_edit)
-        bar.addWidget(self._btn_delete_setup)
-        bar.addWidget(self._btn_sample)
-        bar.addStretch()
-        return bar
+        row.addWidget(self._btn_create)
+        return row
 
     def _build_setups_pane(self) -> QWidget:
-        pane = QWidget()
+        pane = QFrame()
+        pane.setObjectName("runs_panel")
+        pane.setStyleSheet(runs_panel_stylesheet())
         col = QVBoxLayout(pane)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(6)
-        title = QLabel("Setups")
-        title.setStyleSheet(runs_panel_title_stylesheet())
-        col.addWidget(title)
+        col.setContentsMargins(14, 12, 14, 14)
+        col.setSpacing(8)
+
+        head = QHBoxLayout()
+        self._setups_title = QLabel("Setups (0)")
+        self._setups_title.setStyleSheet(runs_panel_title_stylesheet())
+        head.addWidget(self._setups_title)
+        head.addStretch()
+        self._btn_edit = self._mini_button("✏️ Edit", self._on_edit_clicked)
+        self._btn_delete_setup = self._mini_button(
+            "🗑️ Delete", self._on_delete_setup_clicked
+        )
+        head.addWidget(self._btn_edit)
+        head.addWidget(self._btn_delete_setup)
+        col.addLayout(head)
+
         self._setups = QListWidget()
         self._setups.setStyleSheet(runs_list_stylesheet())
+        self._setups.setWordWrap(True)
+        self._setups.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self._setups.currentItemChanged.connect(self._on_setup_row_changed)
         col.addWidget(self._setups, stretch=1)
         return pane
 
     def _build_executions_pane(self) -> QWidget:
-        pane = QWidget()
+        pane = QFrame()
+        pane.setObjectName("runs_panel")
+        pane.setStyleSheet(runs_panel_stylesheet())
         col = QVBoxLayout(pane)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(6)
+        col.setContentsMargins(14, 12, 14, 14)
+        col.setSpacing(8)
 
-        title_row = QHBoxLayout()
-        title = QLabel("Executions")
-        title.setStyleSheet(runs_panel_title_stylesheet())
-        title_row.addWidget(title)
-        title_row.addStretch()
-        self._btn_view = QPushButton("View data")
-        self._btn_view.setStyleSheet(configure_measure_button_stylesheet())
-        self._btn_view.setFixedHeight(28)
-        self._btn_view.clicked.connect(self._on_view_clicked)
-        self._btn_delete_exec = QPushButton("Delete")
-        self._btn_delete_exec.setStyleSheet(
-            configure_measure_button_stylesheet()
+        head = QHBoxLayout()
+        self._exec_title = QLabel("Executions (0)")
+        self._exec_title.setStyleSheet(runs_panel_title_stylesheet())
+        head.addWidget(self._exec_title)
+        head.addStretch()
+        self._btn_sample = self._mini_button(
+            "⚡ Insert sample", self._on_sample_clicked
         )
-        self._btn_delete_exec.setFixedHeight(28)
-        self._btn_delete_exec.clicked.connect(self._on_delete_exec_clicked)
-        title_row.addWidget(self._btn_view)
-        title_row.addWidget(self._btn_delete_exec)
-        col.addLayout(title_row)
+        self._btn_view = self._mini_button(
+            "📈 View data", self._on_view_clicked
+        )
+        self._btn_delete_exec = self._mini_button(
+            "🗑️ Delete", self._on_delete_exec_clicked
+        )
+        head.addWidget(self._btn_sample)
+        head.addWidget(self._btn_view)
+        head.addWidget(self._btn_delete_exec)
+        col.addLayout(head)
 
         self._executions = QListWidget()
         self._executions.setStyleSheet(runs_list_stylesheet())
+        self._executions.setWordWrap(True)
+        self._executions.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self._executions.currentItemChanged.connect(
             self._on_execution_row_changed
         )
@@ -245,34 +256,85 @@ class RunsPageView(BasePage):
         return pane
 
     def _build_detail_pane(self) -> QWidget:
-        pane = QWidget()
+        pane = QFrame()
+        pane.setObjectName("runs_panel")
+        pane.setStyleSheet(runs_panel_stylesheet())
         col = QVBoxLayout(pane)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(6)
+        col.setContentsMargins(14, 12, 14, 14)
+        col.setSpacing(8)
+
         title = QLabel("Setup detail")
         title.setStyleSheet(runs_panel_title_stylesheet())
         col.addWidget(title)
         self._summary = QLabel("")
         self._summary.setStyleSheet(meas_status_label_stylesheet())
         self._summary.setWordWrap(True)
+        self._summary.setVisible(False)
         col.addWidget(self._summary)
         self._detail = QTreeWidget()
         self._detail.setStyleSheet(config_preview_tree_stylesheet())
         self._detail.setColumnCount(2)
         self._detail.setHeaderLabels(["Field", "Value"])
         self._detail.setAlternatingRowColors(True)
+        self._detail.setRootIsDecorated(True)
         col.addWidget(self._detail, stretch=1)
         return pane
+
+    # ── Item factories ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _make_setup_item(row: SetupRow) -> QListWidgetItem:
+        created = row.creation_date.strftime("%d/%m/%Y")
+        label = (
+            f"{row.name}\n"
+            f"   {row.type_label} · {row.instrument_model} · "
+            f"{row.execution_count} run(s) · created {created}"
+        )
+        item = QListWidgetItem(label)
+        item.setData(_ID_ROLE, row.id)
+        return item
+
+    @staticmethod
+    def _make_exec_item(row: ExecRow) -> QListWidgetItem:
+        tag = "  ⚡sample" if row.is_synthetic else ""
+        stamp = row.execution_date.strftime("%d/%m/%Y %H:%M")
+        label = (
+            f"{row.name}{tag}\n"
+            f"   {stamp} · {row.instrument_model} · "
+            f"{row.variable_count} var(s)"
+        )
+        item = QListWidgetItem(label)
+        item.setData(_ID_ROLE, row.id)
+        return item
+
+    @staticmethod
+    def _add_placeholder(listw: QListWidget, text: str) -> None:
+        item = QListWidgetItem(text)
+        item.setFlags(Qt.ItemFlag.NoItemFlags)
+        item.setForeground(Qt.GlobalColor.gray)
+        listw.addItem(item)
+
+    def _mini_button(self, text: str, slot) -> QPushButton:
+        btn = QPushButton(text)
+        btn.setStyleSheet(runs_secondary_button_stylesheet())
+        btn.clicked.connect(slot)
+        return btn
 
     # ── Internal selection helpers ───────────────────────────────────────────
 
     def _current_setup_id(self) -> Optional[int]:
         item = self._setups.currentItem()
-        return None if item is None else int(item.data(_ID_ROLE))
+        if item is None:
+            return None
+        data = item.data(_ID_ROLE)
+        return None if data is None else int(data)
 
     def _current_execution_id(self) -> Optional[int]:
         item = self._executions.currentItem()
-        return None if item is None else int(item.data(_ID_ROLE))
+        if item is None:
+            return None
+        data = item.data(_ID_ROLE)
+        return None if data is None else int(data)
 
     def _update_button_state(self) -> None:
         has_setup = self._current_setup_id() is not None
@@ -298,32 +360,27 @@ class RunsPageView(BasePage):
             self.execution_selected.emit(exec_id)
 
     def _on_create_clicked(self) -> None:
-        name, ok = QInputDialog.getText(
-            self, "Save setup", "Setup name:"
-        )
-        if not ok or not name.strip():
-            return
-        desc, _ = QInputDialog.getText(
-            self, "Save setup", "Description (optional):"
-        )
-        self.create_setup_requested.emit(name.strip(), desc.strip())
+        dlg = SetupMetadataDialog(title="Save setup", parent=self)
+        if dlg.exec():
+            self.create_setup_requested.emit(
+                dlg.get_name(), dlg.get_description()
+            )
 
     def _on_edit_clicked(self) -> None:
         setup_id = self._current_setup_id()
         if setup_id is None:
             return
-        current = self._setups.currentItem().text().split("\n", 1)[0]
-        name, ok = QInputDialog.getText(
-            self, "Edit setup", "Setup name:", text=current
+        row = self._setup_rows.get(setup_id)
+        dlg = SetupMetadataDialog(
+            title="Edit setup",
+            name=row.name if row else "",
+            description=row.description if row else "",
+            parent=self,
         )
-        if not ok or not name.strip():
-            return
-        desc, _ = QInputDialog.getText(
-            self, "Edit setup", "Description (optional):"
-        )
-        self.edit_setup_metadata_requested.emit(
-            setup_id, name.strip(), desc.strip()
-        )
+        if dlg.exec():
+            self.edit_setup_metadata_requested.emit(
+                setup_id, dlg.get_name(), dlg.get_description()
+            )
 
     def _on_delete_setup_clicked(self) -> None:
         setup_id = self._current_setup_id()

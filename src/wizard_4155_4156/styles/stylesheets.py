@@ -1126,6 +1126,15 @@ def settings_dialog_stylesheet() -> str:
             font-size: {P.FONT_SIZE_MD};
         }}
         QLineEdit:focus {{ border-color: {P.ACCENT}; }}
+        QPlainTextEdit {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 6px 10px;
+            font-size: {P.FONT_SIZE_MD};
+        }}
+        QPlainTextEdit:focus {{ border-color: {P.ACCENT}; }}
         QComboBox {{
             background-color: {P.BG_INPUT};
             color: {P.TEXT_PRIMARY};
@@ -1203,16 +1212,84 @@ def runs_list_stylesheet() -> str:
             border-radius: {P.RADIUS_MD};
             font-size: {P.FONT_SIZE_SM};
             outline: 0;
+            padding: 2px;
         }}
         QListWidget::item {{
-            padding: 8px 10px;
-            border-bottom: 1px solid {P.BORDER};
+            padding: 9px 10px;
+            margin: 2px 0px;
+            border-radius: {P.RADIUS_SM};
+            border: 1px solid transparent;
         }}
         QListWidget::item:selected {{
             background-color: {P.ACCENT_MUTED};
             color: {P.TEXT_WHITE};
+            border: 1px solid {P.ACCENT};
         }}
-        QListWidget::item:hover {{
+        QListWidget::item:hover:!selected {{
             background-color: {P.BG_ELEVATED};
         }}
     """
+
+
+def runs_panel_stylesheet() -> str:
+    """Framed container for each of the three Runs-page panes."""
+    return f"""
+        QFrame#runs_panel {{
+            background-color: {P.BG_PANEL};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_LG};
+        }}
+    """
+
+
+def runs_primary_button_stylesheet() -> str:
+    """Prominent primary action button for the Runs toolbar."""
+    return f"""
+        QPushButton {{
+            background-color: {P.ACCENT};
+            color: {P.TEXT_WHITE};
+            border: none;
+            border-radius: {P.RADIUS_MD};
+            padding: 9px 18px;
+            font-weight: bold;
+            font-size: {P.FONT_SIZE_MD};
+        }}
+        QPushButton:hover {{ background-color: {P.ACCENT_HOVER}; }}
+        QPushButton:pressed {{ background-color: {P.ACCENT_PRESSED}; }}
+        QPushButton:disabled {{
+            background-color: {P.BORDER};
+            color: {P.TEXT_DISABLED};
+        }}
+    """
+
+
+def runs_secondary_button_stylesheet() -> str:
+    """Compact neutral button for per-panel actions (edit/delete/view…)."""
+    return f"""
+        QPushButton {{
+            background-color: {P.BG_ELEVATED};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 5px 12px;
+            font-size: {P.FONT_SIZE_SM};
+        }}
+        QPushButton:hover {{
+            background-color: {P.BG_PANEL};
+            border-color: {P.ACCENT};
+            color: {P.TEXT_WHITE};
+        }}
+        QPushButton:pressed {{ background-color: {P.ACCENT_MUTED}; }}
+        QPushButton:disabled {{
+            color: {P.TEXT_DISABLED};
+            border-color: {P.BG_ELEVATED};
+            background-color: {P.BG_DEEP};
+        }}
+    """
+
+
+def runs_empty_label_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_MD}; "
+        f"background: transparent; padding: 24px;"
+    )

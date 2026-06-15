@@ -42,6 +42,9 @@ from PySide6.QtWidgets import (
 from wizard_4155_4156.db.engine import PROJECT_EXTENSION, ProjectManager
 from wizard_4155_4156.db.global_settings import GlobalSettingsManager
 from wizard_4155_4156.extra_widgets.settings_dialog import SettingsDialog
+from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
+    SetupMetadataDialog,
+)
 from wizard_4155_4156.models.project import RecentProjectsManager
 from wizard_4155_4156.presenters.channels_presenter import ChannelsPresenter
 from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
@@ -130,6 +133,8 @@ class MainWindow(QMainWindow):
             parent=self,
         )
         self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, False)
+        # Everything except Home is locked until a project is opened/created.
+        self._set_project_pages_enabled(False)
 
         # ── ConnectorPresenter ───────────────────────────────────────────────
         # Owns GPIB41xxController + single-thread QThreadPool.
@@ -382,14 +387,51 @@ class MainWindow(QMainWindow):
         self._activate_project(path)
 
     def _activate_project(self, path: str) -> None:
-        """Common post-open/create steps: title, runs page, navigation."""
+        """Common post-open/create steps: title, unlock pages, runs page."""
         name = self._project_manager.current_name
         self.setWindowTitle(
             f"Wizard 4155/4156 — Semiconductor Analyzer  ·  {name}"
         )
+        self._set_project_pages_enabled(True)
         self._runs_presenter.set_database(self._project_manager.current_db)
         self._navigate_to(Page.RUNS)
         self._status_bar.showMessage(f"Project ready: {path}", 5000)
+
+    def _set_project_pages_enabled(self, enabled: bool) -> None:
+        """Lock/unlock every page except Home (and the lazy Measure Config)."""
+        for page in (
+            Page.CHANNELS,
+            Page.MEASUREMENTS,
+            Page.RUNS,
+            Page.GRAPH,
+            Page.TABLE,
+        ):
+            self._nav_bar.set_page_enabled(page, enabled)
+
+    def _on_save_setup_to_db(self) -> None:
+        """Persist the live measurement config as a setup and jump to Runs."""
+        if not self._project_manager.is_open:
+            self._status_bar.showMessage(
+                "Open or create a project before saving a setup.", 5000
+            )
+            return
+        # Validate the live config up front so we never prompt on an invalid one.
+        try:
+            self._measure_factory.get_json()
+        except ValueError as exc:
+            self._status_bar.showMessage(f"Cannot save setup: {exc}", 6000)
+            return
+        dlg = SetupMetadataDialog(title="Save setup", parent=self)
+        if not dlg.exec():
+            return
+        error = self._runs_presenter.create_setup_from_current(
+            dlg.get_name(), dlg.get_description()
+        )
+        if error:
+            self._status_bar.showMessage(error, 6000)
+            return
+        self._navigate_to(Page.RUNS)
+        self._status_bar.showMessage("Setup saved to project.", 4000)
 
     def _show_settings_dialog(self) -> None:
         dlg = SettingsDialog(self._global_settings.get(), self)
@@ -422,6 +464,8 @@ class MainWindow(QMainWindow):
 
         self._stack.addWidget(new_page)
         self._page_widgets[Page.MEASURE_CONFIG] = new_page
+        # "Save Setup" on the config page persists to the DB + jumps to Runs.
+        new_page.save_to_db_requested.connect(self._on_save_setup_to_db)
         self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, True)
         self._navigate_to(Page.MEASURE_CONFIG)
         self._status_bar.showMessage(

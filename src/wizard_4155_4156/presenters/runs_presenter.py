@@ -128,27 +128,35 @@ class RunsPresenter(QObject):
     # ── Mutations ────────────────────────────────────────────────────────────
 
     def _on_create_setup(self, name: str, description: str) -> None:
+        error = self.create_setup_from_current(name, description)
+        if error:
+            self._view.display_error(error)
+
+    def create_setup_from_current(
+        self, name: str, description: str
+    ) -> Optional[str]:
+        """
+        Persist the live measurement config as a new setup.
+
+        Public so MainWindow can trigger it from the measurement-config page's
+        "Save Setup" button.  Returns ``None`` on success, or an error message
+        string the caller should surface.  On success the Runs view is
+        refreshed with the new setup selected.
+        """
         db = self._projects.current_db
         if db is None:
-            self._view.display_error("Open or create a project first.")
-            return
+            return "Open or create a project first."
         try:
             config = self._config_provider.get_json()
         except ValueError as exc:
-            self._view.display_error(
-                f"No valid measurement config to save: {exc}"
-            )
-            return
+            return f"No valid measurement config to save: {exc}"
 
         settings = self._settings.get()
         new_id: Optional[int] = None
         try:
             with db.session() as s:
                 if SetupRepository.name_exists(s, name):
-                    self._view.display_error(
-                        f"A setup named '{name}' already exists."
-                    )
-                    return
+                    return f"A setup named '{name}' already exists."
                 setup = config_dict_to_setup(
                     config,
                     name=name,
@@ -160,11 +168,9 @@ class RunsPresenter(QObject):
                 SetupRepository.add(s, setup)
                 new_id = setup.id
         except IntegrityError:
-            self._view.display_error(
-                f"A setup named '{name}' already exists."
-            )
-            return
+            return f"A setup named '{name}' already exists."
         self._refresh(select_setup_id=new_id)
+        return None
 
     def _on_edit_metadata(
         self, setup_id: int, name: str, description: str
