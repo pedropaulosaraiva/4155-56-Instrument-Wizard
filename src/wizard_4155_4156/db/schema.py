@@ -515,7 +515,9 @@ class DataPoint(Base):
         ForeignKey("execution_variable.id", ondelete="CASCADE"), index=True
     )
     point_index: Mapped[int] = mapped_column()
-    value: Mapped[float] = mapped_column()
+    # Nullable: instruments may return non-finite points (overflow/oscillation),
+    # and SQLite stores NaN/inf as NULL — so a missing/non-finite reading is NULL.
+    value: Mapped[Optional[float]] = mapped_column(default=None)
     # Future fields (raw binary today carries no status/accuracy flags).
     status: Mapped[Optional[str]] = mapped_column(default=None)
     accuracy: Mapped[Optional[float]] = mapped_column(default=None)

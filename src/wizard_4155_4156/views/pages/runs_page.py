@@ -206,7 +206,7 @@ class RunsPageView(BasePage):
         row.addWidget(caption)
 
         self._btn_apply = QPushButton("🛠️  Apply setup")
-        self._btn_apply.setStyleSheet(runs_secondary_button_stylesheet())
+        self._btn_apply.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_apply.clicked.connect(self._on_apply_clicked)
         self._btn_run = QPushButton("▶️  Apply setup, Run & Fetch")
         self._btn_run.setStyleSheet(runs_primary_button_stylesheet())

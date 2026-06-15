@@ -28,6 +28,9 @@ from wizard_4155_4156.db.repository import (
     ExecutionRepository,
     SetupRepository,
 )
+from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
+    SetupMetadataDialog,
+)
 from wizard_4155_4156.SCPI.measurement_run_director import (
     MeasurementRunDirector,
 )
@@ -72,8 +75,11 @@ class RunsPresenter(QObject):
         self._connected = connector_presenter.is_connected()
         self._busy = False
         # Setup id whose run was triggered from here and whose fetched data
-        # should be persisted when it returns (None ⇒ don't persist).
+        # should be persisted when it returns (None ⇒ don't persist), plus the
+        # user-chosen execution name/description for that pending run.
         self._pending_run_setup_id: Optional[int] = None
+        self._pending_run_name: Optional[str] = None
+        self._pending_run_desc: Optional[str] = None
         self._connect()
         self._push_hardware_state()
 
@@ -286,7 +292,23 @@ class RunsPresenter(QObject):
         self._connector.trigger_setup_only(setup_cmds)
 
     def _on_apply_run_fetch(self, setup_id: int) -> None:
-        """Setup → run → fetch; the fetched data is persisted as an execution."""
+        """Prompt for the execution name/description, then run the sequence."""
+        default_name = self._default_run_name(setup_id)
+        if default_name is None:
+            return
+        dlg = SetupMetadataDialog(
+            title="Run & Fetch — name this execution",
+            name=default_name,
+            parent=self._view,
+        )
+        if not dlg.exec():
+            return
+        self._start_run_fetch(setup_id, dlg.get_name(), dlg.get_description())
+
+    def _start_run_fetch(
+        self, setup_id: int, name: str, description: str
+    ) -> None:
+        """Setup → run → fetch; the fetched data is persisted on return."""
         config = self._config_for(setup_id)
         if config is None:
             return
@@ -295,12 +317,18 @@ class RunsPresenter(QObject):
         fetch_cmds = self._run_director.take_data(self._fetch_config(config))
         # Persist the result when data_ready returns (see _on_connector_data).
         self._pending_run_setup_id = setup_id
+        self._pending_run_name = name
+        self._pending_run_desc = description
         self._connector.trigger_full_sequence(setup_cmds, run_cmds, fetch_cmds)
 
     def _on_connector_data(self, data: dict) -> None:
         """A fetch completed — persist it iff *this* page triggered the run."""
         setup_id = self._pending_run_setup_id
+        chosen_name = self._pending_run_name
+        description = self._pending_run_desc
         self._pending_run_setup_id = None
+        self._pending_run_name = None
+        self._pending_run_desc = None
         if setup_id is None:
             return  # run came from elsewhere (legacy page) — not ours to save.
         db = self._projects.current_db
@@ -310,16 +338,31 @@ class RunsPresenter(QObject):
             setup = SetupRepository.get(s, setup_id)
             if setup is None:
                 return
-            name = self._unique_exec_name(s, setup.name, suffix="run")
+            # Honor the user's chosen name; fall back to a unique auto-name if
+            # it is blank or already taken.
+            name = chosen_name
+            if not name or ExecutionRepository.name_exists(s, name):
+                name = self._unique_exec_name(s, setup.name, suffix="run")
             execution = fetch_result_to_execution(
                 data,
                 setup=setup,
                 name=name,
+                description=description or None,
                 instrument_model=setup.instrument_model,
                 is_synthetic=False,
             )
             ExecutionRepository.add(s, execution)
         self._refresh(select_setup_id=setup_id)
+
+    def _default_run_name(self, setup_id: int) -> Optional[str]:
+        db = self._projects.current_db
+        if db is None:
+            return None
+        with db.session() as s:
+            setup = SetupRepository.get(s, setup_id)
+            if setup is None:
+                return None
+            return self._unique_exec_name(s, setup.name, suffix="run")
 
     def _on_connection_changed(self, connected: bool, _name: str) -> None:
         self._connected = connected

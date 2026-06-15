@@ -26,6 +26,7 @@ No PySide6 imports.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from typing import Any, Iterable, Mapping, Optional
 
@@ -439,7 +440,7 @@ def fetch_result_to_execution(
     for position, (var_name, values) in enumerate(results.items()):
         variable = ExecutionVariable(var_name=var_name, position=position)
         variable.data_points = [
-            DataPoint(point_index=i, value=float(value))
+            DataPoint(point_index=i, value=_finite_or_none(value))
             for i, value in enumerate(values)
         ]
         execution.variables.append(variable)
@@ -452,11 +453,22 @@ def fetch_result_to_execution(
 def execution_to_data_dict(
     execution: MeasurementExecution,
 ) -> dict[str, list[float]]:
-    """Reconstruct a ``{var_name: [values]}`` dict for table/graph display."""
+    """
+    Reconstruct a ``{var_name: [values]}`` dict for table/graph display.
+
+    NULL points (non-finite readings stored as NULL) come back as ``nan`` so
+    every value is a float and downstream numeric formatting keeps working.
+    """
     out: dict[str, list[float]] = {}
     for var in sorted(execution.variables, key=lambda v: v.position):
         out[var.var_name] = [
-            dp.value
+            dp.value if dp.value is not None else float("nan")
             for dp in sorted(var.data_points, key=lambda d: d.point_index)
         ]
     return out
+
+
+def _finite_or_none(value: Any) -> Optional[float]:
+    """Coerce to float; non-finite (NaN/inf) becomes NULL (SQLite-safe)."""
+    v = float(value)
+    return v if math.isfinite(v) else None
