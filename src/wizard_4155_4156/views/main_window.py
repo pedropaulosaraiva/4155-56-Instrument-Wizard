@@ -169,6 +169,9 @@ class MainWindow(QMainWindow):
             parent=self,
         )
         self._runs_presenter.execution_data_ready.connect(self.on_data_ready)
+        self._runs_presenter.copy_to_config_requested.connect(
+            self._on_copy_to_config
+        )
 
         # Trigger initial bus scan AFTER signal wiring so scan_results
         # reaches the modal's combo box via the connected Slot.
@@ -446,6 +449,26 @@ class MainWindow(QMainWindow):
         previously generated measure-config page and build a fresh one
         from the current channels snapshot, then navigate to it.
         """
+        self._install_measure_config(
+            self._measure_factory.generate,
+            "Measurement configuration page generated.",
+        )
+
+    def _on_copy_to_config(self, channels_config, config_dict: dict) -> None:
+        """Open a fresh config page preloaded from a saved setup (copy)."""
+        self._install_measure_config(
+            lambda: self._measure_factory.generate_from_setup(
+                channels_config, config_dict
+            ),
+            "Setup copied to a new measurement configuration.",
+        )
+
+    def _install_measure_config(self, generate_fn, success_msg: str) -> None:
+        """Swap in a freshly generated measure-config page and navigate to it.
+
+        Shared by "Configure Measure" (from channels) and "Copy to measurement
+        configuration" (from a saved setup).
+        """
         old_page = self._measure_factory.current_page()
         if old_page is not None:
             # Remove from the stack BEFORE deleting so Qt never paints
@@ -454,7 +477,7 @@ class MainWindow(QMainWindow):
             old_page.deleteLater()
         self._page_widgets[Page.MEASURE_CONFIG] = None
 
-        new_page = self._measure_factory.generate()
+        new_page = generate_fn()
         if new_page is None:
             # Unsupported mode (QSCV) — keep the slot empty.
             self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, False)
@@ -469,9 +492,7 @@ class MainWindow(QMainWindow):
         new_page.save_to_db_requested.connect(self._on_save_setup_to_db)
         self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, True)
         self._navigate_to(Page.MEASURE_CONFIG)
-        self._status_bar.showMessage(
-            "Measurement configuration page generated.", 5000
-        )
+        self._status_bar.showMessage(success_msg, 5000)
 
     # =========================================================================
     # Menu handlers (delegate to presenter where possible)

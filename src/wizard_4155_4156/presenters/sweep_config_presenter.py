@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QObject
 
+from wizard_4155_4156.models.config_loader import sweep_config_from_setup
 from wizard_4155_4156.models.sweep_config import (
     DISPLAY_VARS_MAX,
     IntegrationMode,
@@ -77,11 +78,18 @@ class SweepConfigPresenter(QObject):
         view: SweepConfigPageView,
         channels_snapshot,  # ChannelsConfig — static deep-copied snapshot
         parent: QObject | None = None,
+        initial_setup: dict | None = None,  # preload from a saved setup (copy)
     ) -> None:
         super().__init__(parent)
         self._view = view
         self._channels_config = channels_snapshot
-        self._config = SweepConfig()
+        # When copying an existing setup, preload its parameters; otherwise a
+        # fresh default config is built and populated from the channel snapshot.
+        self._config = (
+            sweep_config_from_setup(initial_setup)
+            if initial_setup is not None
+            else SweepConfig()
+        )
 
         # Derived once from the static channels snapshot (re-derived on
         # page_activated, which is idempotent against the same snapshot).

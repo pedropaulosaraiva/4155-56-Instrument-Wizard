@@ -66,6 +66,7 @@ class RunsPageView(BasePage):
     view_execution_data_requested = Signal(int)           # execution id
     apply_setup_requested = Signal(int)                   # setup id (hardware)
     apply_run_fetch_requested = Signal(int)               # setup id (hardware)
+    copy_to_config_requested = Signal(int)                # setup id (copy)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -191,6 +192,10 @@ class RunsPageView(BasePage):
         title.setStyleSheet(recent_panel_header_stylesheet())
         row.addWidget(title)
         row.addStretch()
+        self._btn_copy = QPushButton("📄  Copy to measurement configuration")
+        self._btn_copy.setStyleSheet(runs_secondary_button_stylesheet())
+        self._btn_copy.clicked.connect(self._on_copy_clicked)
+        row.addWidget(self._btn_copy)
         self._btn_create = QPushButton("➕  Save current config as setup")
         self._btn_create.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_create.clicked.connect(self._on_create_clicked)
@@ -376,6 +381,7 @@ class RunsPageView(BasePage):
         has_exec = self._current_execution_id() is not None
         self._btn_edit.setEnabled(has_setup)
         self._btn_delete_setup.setEnabled(has_setup)
+        self._btn_copy.setEnabled(has_setup)
         self._btn_sample.setEnabled(has_setup)
         self._btn_view.setEnabled(has_exec)
         self._btn_delete_exec.setEnabled(has_exec)
@@ -449,6 +455,11 @@ class RunsPageView(BasePage):
         setup_id = self._current_setup_id()
         if setup_id is not None:
             self.apply_run_fetch_requested.emit(setup_id)
+
+    def _on_copy_clicked(self) -> None:
+        setup_id = self._current_setup_id()
+        if setup_id is not None:
+            self.copy_to_config_requested.emit(setup_id)
 
     def _on_delete_exec_clicked(self) -> None:
         exec_id = self._current_execution_id()

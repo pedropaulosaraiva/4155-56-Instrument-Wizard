@@ -44,6 +44,7 @@ from wizard_4155_4156.models.sampling_config import (
     SamplingMode,
     SConEvent,
 )
+from wizard_4155_4156.models.config_loader import sampling_config_from_setup
 from wizard_4155_4156.models.sweep_config import IntegrationMode
 from wizard_4155_4156.views.pages.sampling_config_page import (
     SamplingConfigPageView,
@@ -69,11 +70,16 @@ class SamplingConfigPresenter(QObject):
         view: SamplingConfigPageView,
         channels_snapshot,  # ChannelsConfig — static deep-copied snapshot
         parent: QObject | None = None,
+        initial_setup: dict | None = None,  # preload from a saved setup (copy)
     ) -> None:
         super().__init__(parent)
         self._view = view
         self._channels_config = channels_snapshot
-        self._config = SamplingConfig()
+        self._config = (
+            sampling_config_from_setup(initial_setup)
+            if initial_setup is not None
+            else SamplingConfig()
+        )
 
         self._ctx: Dict[str, Any] = {
             "instrument_model": "4155C",

@@ -116,3 +116,44 @@ class MeasureConfigFactory(QObject):
 
         self._page = page
         return page
+
+    def generate_from_setup(
+        self, channels_config, setup_dict: dict
+    ) -> BasePage | None:
+        """
+        Build a fresh config page for a *saved* setup (the "Copy to measurement
+        configuration" action).
+
+        ``channels_config`` is a ChannelsConfig reconstructed from the setup and
+        ``setup_dict`` is the setup's canonical config dict; the new presenter
+        preloads its parameters.  Like ``generate``, the caller must have
+        removed/deleted the previous page first.  Returns None for unsupported
+        modes (QSCV).
+        """
+        if self._presenter is not None:
+            self._presenter.deleteLater()
+        self._presenter = None
+        self._page = None
+
+        mode = channels_config.measurement_mode
+        if mode == MeasurementMode.SWEEP:
+            page = SweepConfigPageView()
+            self._presenter = SweepConfigPresenter(
+                view=page,
+                channels_snapshot=channels_config,
+                parent=self,
+                initial_setup=setup_dict,
+            )
+        elif mode == MeasurementMode.SAMPLING:
+            page = SamplingConfigPageView()
+            self._presenter = SamplingConfigPresenter(
+                view=page,
+                channels_snapshot=channels_config,
+                parent=self,
+                initial_setup=setup_dict,
+            )
+        else:  # QSCV — not supported yet
+            return None
+
+        self._page = page
+        return page

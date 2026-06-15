@@ -31,6 +31,7 @@ from wizard_4155_4156.db.repository import (
 from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
     SetupMetadataDialog,
 )
+from wizard_4155_4156.models.config_loader import channels_config_from_setup
 from wizard_4155_4156.SCPI.measurement_run_director import (
     MeasurementRunDirector,
 )
@@ -52,6 +53,8 @@ class RunsPresenter(QObject):
 
     #: Emitted with a ``{var: [values]}`` dict so MainWindow can show the table.
     execution_data_ready = Signal(dict)
+    #: Emitted with (ChannelsConfig, config_dict) to open a copied config page.
+    copy_to_config_requested = Signal(object, dict)
 
     def __init__(
         self,
@@ -73,6 +76,7 @@ class RunsPresenter(QObject):
 
         self._current_setup_id: Optional[int] = None
         self._connected = connector_presenter.is_connected()
+        self._connected_model: Optional[str] = None
         self._busy = False
         # Setup id whose run was triggered from here and whose fetched data
         # should be persisted when it returns (None ⇒ don't persist), plus the
@@ -106,6 +110,7 @@ class RunsPresenter(QObject):
         v.view_execution_data_requested.connect(self._on_view_data)
         v.apply_setup_requested.connect(self._on_apply_setup)
         v.apply_run_fetch_requested.connect(self._on_apply_run_fetch)
+        v.copy_to_config_requested.connect(self._on_copy_to_config)
 
         self._connector.connection_changed.connect(self._on_connection_changed)
         self._connector.hardware_busy.connect(self._on_hardware_busy)
@@ -348,7 +353,10 @@ class RunsPresenter(QObject):
                 setup=setup,
                 name=name,
                 description=description or None,
-                instrument_model=setup.instrument_model,
+                # The execution records the connected instrument, not the
+                # setup's defined model (they may differ).
+                instrument_model=self._connected_model
+                or setup.instrument_model,
                 is_synthetic=False,
             )
             ExecutionRepository.add(s, execution)
@@ -364,13 +372,39 @@ class RunsPresenter(QObject):
                 return None
             return self._unique_exec_name(s, setup.name, suffix="run")
 
-    def _on_connection_changed(self, connected: bool, _name: str) -> None:
+    def _on_connection_changed(self, connected: bool, name: str) -> None:
         self._connected = connected
+        # The connector label is "<model> - <resource>"; keep just the model so
+        # an execution records the *actively connected* instrument (which may
+        # differ from the setup's defined instrument).
+        if connected and name:
+            self._connected_model = name.split(" - ")[0].strip() or name
+        else:
+            self._connected_model = None
         self._push_hardware_state()
 
     def _on_hardware_busy(self, busy: bool) -> None:
         self._busy = busy
         self._push_hardware_state()
+
+    def _on_copy_to_config(self, setup_id: int) -> None:
+        """Reconstruct a channels layout + params from a setup and hand them
+        to MainWindow so it can open a fresh (preloaded) config page."""
+        db = self._projects.current_db
+        if db is None:
+            return
+        with db.session() as s:
+            setup = SetupRepository.get(s, setup_id)
+            if setup is None:
+                return
+            config_dict = setup_to_config_dict(setup)
+            channels_config = channels_config_from_setup(
+                config_dict,
+                instrument_model=setup.instrument_model,
+                interlock_open=setup.interlock_open,
+                common_to_ground=setup.common_to_ground,
+            )
+        self.copy_to_config_requested.emit(channels_config, config_dict)
 
     def _config_for(self, setup_id: int) -> Optional[dict]:
         db = self._projects.current_db
