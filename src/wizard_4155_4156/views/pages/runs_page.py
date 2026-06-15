@@ -64,11 +64,14 @@ class RunsPageView(BasePage):
     delete_execution_requested = Signal(int)
     insert_sample_execution_requested = Signal(int)       # setup id
     view_execution_data_requested = Signal(int)           # execution id
+    apply_setup_requested = Signal(int)                   # setup id (hardware)
+    apply_run_fetch_requested = Signal(int)               # setup id (hardware)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setStyleSheet(runs_page_stylesheet())
         self._setup_rows: dict[int, SetupRow] = {}
+        self._hardware_ready = False
         self._setup_ui()
         self._update_button_state()
 
@@ -125,6 +128,14 @@ class RunsPageView(BasePage):
             self._populate_tree(self._detail, config)
             self._detail.expandToDepth(0)
 
+    def set_hardware_ready(self, ready: bool) -> None:
+        """Connected + idle ⇒ the run buttons may be used (with a selection)."""
+        self._hardware_ready = ready
+        self._update_button_state()
+
+    def display_hardware_status(self, text: str) -> None:
+        self._hw_status.setText(text)
+
     def display_error(self, text: str) -> None:
         self._error.setText(text)
         self._error.setVisible(bool(text))
@@ -150,6 +161,7 @@ class RunsPageView(BasePage):
         root.setSpacing(14)
 
         root.addLayout(self._build_header())
+        root.addLayout(self._build_hardware_bar())
 
         self._error = QLabel("")
         self._error.setStyleSheet(error_bar_stylesheet())
@@ -183,6 +195,29 @@ class RunsPageView(BasePage):
         self._btn_create.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_create.clicked.connect(self._on_create_clicked)
         row.addWidget(self._btn_create)
+        return row
+
+    def _build_hardware_bar(self) -> QHBoxLayout:
+        """Run the *selected* setup on the connected instrument."""
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        caption = QLabel("Run selected setup on hardware:")
+        caption.setStyleSheet(meas_status_label_stylesheet())
+        row.addWidget(caption)
+
+        self._btn_apply = QPushButton("🛠️  Apply setup")
+        self._btn_apply.setStyleSheet(runs_secondary_button_stylesheet())
+        self._btn_apply.clicked.connect(self._on_apply_clicked)
+        self._btn_run = QPushButton("▶️  Apply setup, Run & Fetch")
+        self._btn_run.setStyleSheet(runs_primary_button_stylesheet())
+        self._btn_run.clicked.connect(self._on_run_clicked)
+        row.addWidget(self._btn_apply)
+        row.addWidget(self._btn_run)
+        row.addStretch()
+
+        self._hw_status = QLabel("Disconnected")
+        self._hw_status.setStyleSheet(meas_status_label_stylesheet())
+        row.addWidget(self._hw_status)
         return row
 
     def _build_setups_pane(self) -> QWidget:
@@ -344,6 +379,9 @@ class RunsPageView(BasePage):
         self._btn_sample.setEnabled(has_setup)
         self._btn_view.setEnabled(has_exec)
         self._btn_delete_exec.setEnabled(has_exec)
+        can_run = has_setup and self._hardware_ready
+        self._btn_apply.setEnabled(can_run)
+        self._btn_run.setEnabled(can_run)
 
     # ── Qt slots → signals ───────────────────────────────────────────────────
 
@@ -401,6 +439,16 @@ class RunsPageView(BasePage):
         exec_id = self._current_execution_id()
         if exec_id is not None:
             self.view_execution_data_requested.emit(exec_id)
+
+    def _on_apply_clicked(self) -> None:
+        setup_id = self._current_setup_id()
+        if setup_id is not None:
+            self.apply_setup_requested.emit(setup_id)
+
+    def _on_run_clicked(self) -> None:
+        setup_id = self._current_setup_id()
+        if setup_id is not None:
+            self.apply_run_fetch_requested.emit(setup_id)
 
     def _on_delete_exec_clicked(self) -> None:
         exec_id = self._current_execution_id()

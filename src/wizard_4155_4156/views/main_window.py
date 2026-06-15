@@ -165,6 +165,7 @@ class MainWindow(QMainWindow):
             project_manager=self._project_manager,
             config_provider=self._measure_factory,
             settings_manager=self._global_settings,
+            connector_presenter=self._connector_presenter,
             parent=self,
         )
         self._runs_presenter.execution_data_ready.connect(self.on_data_ready)
