@@ -18,8 +18,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
 
-from wizard_4155_4156.models.channels import InstrumentModel
-
 
 @dataclass(frozen=True)
 class GlobalSettings:
@@ -27,7 +25,6 @@ class GlobalSettings:
 
     author: str = ""
     organization: str = ""
-    default_instrument_model: str = InstrumentModel.HP4156B.value
     ascii_toggle: bool = False  # future: ASCII data collection w/ status flags
     accuracy_toggle: bool = False  # future: per-point accuracy tracking
 
@@ -35,7 +32,6 @@ class GlobalSettings:
         return {
             "author": self.author,
             "organization": self.organization,
-            "default_instrument_model": self.default_instrument_model,
             "ascii_toggle": self.ascii_toggle,
             "accuracy_toggle": self.accuracy_toggle,
         }
@@ -46,9 +42,6 @@ class GlobalSettings:
         return cls(
             author=data.get("author", defaults.author),
             organization=data.get("organization", defaults.organization),
-            default_instrument_model=data.get(
-                "default_instrument_model", defaults.default_instrument_model
-            ),
             ascii_toggle=bool(data.get("ascii_toggle", defaults.ascii_toggle)),
             accuracy_toggle=bool(
                 data.get("accuracy_toggle", defaults.accuracy_toggle)

@@ -97,6 +97,10 @@ class SamplingConfigPresenter(QObject):
     def get_config(self) -> SamplingConfig:
         return copy.deepcopy(self._config)
 
+    def get_instrument_model(self) -> str:
+        """Instrument model defined on the channels page for this config."""
+        return self._channels_config.instrument_model.value
+
     def get_json(self) -> dict:
         """Build and return the JSON dict.  Raises ValueError if invalid.
 

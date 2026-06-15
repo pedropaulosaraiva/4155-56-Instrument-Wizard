@@ -203,7 +203,9 @@ class RunsPresenter(QObject):
                     description=description or None,
                     author=settings.author or None,
                     organization=settings.organization or None,
-                    instrument_model=settings.default_instrument_model,
+                    # The setup records the instrument defined on the Channels
+                    # page (behind the live config), not a global default.
+                    instrument_model=self._config_provider.get_instrument_model(),
                 )
                 SetupRepository.add(s, setup)
                 new_id = setup.id
@@ -256,12 +258,9 @@ class RunsPresenter(QObject):
             setup = SetupRepository.get(s, setup_id)
             if setup is None:
                 return
-            var_names = [
-                dv.var_name
-                for dv in sorted(
-                    setup.display_vars, key=lambda d: d.position
-                )
-            ] or ["V1", "I1"]
+            var_names = list(
+                setup_to_config_dict(setup).get("display_vars", [])
+            ) or ["V1", "I1"]
             results = self._synthetic_results(var_names)
             exec_name = self._unique_exec_name(s, setup.name)
             execution = fetch_result_to_execution(

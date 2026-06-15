@@ -3,10 +3,10 @@ extra_widgets/settings_dialog.py
 --------------------------------
 Modal dialog for global application settings.
 
-Edits author / organization / default instrument model.  ASCII-output and
-accuracy-tracking toggles are shown but disabled — they are reserved for future
-global-settings features (ASCII data collection w/ status flags; per-point
-accuracy).  Mirrors the existing connection-wizard modal pattern.
+Edits author / organization.  ASCII-output and accuracy-tracking toggles are
+shown but disabled — they are reserved for future global-settings features
+(ASCII data collection w/ status flags; per-point accuracy).  Mirrors the
+existing connection-wizard modal pattern.
 
 The dialog reads/writes the Qt-free :class:`GlobalSettings` value object; it
 performs no persistence itself — MainWindow saves through
@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QFormLayout,
     QHBoxLayout,
@@ -28,7 +27,6 @@ from PySide6.QtWidgets import (
 )
 
 from wizard_4155_4156.db.global_settings import GlobalSettings
-from wizard_4155_4156.models.channels import InstrumentModel
 from wizard_4155_4156.styles.stylesheets import settings_dialog_stylesheet
 
 
@@ -53,7 +51,6 @@ class SettingsDialog(QDialog):
         return GlobalSettings(
             author=self._author.text().strip(),
             organization=self._organization.text().strip(),
-            default_instrument_model=self._instrument.currentText(),
             ascii_toggle=self._ascii.isChecked(),
             accuracy_toggle=self._accuracy.isChecked(),
         )
@@ -77,10 +74,6 @@ class SettingsDialog(QDialog):
         self._organization.setPlaceholderText("e.g. Analytical Engines Ltd")
         form.addRow("Author", self._author)
         form.addRow("Organization", self._organization)
-
-        self._instrument = QComboBox()
-        self._instrument.addItems([m.value for m in InstrumentModel])
-        form.addRow("Default instrument", self._instrument)
         root.addLayout(form)
 
         future_title = QLabel("Data acquisition (coming soon)")
@@ -117,8 +110,5 @@ class SettingsDialog(QDialog):
     def _load(self, settings: GlobalSettings) -> None:
         self._author.setText(settings.author)
         self._organization.setText(settings.organization)
-        idx = self._instrument.findText(settings.default_instrument_model)
-        if idx >= 0:
-            self._instrument.setCurrentIndex(idx)
         self._ascii.setChecked(settings.ascii_toggle)
         self._accuracy.setChecked(settings.accuracy_toggle)

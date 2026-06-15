@@ -79,6 +79,17 @@ class MeasureConfigFactory(QObject):
             raise ValueError(tr_ui(CommandWizardText.MEAS_NO_CONFIG))
         return self._presenter.get_json()
 
+    def get_instrument_model(self) -> str:
+        """
+        Instrument model of the channels snapshot behind the active page.
+
+        A saved setup records the instrument *defined on the Channels page*,
+        not a global default.  Raises ValueError when no page is generated yet.
+        """
+        if self._presenter is None:
+            raise ValueError(tr_ui(CommandWizardText.MEAS_NO_CONFIG))
+        return self._presenter.get_instrument_model()
+
     def generate(self) -> BasePage | None:
         """
         Build a fresh page/presenter pair for the measurement mode
