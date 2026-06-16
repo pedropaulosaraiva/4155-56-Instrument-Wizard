@@ -7,6 +7,9 @@ from wizard_4155_4156.SCPI.command_builders.channels import (
 from wizard_4155_4156.SCPI.command_builders.common_commands import (
     CommonCommandBuilder,
 )
+from wizard_4155_4156.SCPI.command_builders.measure_qscv import (
+    MeasureQscvCommandBuilder,
+)
 from wizard_4155_4156.SCPI.command_builders.measure_run import (
     MeasureRunCommandBuilder,
 )
@@ -28,4 +31,5 @@ __all__ = [
     "MeasureSamplingCommandBuilder",
     "MeasureSweepCommandBuilder",
     "MeasureRunCommandBuilder",
+    "MeasureQscvCommandBuilder",
 ]

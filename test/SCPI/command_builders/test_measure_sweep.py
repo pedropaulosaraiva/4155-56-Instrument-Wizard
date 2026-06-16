@@ -73,8 +73,8 @@ def builder():
         ("get_var1_mode", (), ":PAGE:MEAS:SWE:VAR1:MODE?", True),
         (
             "set_var1_pcompliance",
-            (5.0,),
-            ":PAGE:MEAS:SWE:VAR1:PCOM 5.0",
+            (1.5,),
+            ":PAGE:MEAS:SWE:VAR1:PCOM 1.5",
             False,
         ),
         ("get_var1_pcompliance", (), ":PAGE:MEAS:SWE:VAR1:PCOM?", True),
@@ -112,8 +112,8 @@ def builder():
         ("get_var2_compliance", (), ":PAGE:MEAS:SWE:VAR2:COMP?", True),
         (
             "set_var2_pcompliance",
-            (5.0,),
-            ":PAGE:MEAS:SWE:VAR2:PCOM 5.0",
+            (1.5,),
+            ":PAGE:MEAS:SWE:VAR2:PCOM 1.5",
             False,
         ),
         ("get_var2_pcompliance", (), ":PAGE:MEAS:SWE:VAR2:PCOM?", True),
@@ -146,8 +146,8 @@ def builder():
         ("get_vard_offset", (), ":PAGE:MEAS:SWE:VARD:OFFS?", True),
         (
             "set_vard_pcompliance",
-            (5.0,),
-            ":PAGE:MEAS:SWE:VARD:PCOM 5.0",
+            (1.5,),
+            ":PAGE:MEAS:SWE:VARD:PCOM 1.5",
             False,
         ),
         ("get_vard_pcompliance", (), ":PAGE:MEAS:SWE:VARD:PCOM?", True),

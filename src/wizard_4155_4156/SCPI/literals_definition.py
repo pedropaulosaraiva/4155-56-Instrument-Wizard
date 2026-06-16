@@ -26,6 +26,8 @@ PeriodSpecialType = Literal["INFINITY", "MINIMUM", "MAXIMUM"]
 Var1ModeType = Literal["SINGLE", "DOUBLE"]
 Var1SpacingType = Literal["LINEAR", "L10", "L25", "L50"]
 
+QscvUnitType = Literal[SMUnitType, "DEFAULT"]
+
 FormatDataType = Literal["ASC", "REAL"]
 BorderType = Literal["NORM", "SWAP"]
 AxisType = Literal["X", "Y1", "Y2"]
@@ -51,6 +53,7 @@ LITERAL_OPTIONS: Final[dict[str, tuple[str]]] = {
     "PeriodSpecialType": get_args(PeriodSpecialType),
     "Var1ModeType": get_args(Var1ModeType),
     "Var1SpacingType": get_args(Var1SpacingType),
+    "QscvUnitType": get_args(QscvUnitType),
     "FormatDataType": get_args(FormatDataType),
     "BorderType": get_args(BorderType),
     "AxisType": get_args(AxisType),
