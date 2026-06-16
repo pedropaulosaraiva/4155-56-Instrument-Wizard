@@ -35,6 +35,19 @@ SCON_THRESH = 2.0
 CONST_SAMP_SMU_SOURCE = 1.0
 CONST_SAMP_VSU_SOURCE = 1.0
 
+QSCV_CINT = 0.1
+QSCV_IINT = 0.1
+QSCV_DELAY = 0.1
+QSCV_HOLD = 0.5
+QSCV_RANGE = 1e-9
+QSCV_START = 0.0
+QSCV_STOP = 1.0
+QSCV_STEP = 0.1
+QSCV_CSTEP = 0.1
+QSCV_COMP = 0.1
+CONST_QSCV_SMU_SOURCE = 5.0
+CONST_QSCV_VSU_SOURCE = 2.0
+
 
 @pytest.fixture
 def setup_director():
@@ -237,6 +250,66 @@ def test_setup_sampling_full(setup_director):
         assert actual_pair.set_command == expected_cmd
 
 
+def test_setup_qscv_full(setup_director):
+    config = {
+        "cap_integration_time": QSCV_CINT,
+        "leak_integration_time": QSCV_IINT,
+        "delay": QSCV_DELAY,
+        "hold_time": QSCV_HOLD,
+        "cap_name": "CAP",
+        "leak_name": "LEAK",
+        "range": QSCV_RANGE,
+        "sweep_stop": "OFF",
+        "unit": "SMU1",
+        "leak_cancel": "ON",
+        "zero_cancel": "OFF",
+        "var1": {
+            "mode": "SINGLE",
+            "start": QSCV_START,
+            "stop": QSCV_STOP,
+            "step": QSCV_STEP,
+            "cstep": QSCV_CSTEP,
+            "compliance": QSCV_COMP,
+        },
+        "constants": {
+            "SMU3": {
+                "source": CONST_QSCV_SMU_SOURCE,
+                "compliance": QSCV_COMP,
+            },
+            "VSU1": {"source": CONST_QSCV_VSU_SOURCE},
+        },
+    }
+
+    expected_set_commands = [
+        f":PAGE:MEAS:QSCV:CINT {QSCV_CINT}",
+        f":PAGE:MEAS:QSCV:IINT {QSCV_IINT}",
+        f":PAGE:MEAS:QSCV:DEL {QSCV_DELAY}",
+        f":PAGE:MEAS:QSCV:HTIM {QSCV_HOLD}",
+        ":PAGE:MEAS:QSCV:CNAME 'CAP'",
+        ":PAGE:MEAS:QSCV:LNAME 'LEAK'",
+        f":PAGE:MEAS:QSCV:RANG {QSCV_RANGE}",
+        ":PAGE:MEAS:QSCV:SST OFF",
+        ":PAGE:MEAS:QSCV:UNIT SMU1",
+        ":PAGE:MEAS:QSCV:LCAN ON",
+        ":PAGE:MEAS:QSCV:ZCAN OFF",
+        ":PAGE:MEAS:QSCV:VAR1:MODE SINGLE",
+        f":PAGE:MEAS:QSCV:VAR1:STAR {QSCV_START}",
+        f":PAGE:MEAS:QSCV:VAR1:STOP {QSCV_STOP}",
+        f":PAGE:MEAS:QSCV:VAR1:STEP {QSCV_STEP}",
+        f":PAGE:MEAS:QSCV:VAR1:CSTE {QSCV_CSTEP}",
+        f":PAGE:MEAS:QSCV:VAR1:COMP {QSCV_COMP}",
+        f":PAGE:MEAS:QSCV:CONS:SMU3 {CONST_QSCV_SMU_SOURCE}",
+        f":PAGE:MEAS:QSCV:CONS:SMU3:COMP {QSCV_COMP}",
+        f":PAGE:MEAS:QSCV:CONS:VSU1 {CONST_QSCV_VSU_SOURCE}",
+    ]
+
+    seq = setup_director._setup_qscv(config)
+    assert len(seq) == len(expected_set_commands)
+
+    for actual_pair, expected_cmd in zip(seq, expected_set_commands):
+        assert actual_pair.set_command == expected_cmd
+
+
 def test_setup_measurement_orchestrator(setup_director):
     config_sweep = {
         "mode": "SWEEP",
@@ -260,6 +333,12 @@ def test_setup_measurement_orchestrator(setup_director):
 
     assert cmd_mode.set_command == ":PAGE:CHAN:MODE SAMP"
     assert cmd_samp.set_command == f":PAGE:MEAS:SAMP:POIN {SAMP_POINTS}"
+
+    config_qscv = {"mode": "QSCV", "qscv_setup": {"delay": QSCV_DELAY}}
+    cmd_mode, cmd_qscv = setup_director.setup_measurement(config_qscv)
+
+    assert cmd_mode.set_command == ":PAGE:CHAN:MODE QSCV"
+    assert cmd_qscv.set_command == f":PAGE:MEAS:QSCV:DEL {QSCV_DELAY}"
 
     seq_empty = setup_director.setup_measurement({})
     assert not seq_empty

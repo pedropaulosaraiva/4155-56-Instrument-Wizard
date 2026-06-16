@@ -5,6 +5,7 @@ from wizard_4155_4156.SCPI.command_builders import (
     ChannelsCommandBuilder,
     CommonCommandBuilder,
     MeasurementsSetupCommandBuilder,
+    MeasureQscvCommandBuilder,
     MeasureRunCommandBuilder,
     MeasureSamplingCommandBuilder,
     MeasureSweepCommandBuilder,
@@ -90,6 +91,9 @@ class MeasurementSetupDirector(BaseDirector):
             scpi_sequence.extend(
                 self._setup_sampling(config["sampling_setup"])
             )
+
+        elif mode == "QSCV" and "qscv_setup" in config:
+            scpi_sequence.extend(self._setup_qscv(config["qscv_setup"]))
 
         if "display_vars" in config and config["display_vars"]:
             scpi_sequence.append(
@@ -539,6 +543,228 @@ class MeasurementSetupDirector(BaseDirector):
             )
 
         constants = sweep_config.get("constants", {})
+        for unit, data in constants.items():
+            if "SMU" in unit:
+                if "source" in data:
+                    commands.append(
+                        self._build_pair(
+                            builder,
+                            builder.set_smu_source,
+                            (unit, data["source"]),
+                            builder.get_smu_source,
+                            (unit,),
+                        )
+                    )
+                if "compliance" in data:
+                    commands.append(
+                        self._build_pair(
+                            builder,
+                            builder.set_smu_compliance,
+                            (unit, data["compliance"]),
+                            builder.get_smu_compliance,
+                            (unit,),
+                        )
+                    )
+            elif "VSU" in unit:
+                if "source" in data:
+                    commands.append(
+                        self._build_pair(
+                            builder,
+                            builder.set_vsu_source,
+                            (unit, data["source"]),
+                            builder.get_vsu_source,
+                            (unit,),
+                        )
+                    )
+
+        return commands
+
+    def _setup_qscv(self, qscv_config: dict[str, Any]) -> list[CommandPair]:
+        commands = []
+        builder = MeasureQscvCommandBuilder
+
+        if "cap_integration_time" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_cap_integration_time,
+                    (qscv_config["cap_integration_time"],),
+                    builder.get_cap_integration_time,
+                    (),
+                )
+            )
+        if "leak_integration_time" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_leak_integration_time,
+                    (qscv_config["leak_integration_time"],),
+                    builder.get_leak_integration_time,
+                    (),
+                )
+            )
+        if "delay" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_delay,
+                    (qscv_config["delay"],),
+                    builder.get_delay,
+                    (),
+                )
+            )
+        if "hold_time" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_hold_time,
+                    (qscv_config["hold_time"],),
+                    builder.get_hold_time,
+                    (),
+                )
+            )
+        if "cap_name" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_cap_name,
+                    (qscv_config["cap_name"],),
+                    builder.get_cap_name,
+                    (),
+                )
+            )
+        if "leak_name" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_leak_name,
+                    (qscv_config["leak_name"],),
+                    builder.get_leak_name,
+                    (),
+                )
+            )
+        if "range" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_range,
+                    (qscv_config["range"],),
+                    builder.get_range,
+                    (),
+                )
+            )
+        if "sweep_stop" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_sweep_stop,
+                    (qscv_config["sweep_stop"],),
+                    builder.get_sweep_stop,
+                    (),
+                )
+            )
+        if "unit" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_unit,
+                    (qscv_config["unit"],),
+                    builder.get_unit,
+                    (),
+                )
+            )
+        if "leak_cancel" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_leak_cancel,
+                    (
+                        self._parse_bool_to_scpi_state(
+                            qscv_config["leak_cancel"]
+                        ),
+                    ),
+                    builder.get_leak_cancel,
+                    (),
+                )
+            )
+        if "zero_cancel" in qscv_config:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_zero_cancel,
+                    (
+                        self._parse_bool_to_scpi_state(
+                            qscv_config["zero_cancel"]
+                        ),
+                    ),
+                    builder.get_zero_cancel,
+                    (),
+                )
+            )
+
+        var1 = qscv_config.get("var1", {})
+        if "mode" in var1:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_var1_mode,
+                    (var1["mode"],),
+                    builder.get_var1_mode,
+                    (),
+                )
+            )
+        if "start" in var1:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_var1_start,
+                    (var1["start"],),
+                    builder.get_var1_start,
+                    (),
+                )
+            )
+        if "stop" in var1:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_var1_stop,
+                    (var1["stop"],),
+                    builder.get_var1_stop,
+                    (),
+                )
+            )
+        if "step" in var1:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_var1_step,
+                    (var1["step"],),
+                    builder.get_var1_step,
+                    (),
+                )
+            )
+        if "cstep" in var1:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_var1_cstep,
+                    (var1["cstep"],),
+                    builder.get_var1_cstep,
+                    (),
+                )
+            )
+        if "compliance" in var1:
+            commands.append(
+                self._build_pair(
+                    builder,
+                    builder.set_var1_compliance,
+                    (var1["compliance"],),
+                    builder.get_var1_compliance,
+                    (),
+                )
+            )
+
+        constants = qscv_config.get("constants", {})
         for unit, data in constants.items():
             if "SMU" in unit:
                 if "source" in data:
