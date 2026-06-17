@@ -20,6 +20,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
+    QGraphicsOpacityEffect,
     QSizePolicy,
     QToolButton,
     QVBoxLayout,
@@ -92,8 +93,13 @@ class NavigationBar(QFrame):
         """
         Enable/disable a page button (e.g. Measure Config stays
         disabled until a configuration page has been generated).
+        A dimming opacity effect provides the visual cue, because the
+        color-emoji glyphs ignore the QSS :disabled color property.
         """
-        self._buttons[page].setEnabled(enabled)
+        btn = self._buttons[page]
+        btn.setEnabled(enabled)
+        opacity = 1.0 if enabled else P.NAV_DISABLED_OPACITY
+        btn.graphicsEffect().setOpacity(opacity)
 
     # ── Private ──────────────────────────────────────────────────────────────
 
@@ -133,6 +139,12 @@ class NavigationBar(QFrame):
         btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         # Tooltip shows on hover after a short delay — no extra label needed.
         btn.setToolTipDuration(0)
+        # Opacity effect dims the button when disabled (see set_page_enabled).
+        # A fresh effect defaults to 0.7, so start it fully opaque — buttons
+        # that never call set_page_enabled (e.g. Home) must not look dimmed.
+        effect = QGraphicsOpacityEffect(btn)
+        effect.setOpacity(1.0)
+        btn.setGraphicsEffect(effect)
         return btn
 
     def _apply_styles(self) -> None:

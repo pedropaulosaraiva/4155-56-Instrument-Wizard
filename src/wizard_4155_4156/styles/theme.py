@@ -62,6 +62,7 @@ class _Palette:
     NAV_HOVER_BG: str = "#2d2d30"
     NAV_WIDTH: int = 56  # px — fixed sidebar width
     NAV_BTN_SIZE: int = 52  # px — icon button square
+    NAV_DISABLED_OPACITY: float = 0.35  # dim factor for disabled nav buttons
 
     # ── Typography ───────────────────────────────────────────────────────────
     FONT_FAMILY_UI: str = "Segoe UI, Arial, sans-serif"
