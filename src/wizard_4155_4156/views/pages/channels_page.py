@@ -56,13 +56,14 @@ from wizard_4155_4156.styles.stylesheets import (
     config_section_label_stylesheet,
     configure_measure_button_stylesheet,
     global_option_checkbox_stylesheet,
+    transparent_container_stylesheet,
     unit_card_combo_stylesheet,
     unit_card_line_edit_stylesheet,
-    unit_card_stylesheet,
     unit_card_mode_badge_stylesheet,
     unit_card_note_stylesheet,
     unit_card_row_label_stylesheet,
     unit_card_separator_stylesheet,
+    unit_card_stylesheet,
     unit_enable_checkbox_stylesheet,
     unit_group_header_stylesheet,
     unit_group_separator_stylesheet,
@@ -121,6 +122,8 @@ def _make_row(
     """Return a fixed-label + control row widget."""
     row = QWidget()
     row.setFixedHeight(_ROW_HEIGHT)
+    # Transparent so the card frame's color (not the darker page) shows.
+    row.setStyleSheet(transparent_container_stylesheet())
     row_layout = QHBoxLayout(row)
     row_layout.setContentsMargins(0, 0, 0, 0)
     row_layout.setSpacing(6)
@@ -195,6 +198,7 @@ class _BaseUnitCard(QFrame):
 
         # Header: enable checkbox + optional trailing widgets
         header = QWidget()
+        header.setStyleSheet(transparent_container_stylesheet())
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
@@ -212,6 +216,7 @@ class _BaseUnitCard(QFrame):
 
         # Content is disabled when card is user-disabled
         self._content = QWidget()
+        self._content.setStyleSheet(transparent_container_stylesheet())
         content_layout = QVBoxLayout(self._content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(4)
@@ -468,6 +473,8 @@ class _ConfigPanel(QFrame):
 
         # ── Row 1: selectors ─────────────────────────────────────────────────
         selectors_row = QWidget()
+        # Transparent so the panel frame's color (not the darker page) shows.
+        selectors_row.setStyleSheet(transparent_container_stylesheet())
         selectors_layout = QHBoxLayout(selectors_row)
         selectors_layout.setContentsMargins(0, 0, 0, 0)
         selectors_layout.setSpacing(40)

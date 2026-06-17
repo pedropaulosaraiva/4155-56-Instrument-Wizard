@@ -668,6 +668,19 @@ def unit_card_stylesheet(
     """
 
 
+def transparent_container_stylesheet() -> str:
+    """Transparent background for a plain QWidget that merely groups other
+    widgets (unit-card header/content/rows, the config-panel selector row).
+
+    Such containers carry no background of their own, so they would
+    otherwise inherit the page background (BG_DEEP) and render darker than
+    the panel/card frame they sit on.  Keeping them transparent lets the
+    parent frame's painted background show through — BG_PANEL normally (or
+    BG_ELEVATED on a card's hover) — so the surface stays one uniform color.
+    """
+    return "background: transparent;"
+
+
 def unit_card_title_stylesheet() -> str:
     return (
         f"color: {P.TEXT_PRIMARY}; font-weight: bold; "
