@@ -389,17 +389,21 @@ class MainWindow(QMainWindow):
         # Record it in recents (also refreshes the home view) and open it.
         self._home_presenter.register_opened_file(path)
         self._update_recent_menu()
-        self._activate_project(path)
+        # A brand-new project starts on Channels (nothing to browse yet);
+        # opening an existing project lands on Runs to review saved setups.
+        self._activate_project(path, landing_page=Page.CHANNELS)
 
-    def _activate_project(self, path: str) -> None:
-        """Common post-open/create steps: title, unlock pages, runs page."""
+    def _activate_project(
+        self, path: str, landing_page: Page = Page.RUNS
+    ) -> None:
+        """Common post-open/create steps: title, unlock pages, navigate."""
         name = self._project_manager.current_name
         self.setWindowTitle(
             f"Wizard 4155/4156 — Semiconductor Analyzer  ·  {name}"
         )
         self._set_project_pages_enabled(True)
         self._runs_presenter.set_database(self._project_manager.current_db)
-        self._navigate_to(Page.RUNS)
+        self._navigate_to(landing_page)
         self._status_bar.showMessage(f"Project ready: {path}", 5000)
 
     def _set_project_pages_enabled(self, enabled: bool) -> None:
