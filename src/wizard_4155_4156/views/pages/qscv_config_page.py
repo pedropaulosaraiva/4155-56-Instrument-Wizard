@@ -10,6 +10,11 @@ RangesSection (QSCV has a single capacitance current range); those are
 replaced by `_QscvMeasSetupSection`.  The voltage staircase lives in
 `_QscvVar1Section` (no spacing / power-compliance — QSCV is always linear).
 
+Layout
+------
+Left column : channel summary · user-function names (cap/leak) · display vars.
+Right column: QSCV measure setup (accent bar) · VAR1 sweep · constants · timing.
+
 Reused shared sections: ChannelSummarySection, ConstantsSection,
 DisplayVarsSection, and the SciDoubleEdit / SegmentedGroup / SectionFrame /
 form_row primitives from views/widgets/config_sections.py.
@@ -86,49 +91,14 @@ from wizard_4155_4156.views.widgets.config_sections import (
 )
 
 
-class _QscvMeasSetupSection(_SectionFrame):
-    """Capacitance measurement setup: unit, range, integration times, names."""
+class _QscvNamesSection(_SectionFrame):
+    """User-function output names: capacitance (CNAME) and leakage (LNAME)."""
 
-    unit_changed = Signal(str)
-    range_changed = Signal(float)
-    cap_int_committed = Signal(float)
-    leak_int_committed = Signal(float)
     cap_name_changed = Signal(str)
     leak_name_changed = Signal(str)
-    leak_comp_changed = Signal(bool)
-    zero_cancel_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("QSCV Measure Setup", parent)
-        self._range_values: List[float] = []
-        self._range_resolutions: List[str] = []
-
-        self._unit_combo = QComboBox()
-        self._unit_combo.setStyleSheet(unit_card_combo_stylesheet())
-        self.body().addWidget(_form_row("Measurement Unit", self._unit_combo))
-
-        self._range_combo = QComboBox()
-        self._range_combo.setStyleSheet(unit_card_combo_stylesheet())
-        self.body().addWidget(_form_row("Measurement Range", self._range_combo))
-
-        self._resolution_lbl = QLabel("")
-        self._resolution_lbl.setStyleSheet(
-            f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_SM}; "
-            "font-style: italic; background: transparent;"
-        )
-        self.body().addWidget(_form_row("Resolution", self._resolution_lbl))
-
-        cap_lo, cap_hi = cap_integration_bounds(50)
-        self._cap_int_edit = _SciDoubleEdit(0.1, cap_lo, cap_hi, "s")
-        self.body().addWidget(
-            _form_row("QSCV Integ. Time", self._cap_int_edit)
-        )
-
-        leak_lo, leak_hi = leak_integration_bounds(50)
-        self._leak_int_edit = _SciDoubleEdit(0.1, leak_lo, leak_hi, "s")
-        self.body().addWidget(
-            _form_row("Leak Integ. Time", self._leak_int_edit)
-        )
+        super().__init__("User Functions", parent)
 
         self._cname_edit = QLineEdit()
         self._cname_edit.setStyleSheet(unit_card_line_edit_stylesheet())
@@ -142,16 +112,6 @@ class _QscvMeasSetupSection(_SectionFrame):
             _form_row("Leakage Curr. Name", self._iname_edit)
         )
 
-        self._leak_seg = _SegmentedGroup(["OFF", "ON"], "OFF")
-        self.body().addWidget(_form_row("Leak Compensation", self._leak_seg))
-
-        self._zero_seg = _SegmentedGroup(["OFF", "ON"], "OFF")
-        self.body().addWidget(_form_row("Zero Cancel", self._zero_seg))
-
-        self._unit_combo.currentIndexChanged.connect(self._on_unit)
-        self._range_combo.currentIndexChanged.connect(self._on_range)
-        self._cap_int_edit.value_committed.connect(self.cap_int_committed)
-        self._leak_int_edit.value_committed.connect(self.leak_int_committed)
         self._cname_edit.editingFinished.connect(
             lambda: self.cap_name_changed.emit(self._cname_edit.text().strip())
         )
@@ -160,6 +120,65 @@ class _QscvMeasSetupSection(_SectionFrame):
                 self._iname_edit.text().strip()
             )
         )
+
+    def display_state(self, cname: str, iname: str) -> None:
+        self._cname_edit.setText(cname)
+        self._iname_edit.setText(iname)
+
+
+class _QscvMeasSetupSection(_SectionFrame):
+    """Capacitance measurement setup: unit, range, integration times, flags."""
+
+    unit_changed = Signal(str)
+    range_changed = Signal(float)
+    cap_int_committed = Signal(float)
+    leak_int_committed = Signal(float)
+    leak_comp_changed = Signal(bool)
+    zero_cancel_changed = Signal(bool)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__("QSCV Measure Setup", parent, accent=P.ACCENT)
+        self._range_values: List[float] = []
+        self._range_resolutions: List[str] = []
+
+        self._unit_combo = QComboBox()
+        self._unit_combo.setStyleSheet(unit_card_combo_stylesheet())
+        self.body().addWidget(_form_row("Measurement Unit", self._unit_combo))
+
+        self._range_combo = QComboBox()
+        self._range_combo.setStyleSheet(unit_card_combo_stylesheet())
+        self.body().addWidget(_form_row("Measurement Range", self._range_combo))
+
+        cap_lo, cap_hi = cap_integration_bounds(50)
+        self._cap_int_edit = _SciDoubleEdit(0.1, cap_lo, cap_hi, "s")
+        self.body().addWidget(
+            _form_row("QSCV Integ. Time", self._cap_int_edit)
+        )
+
+        leak_lo, leak_hi = leak_integration_bounds(50)
+        self._leak_int_edit = _SciDoubleEdit(0.1, leak_lo, leak_hi, "s")
+        self.body().addWidget(
+            _form_row("Leak Integ. Time", self._leak_int_edit)
+        )
+
+        self._leak_seg = _SegmentedGroup(["OFF", "ON"], "OFF")
+        self.body().addWidget(_form_row("Leak Compensation", self._leak_seg))
+
+        self._zero_seg = _SegmentedGroup(["OFF", "ON"], "OFF")
+        self.body().addWidget(_form_row("Zero Cancel", self._zero_seg))
+
+        # Resolution as a bottom sub-label (styled like VAR1's "Assigned:").
+        self._resolution_lbl = QLabel("")
+        self._resolution_lbl.setStyleSheet(
+            f"color: {P.ACCENT}; font-size: {P.FONT_SIZE_SM}; "
+            "background: transparent; font-style: italic;"
+        )
+        self.body().addWidget(self._resolution_lbl)
+
+        self._unit_combo.currentIndexChanged.connect(self._on_unit)
+        self._range_combo.currentIndexChanged.connect(self._on_range)
+        self._cap_int_edit.value_committed.connect(self.cap_int_committed)
+        self._leak_int_edit.value_committed.connect(self.leak_int_committed)
         self._leak_seg.selection_changed.connect(
             lambda v: self.leak_comp_changed.emit(v == "ON")
         )
@@ -206,15 +225,11 @@ class _QscvMeasSetupSection(_SectionFrame):
         self,
         cap_time: float,
         leak_time: float,
-        cname: str,
-        iname: str,
         leak_comp: bool,
         zero_cancel: bool,
     ) -> None:
         self._cap_int_edit.set_value(cap_time)
         self._leak_int_edit.set_value(leak_time)
-        self._cname_edit.setText(cname)
-        self._iname_edit.setText(iname)
         self._leak_seg.set_value("ON" if leak_comp else "OFF")
         self._zero_seg.set_value("ON" if zero_cancel else "OFF")
 
@@ -238,7 +253,9 @@ class _QscvMeasSetupSection(_SectionFrame):
     def _update_resolution_label(self) -> None:
         idx = self._range_combo.currentIndex()
         if 0 <= idx < len(self._range_resolutions):
-            self._resolution_lbl.setText(self._range_resolutions[idx])
+            self._resolution_lbl.setText(
+                f"Resolution: {self._range_resolutions[idx]}"
+            )
         else:
             self._resolution_lbl.setText("")
 
@@ -405,10 +422,12 @@ class QscvConfigPageView(BasePage):
     range_changed = Signal(float)
     cap_int_committed = Signal(float)
     leak_int_committed = Signal(float)
-    cap_name_changed = Signal(str)
-    leak_name_changed = Signal(str)
     leak_comp_changed = Signal(bool)
     zero_cancel_changed = Signal(bool)
+
+    # User-function names
+    cap_name_changed = Signal(str)
+    leak_name_changed = Signal(str)
 
     # Timing
     delay_committed = Signal(float)
@@ -464,10 +483,11 @@ class QscvConfigPageView(BasePage):
         self._meas_sec.display_state(
             ms.get("cap_time", 0.1),
             ms.get("leak_time", 0.1),
-            ms.get("cname", ""),
-            ms.get("iname", ""),
             ms.get("leak_comp", False),
             ms.get("zero_cancel", False),
+        )
+        self._names_sec.display_state(
+            ms.get("cname", ""), ms.get("iname", "")
         )
         self._timing_sec.display_state(
             snap.get("delay", 0.0),
@@ -618,9 +638,9 @@ class QscvConfigPageView(BasePage):
         left_v.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self._summary_sec = _ChannelSummarySection()
-        self._meas_sec = _QscvMeasSetupSection()
+        self._names_sec = _QscvNamesSection()
         self._display_vars_sec = _DisplayVarsSection()
-        for w in (self._summary_sec, self._meas_sec, self._display_vars_sec):
+        for w in (self._summary_sec, self._names_sec, self._display_vars_sec):
             left_v.addWidget(w)
         left_v.addStretch()
 
@@ -631,10 +651,16 @@ class QscvConfigPageView(BasePage):
         right_v.setSpacing(12)
         right_v.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        self._meas_sec = _QscvMeasSetupSection()
         self._var1_sec = _QscvVar1Section()
         self._constants_sec = _ConstantsSection()
         self._timing_sec = _QscvTimingSection()
-        for w in (self._var1_sec, self._constants_sec, self._timing_sec):
+        for w in (
+            self._meas_sec,
+            self._var1_sec,
+            self._constants_sec,
+            self._timing_sec,
+        ):
             right_v.addWidget(w)
         right_v.addStretch()
 
@@ -647,13 +673,15 @@ class QscvConfigPageView(BasePage):
     def _wire_sections(self) -> None:
         self._summary_sec.smu_standby_changed.connect(self.smu_standby_changed)
 
+        n = self._names_sec
+        n.cap_name_changed.connect(self.cap_name_changed)
+        n.leak_name_changed.connect(self.leak_name_changed)
+
         m = self._meas_sec
         m.unit_changed.connect(self.unit_changed)
         m.range_changed.connect(self.range_changed)
         m.cap_int_committed.connect(self.cap_int_committed)
         m.leak_int_committed.connect(self.leak_int_committed)
-        m.cap_name_changed.connect(self.cap_name_changed)
-        m.leak_name_changed.connect(self.leak_name_changed)
         m.leak_comp_changed.connect(self.leak_comp_changed)
         m.zero_cancel_changed.connect(self.zero_cancel_changed)
 

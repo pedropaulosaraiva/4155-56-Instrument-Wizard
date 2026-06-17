@@ -294,6 +294,26 @@ class QscvConfigPresenter(QObject):
         ]
         self._view.display_available_vars(available, self._config.display_vars)
 
+    def _rename_display_var(self, old: str, new: str) -> None:
+        """Preserve a display-var's selected state when its name changes.
+
+        Renaming the capacitance/leakage variable must keep it selected (if it
+        was) under the new name, rather than dropping it because the old name
+        vanished from the available set.
+        """
+        old = (old or "").strip()
+        new = (new or "").strip()
+        if not old or old == new:
+            return
+        dv = self._config.display_vars
+        if old not in dv:
+            return
+        idx = dv.index(old)
+        if new and new not in dv:
+            dv[idx] = new  # rename in place — keep position & selected state
+        else:
+            dv.pop(idx)  # cleared name or duplicate → drop
+
     # ── Signal handlers ──────────────────────────────────────────────────────
 
     def _on_unit(self, val: str) -> None:
@@ -313,11 +333,13 @@ class QscvConfigPresenter(QObject):
         self._update_validation()
 
     def _on_cap_name(self, val: str) -> None:
+        self._rename_display_var(self._config.cap_name, val)
         self._config.cap_name = val
         self._refresh_available_vars()
         self._update_validation()
 
     def _on_leak_name(self, val: str) -> None:
+        self._rename_display_var(self._config.leak_name, val)
         self._config.leak_name = val
         self._refresh_available_vars()
         self._update_validation()
