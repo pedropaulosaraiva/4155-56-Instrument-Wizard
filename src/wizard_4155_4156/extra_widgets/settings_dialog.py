@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QFormLayout,
     QHBoxLayout,
@@ -26,7 +27,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from wizard_4155_4156.db.global_settings import GlobalSettings
+from wizard_4155_4156.db.global_settings import (
+    ALLOWED_LINE_FREQUENCIES,
+    DEFAULT_LINE_FREQUENCY_HZ,
+    GlobalSettings,
+)
 from wizard_4155_4156.styles.stylesheets import settings_dialog_stylesheet
 
 
@@ -53,6 +58,9 @@ class SettingsDialog(QDialog):
             organization=self._organization.text().strip(),
             ascii_toggle=self._ascii.isChecked(),
             accuracy_toggle=self._accuracy.isChecked(),
+            line_frequency_hz=int(
+                self._line_freq.currentData() or DEFAULT_LINE_FREQUENCY_HZ
+            ),
         )
 
     # ── Build ────────────────────────────────────────────────────────────────
@@ -75,6 +83,21 @@ class SettingsDialog(QDialog):
         form.addRow("Author", self._author)
         form.addRow("Organization", self._organization)
         root.addLayout(form)
+
+        instr_title = QLabel("Instrument")
+        instr_title.setObjectName("section")
+        root.addWidget(instr_title)
+
+        instr_form = QFormLayout()
+        instr_form.setSpacing(10)
+        self._line_freq = QComboBox()
+        for freq in ALLOWED_LINE_FREQUENCIES:
+            self._line_freq.addItem(f"{freq} Hz", freq)
+        self._line_freq.setToolTip(
+            "AC power-line frequency. Sets the QSCV integration-time limits."
+        )
+        instr_form.addRow("Line frequency", self._line_freq)
+        root.addLayout(instr_form)
 
         future_title = QLabel("Data acquisition (coming soon)")
         future_title.setObjectName("section")
@@ -112,3 +135,5 @@ class SettingsDialog(QDialog):
         self._organization.setText(settings.organization)
         self._ascii.setChecked(settings.ascii_toggle)
         self._accuracy.setChecked(settings.accuracy_toggle)
+        idx = self._line_freq.findData(settings.line_frequency_hz)
+        self._line_freq.setCurrentIndex(idx if idx >= 0 else 0)

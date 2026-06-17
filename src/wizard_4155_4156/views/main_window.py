@@ -130,6 +130,7 @@ class MainWindow(QMainWindow):
         # disabled.
         self._measure_factory = MeasureConfigFactory(
             channels_presenter=self._channels_presenter,
+            settings_provider=self._global_settings,
             parent=self,
         )
         self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, False)
@@ -479,10 +480,10 @@ class MainWindow(QMainWindow):
 
         new_page = generate_fn()
         if new_page is None:
-            # Unsupported mode (QSCV) — keep the slot empty.
+            # Unknown / unsupported measurement mode — keep the slot empty.
             self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, False)
             self._status_bar.showMessage(
-                "QSCV configuration is not yet supported.", 5000
+                "This measurement mode is not supported.", 5000
             )
             return
 

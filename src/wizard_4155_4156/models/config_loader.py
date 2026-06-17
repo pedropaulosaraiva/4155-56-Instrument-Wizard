@@ -29,6 +29,7 @@ from wizard_4155_4156.models.channels import (
     VMUMode,
     VSUConfig,
 )
+from wizard_4155_4156.models.qscv_config import QscvConfig
 from wizard_4155_4156.models.sampling_config import (
     PeriodMode,
     SamplingConfig,
@@ -64,6 +65,13 @@ def _enum(cls: Type, value: Any, default):
         return cls(value)
     except (ValueError, KeyError):
         return default
+
+
+def _truthy(value: Any) -> bool:
+    """Coerce a stored bool / SCPI on-off string to a Python bool."""
+    if isinstance(value, str):
+        return value.strip().upper() in ("ON", "TRUE", "1", "YES")
+    return bool(value)
 
 
 def _standby_from_channels(channels: Mapping[str, dict]) -> dict[str, bool]:
@@ -258,3 +266,47 @@ def _load_measurement_setup(cfg, ms: Mapping[str, Any]) -> None:
     m.long_time_cycles = ms.get("long_time_cycles", m.long_time_cycles)
     m.wait_multiplier = ms.get("wait_time", m.wait_multiplier)
     m.ranges = copy.deepcopy(ms.get("ranges", {}))
+
+
+# =============================================================================
+# QSCV
+# =============================================================================
+
+
+def qscv_config_from_setup(config: Mapping[str, Any]) -> QscvConfig:
+    """Rebuild a QscvConfig from a setup's config dict."""
+    cfg = QscvConfig()
+    qs = config.get("qscv_setup", {})
+
+    cfg.cap_integration_time = qs.get(
+        "cap_integration_time", cfg.cap_integration_time
+    )
+    cfg.leak_integration_time = qs.get(
+        "leak_integration_time", cfg.leak_integration_time
+    )
+    cfg.delay = qs.get("delay", cfg.delay)
+    cfg.hold_time = qs.get("hold_time", cfg.hold_time)
+    cfg.cap_name = qs.get("cap_name", cfg.cap_name)
+    cfg.leak_name = qs.get("leak_name", cfg.leak_name)
+    cfg.meas_range = qs.get("range", cfg.meas_range)
+    cfg.sweep_stop = _enum(
+        SweepStop, qs.get("sweep_stop"), SweepStop.COMPLIANCE
+    )
+    cfg.measuring_unit = qs.get("unit", cfg.measuring_unit)
+    cfg.leak_compensation = _truthy(
+        qs.get("leak_cancel", cfg.leak_compensation)
+    )
+    cfg.zero_cancel = _truthy(qs.get("zero_cancel", cfg.zero_cancel))
+
+    v = qs.get("var1", {})
+    cfg.var1.mode = _enum(VAR1Mode, v.get("mode"), VAR1Mode.SINGLE)
+    cfg.var1.start = v.get("start", cfg.var1.start)
+    cfg.var1.stop = v.get("stop", cfg.var1.stop)
+    cfg.var1.step = v.get("step", cfg.var1.step)
+    cfg.var1.cstep = v.get("cstep", cfg.var1.cstep)
+    cfg.var1.compliance = v.get("compliance", cfg.var1.compliance)
+
+    cfg.constants = copy.deepcopy(qs.get("constants", {}))
+    cfg.display_vars = list(config.get("display_vars", []))
+    cfg.channel_standby = _standby_from_channels(config.get("channels", {}))
+    return cfg

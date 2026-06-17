@@ -110,6 +110,9 @@ from wizard_4155_4156.views.pages.home_page import HomePageView  # noqa: E402
 from wizard_4155_4156.views.pages.measurements_page import (  # noqa: E402
     MeasurementsPageView,
 )
+from wizard_4155_4156.views.pages.qscv_config_page import (  # noqa: E402
+    QscvConfigPageView,
+)
 from wizard_4155_4156.views.pages.runs_page import RunsPageView  # noqa: E402
 from wizard_4155_4156.views.pages.sampling_config_page import (  # noqa: E402
     SamplingConfigPageView,
@@ -133,6 +136,7 @@ __all__ = [
     "ChannelsPageView",
     "SweepConfigPageView",
     "SamplingConfigPageView",
+    "QscvConfigPageView",
     "MeasurementsPageView",
     "GraphPage",
     "TablePageView",

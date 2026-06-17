@@ -19,6 +19,23 @@ from pathlib import Path
 from typing import Optional
 
 
+# Permitted AC line frequencies (Hz).  The QSCV integration-time limits scale
+# with line frequency, so this is read by the QSCV configuration page.
+ALLOWED_LINE_FREQUENCIES: tuple[int, ...] = (50, 60)
+DEFAULT_LINE_FREQUENCY_HZ: int = 50
+
+
+def _coerce_line_frequency(value: object) -> int:
+    """Snap any stored value to a permitted line frequency (default 50 Hz)."""
+    try:
+        ivalue = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return DEFAULT_LINE_FREQUENCY_HZ
+    return (
+        ivalue if ivalue in ALLOWED_LINE_FREQUENCIES else DEFAULT_LINE_FREQUENCY_HZ
+    )
+
+
 @dataclass(frozen=True)
 class GlobalSettings:
     """User-level configuration shared across all projects."""
@@ -27,6 +44,7 @@ class GlobalSettings:
     organization: str = ""
     ascii_toggle: bool = False  # future: ASCII data collection w/ status flags
     accuracy_toggle: bool = False  # future: per-point accuracy tracking
+    line_frequency_hz: int = DEFAULT_LINE_FREQUENCY_HZ  # 50 or 60 Hz
 
     def to_dict(self) -> dict:
         return {
@@ -34,6 +52,7 @@ class GlobalSettings:
             "organization": self.organization,
             "ascii_toggle": self.ascii_toggle,
             "accuracy_toggle": self.accuracy_toggle,
+            "line_frequency_hz": self.line_frequency_hz,
         }
 
     @classmethod
@@ -45,6 +64,9 @@ class GlobalSettings:
             ascii_toggle=bool(data.get("ascii_toggle", defaults.ascii_toggle)),
             accuracy_toggle=bool(
                 data.get("accuracy_toggle", defaults.accuracy_toggle)
+            ),
+            line_frequency_hz=_coerce_line_frequency(
+                data.get("line_frequency_hz", defaults.line_frequency_hz)
             ),
         )
 

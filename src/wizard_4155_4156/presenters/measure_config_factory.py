@@ -28,6 +28,9 @@ from wizard_4155_4156.gui_text.general_text import (
     tr_ui,
 )
 from wizard_4155_4156.models.channels import MeasurementMode
+from wizard_4155_4156.presenters.qscv_config_presenter import (
+    QscvConfigPresenter,
+)
 from wizard_4155_4156.presenters.sampling_config_presenter import (
     SamplingConfigPresenter,
 )
@@ -36,6 +39,7 @@ from wizard_4155_4156.presenters.sweep_config_presenter import (
 )
 from wizard_4155_4156.views.pages import (
     BasePage,
+    QscvConfigPageView,
     SamplingConfigPageView,
     SweepConfigPageView,
 )
@@ -52,12 +56,23 @@ class MeasureConfigFactory(QObject):
     def __init__(
         self,
         channels_presenter,  # ChannelsPresenter — loose type, no cycle
+        settings_provider=None,  # GlobalSettingsManager — for QSCV line freq
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._channels_presenter = channels_presenter
+        self._settings_provider = settings_provider
         self._page: BasePage | None = None
         self._presenter: QObject | None = None
+
+    def _line_frequency(self) -> int:
+        """Current AC line frequency (Hz) from global settings; default 50."""
+        if self._settings_provider is not None:
+            try:
+                return self._settings_provider.get().line_frequency_hz
+            except Exception:  # noqa: BLE001
+                return 50
+        return 50
 
     # ── Public API ─────────────────────────────────────────────────────────
 
@@ -122,7 +137,15 @@ class MeasureConfigFactory(QObject):
             self._presenter = SamplingConfigPresenter(
                 view=page, channels_snapshot=snapshot, parent=self
             )
-        else:  # QSCV — not supported yet
+        elif mode == MeasurementMode.QSCV:
+            page = QscvConfigPageView()
+            self._presenter = QscvConfigPresenter(
+                view=page,
+                channels_snapshot=snapshot,
+                line_frequency_hz=self._line_frequency(),
+                parent=self,
+            )
+        else:
             return None
 
         self._page = page
@@ -163,7 +186,16 @@ class MeasureConfigFactory(QObject):
                 parent=self,
                 initial_setup=setup_dict,
             )
-        else:  # QSCV — not supported yet
+        elif mode == MeasurementMode.QSCV:
+            page = QscvConfigPageView()
+            self._presenter = QscvConfigPresenter(
+                view=page,
+                channels_snapshot=channels_config,
+                line_frequency_hz=self._line_frequency(),
+                parent=self,
+                initial_setup=setup_dict,
+            )
+        else:
             return None
 
         self._page = page
