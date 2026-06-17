@@ -595,6 +595,7 @@ def config_combo_stylesheet() -> str:
             font-weight: bold;
             min-width: 160px;
         }}
+        QComboBox:hover {{ border-color: {P.ACCENT}; }}
         QComboBox:focus {{ border-color: {P.ACCENT}; }}
         QComboBox::drop-down {{ border: none; width: 24px; }}
         QComboBox QAbstractItemView {{
