@@ -110,6 +110,8 @@ _NAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9]{0,5}")
 # ── Module-level helpers ────────────────────────────
 
 
+# TODO: It's more safe to just output the maximun and minimun values
+#  for each frequency as constants rather than calculating in executition
 def cap_integration_bounds(
     line_frequency_hz: int,
 ) -> Tuple[float, float]:
@@ -349,9 +351,7 @@ class QscvConstraints:
 
         # 8. NO. OF STEP (only when the basic VAR1 sweep params are sound)
         if not any(e.startswith("VAR1") for e in errors):
-            count = QscvConstraints.no_of_step(
-                v1.start, v1.stop, v1.step
-            )
+            count = QscvConstraints.no_of_step(v1.start, v1.stop, v1.step)
             if count is None or not (
                 NO_OF_STEP_MIN <= count <= NO_OF_STEP_MAX
             ):

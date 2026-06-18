@@ -31,6 +31,8 @@ from wizard_4155_4156.models.qscv_config import (
     QscvConstraints,
     SweepStop,
     VAR1Mode,
+    cap_integration_bounds,
+    leak_integration_bounds,
     ranges_for_model,
 )
 from wizard_4155_4156.models.sweep_config import DISPLAY_VARS_MAX
@@ -278,13 +280,9 @@ class QscvConfigPresenter(QObject):
         self._update_validation()
 
     def _cap_bounds(self):
-        from wizard_4155_4156.models.qscv_config import cap_integration_bounds
-
         return cap_integration_bounds(self._line_frequency_hz)
 
     def _leak_bounds(self):
-        from wizard_4155_4156.models.qscv_config import leak_integration_bounds
-
         return leak_integration_bounds(self._line_frequency_hz)
 
     def _refresh_available_vars(self) -> None:
