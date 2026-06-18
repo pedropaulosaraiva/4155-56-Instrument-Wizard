@@ -39,6 +39,7 @@ from wizard_4155_4156.models.sweep_config import (
     SweepConstraints,
     SweepSpacing,
     SweepStop,
+    SweepUnitFlags,
     VAR1Mode,
 )
 from wizard_4155_4156.views.pages.sweep_config_page import SweepConfigPageView
@@ -593,14 +594,20 @@ class SweepConfigPresenter(QObject):
 
         model_errors = SweepConstraints.validate_config(
             cfg=self._config,
-            has_var1=self._ctx.get("has_var1", False),
-            has_var2=self._ctx.get("has_var2", False),
-            has_vard=self._ctx.get("has_vard", False),
-            var1_is_voltage=self._ctx.get("var1_is_voltage", True),
-            var1_is_vsu=self._ctx.get("var1_is_vsu", False),
-            var2_is_voltage=self._ctx.get("var2_is_voltage", True),
-            var2_is_vsu=self._ctx.get("var2_is_vsu", False),
-            vard_is_vsu=self._ctx.get("vard_is_vsu", False),
+            flags=SweepUnitFlags(
+                has_var1=self._ctx.get("has_var1", False),
+                has_var2=self._ctx.get("has_var2", False),
+                has_vard=self._ctx.get("has_vard", False),
+                var1_is_voltage=self._ctx.get(
+                    "var1_is_voltage", True,
+                ),
+                var1_is_vsu=self._ctx.get("var1_is_vsu", False),
+                var2_is_voltage=self._ctx.get(
+                    "var2_is_voltage", True,
+                ),
+                var2_is_vsu=self._ctx.get("var2_is_vsu", False),
+                vard_is_vsu=self._ctx.get("vard_is_vsu", False),
+            ),
             active_channels=self._ctx.get("active_channels"),
             interlock_open=self._ctx.get("interlock_open", False),
         )

@@ -36,6 +36,7 @@ VARD ratio             : ±1000
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -250,6 +251,20 @@ class SweepConfig:
     constants: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class SweepUnitFlags:
+    """Boolean flags describing which unit types are active."""
+
+    has_var1: bool = False
+    has_var2: bool = False
+    has_vard: bool = False
+    var1_is_voltage: bool = True
+    var1_is_vsu: bool = False
+    var2_is_voltage: bool = True
+    var2_is_vsu: bool = False
+    vard_is_vsu: bool = False
+
+
 # ── Shared validation helpers ────────────────────────────────────────────────
 
 
@@ -392,8 +407,6 @@ class SweepConstraints:
         spacing: str | SweepSpacing = "LINEAR",
     ) -> Optional[int]:
         """Returns point count or None when parameters are invalid."""
-        import math
-
         spacing_val = spacing.value if hasattr(spacing, "value") else spacing
         if spacing_val == "LINEAR":
             if step == 0:
@@ -415,35 +428,15 @@ class SweepConstraints:
             return math.floor(decades * n_per_decade) + 1
 
     @staticmethod
-    def validate_config(
-        cfg: SweepConfig,
-        has_var1: bool,
-        has_var2: bool,
-        has_vard: bool,
-        var1_is_voltage: bool = True,
-        var1_is_vsu: bool = False,
-        var2_is_voltage: bool = True,
-        var2_is_vsu: bool = False,
-        vard_is_vsu: bool = False,
-        active_channels: List[dict] = None,
-        interlock_open: bool = False,
+    def _validate_measurement_setup(
+        ms: MeasurementSetup,
     ) -> List[str]:
-        """
-        Runs rigorous logic validation checks on the SweepConfig configuration.
-        Returns a list of error message strings. An empty list
-        indicates configuration is valid.
-        """
         errors: List[str] = []
-
-        # 1. Measurement Setup
-        ms = cfg.measurement_setup
         if not (WAIT_MULT_MIN <= ms.wait_multiplier <= WAIT_MULT_MAX):
             errors.append(
                 f"Wait Multiplier: invalid value "
                 f"(range: {WAIT_MULT_MIN:.3g} – {WAIT_MULT_MAX:.3g})"
             )
-
-        # Ranges validation
         for unit, r_cfg in ms.ranges.items():
             mode = r_cfg.get("mode")
             if mode in ("LIM", "FIX") and "value" not in r_cfg:
@@ -451,7 +444,6 @@ class SweepConstraints:
                     f"Range value for {unit} must be "
                     f"specified when mode is {mode}"
                 )
-
         if ms.integration_mode == IntegrationMode.SHORT:
             if not (SHORT_TIME_MIN <= ms.short_time <= SHORT_TIME_MAX):
                 errors.append(
@@ -460,14 +452,21 @@ class SweepConstraints:
                     f" – {SHORT_TIME_MAX:.3g} s)"
                 )
         elif ms.integration_mode == IntegrationMode.LONG:
-            if not (LONG_CYCLES_MIN <= ms.long_time_cycles <= LONG_CYCLES_MAX):
+            if not (
+                LONG_CYCLES_MIN
+                <= ms.long_time_cycles
+                <= LONG_CYCLES_MAX
+            ):
                 errors.append(
                     f"Integration Cycles: invalid value "
                     f"(range: {LONG_CYCLES_MIN}"
                     f" – {LONG_CYCLES_MAX} PLC)"
                 )
+        return errors
 
-        # 2. Sweep Timing
+    @staticmethod
+    def _validate_timing(cfg: SweepConfig) -> List[str]:
+        errors: List[str] = []
         if not (DELAY_MIN <= cfg.delay <= DELAY_MAX):
             errors.append(
                 f"Delay: invalid value "
@@ -476,228 +475,310 @@ class SweepConstraints:
         if not (HOLD_TIME_MIN <= cfg.hold_time <= HOLD_TIME_MAX):
             errors.append(
                 f"Hold Time: invalid value "
-                f"(range: {HOLD_TIME_MIN:.3g} – {HOLD_TIME_MAX:.3g} s)"
+                f"(range: {HOLD_TIME_MIN:.3g}"
+                f" – {HOLD_TIME_MAX:.3g} s)"
+            )
+        return errors
+
+    @staticmethod
+    def _validate_var1(
+        cfg: SweepConfig,
+        flags: SweepUnitFlags,
+        interlock_open: bool,
+    ) -> List[str]:
+        errors: List[str] = []
+        v1 = cfg.var1
+        src_min, src_max = SweepConstraints.source_range(
+            flags.var1_is_voltage, flags.var1_is_vsu, interlock_open
+        )
+        if not (src_min <= v1.start <= src_max):
+            errors.append(
+                f"VAR1 Start: invalid value "
+                f"(range: {src_min:.3g} – {src_max:.3g})"
+            )
+        if not (src_min <= v1.stop <= src_max):
+            errors.append(
+                f"VAR1 Stop: invalid value "
+                f"(range: {src_min:.3g} – {src_max:.3g})"
             )
 
-        # 3. VAR1
-        if has_var1:
-            v1 = cfg.var1
-            src_min, src_max = SweepConstraints.source_range(
-                var1_is_voltage, var1_is_vsu, interlock_open
+        if v1.spacing == SweepSpacing.LINEAR:
+            errors.extend(
+                SweepConstraints._validate_var1_linear_step(
+                    v1, flags, src_min, src_max, interlock_open,
+                )
             )
-            if not (src_min <= v1.start <= src_max):
-                errors.append(
-                    f"VAR1 Start: invalid value "
-                    f"(range: {src_min:.3g} – {src_max:.3g})"
-                )
-            if not (src_min <= v1.stop <= src_max):
-                errors.append(
-                    f"VAR1 Stop: invalid value "
-                    f"(range: {src_min:.3g} – {src_max:.3g})"
-                )
-
-            if v1.spacing == SweepSpacing.LINEAR:
-                if var1_is_vsu:
-                    # VSU step spans the full ±20 V range
-                    # width in either direction
-                    stp_max = abs(src_max - src_min)
-                    stp_min = -stp_max
-                else:
-                    stp_min, stp_max = SweepConstraints.step_range(
-                        var1_is_voltage,
-                        is_var2_or_offset=False,
-                        interlock_open=interlock_open,
-                    )
-                if v1.step == 0:
-                    errors.append("VAR1 Step: cannot be zero")
-                elif not (stp_min <= v1.step <= stp_max):
-                    errors.append(
-                        f"VAR1 Step: invalid value "
-                        f"(range: {stp_min:.3g} – {stp_max:.3g})"
-                    )
-                elif v1.step > 0 and v1.stop <= v1.start:
-                    errors.append(
-                        "VAR1: Stop must be greater than Start"
-                        " when Step is positive."
-                    )
-                elif v1.step < 0 and v1.stop >= v1.start:
-                    errors.append(
-                        "VAR1: Stop must be less than Start"
-                        " when Step is negative."
-                    )
-            # Log spacing constraints: scaling applies to the magnitude
-            # only, so negative values are allowed, but the sweep cannot
-            # cross or touch zero.
-            elif v1.start == 0 or v1.stop == 0:
-                errors.append(
-                    "VAR1: Start and Stop cannot be zero"
-                    " for logarithmic sweeps."
-                )
-            elif (v1.start < 0) != (v1.stop < 0):
-                errors.append(
-                    "VAR1: Start and Stop must have the same"
-                    " polarity for logarithmic sweeps."
-                )
-            elif v1.stop == v1.start:
-                errors.append(
-                    "VAR1: Stop must differ from Start for logarithmic sweeps."
-                )
-
-            if not var1_is_vsu:
-                comp_min, comp_max = SweepConstraints.compliance_range(
-                    var1_is_voltage, interlock_open
-                )
-                if not (comp_min <= v1.compliance <= comp_max):
-                    errors.append(
-                        f"VAR1 Compliance: invalid value "
-                        f"(range: {comp_min:.3g} – {comp_max:.3g})"
-                    )
-                if v1.power_compliance_enabled and not (
-                    PCOMP_MIN <= v1.power_compliance <= PCOMP_MAX
-                ):
-                    errors.append(
-                        f"VAR1 Power Compliance: invalid "
-                        f"value (range: {PCOMP_MIN:.3g}"
-                        f" – {PCOMP_MAX:.3g})"
-                    )
-
-            # Point count & total points checks
-            # (only if basic VAR1 parameters are logical)
-            has_var1_errs = any(e.startswith("VAR1") for e in errors)
-            if not has_var1_errs:
-                step_val = (
-                    v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
-                )
-                v1_count = SweepConstraints.var1_step_count(
-                    v1.start, v1.stop, step_val, v1.spacing
-                )
-                if v1_count is None or not (
-                    VAR1_POINTS_MIN <= v1_count <= VAR1_POINTS_MAX
-                ):
-                    errors.append(
-                        f"VAR1: "
-                        f"{v1_count if v1_count is not None else 0}"
-                        f" points (must be "
-                        f"{VAR1_POINTS_MIN}-{VAR1_POINTS_MAX})"
-                    )
-                elif has_var2:
-                    v2 = cfg.var2
-                    total = v1_count * v2.points
-                    if total > TOTAL_POINTS_MAX:
-                        errors.append(
-                            f"Total points: {v1_count} x "
-                            f"{v2.points} = {total:,} "
-                            f"(max {TOTAL_POINTS_MAX:,})"
-                        )
-
-        # 4. VAR2
-        if has_var2:
-            v2 = cfg.var2
-            src_min, src_max = SweepConstraints.source_range(
-                var2_is_voltage, var2_is_vsu, interlock_open
+        elif v1.start == 0 or v1.stop == 0:
+            errors.append(
+                "VAR1: Start and Stop cannot be zero"
+                " for logarithmic sweeps."
             )
-            if not (src_min <= v2.start <= src_max):
+        elif (v1.start < 0) != (v1.stop < 0):
+            errors.append(
+                "VAR1: Start and Stop must have the same"
+                " polarity for logarithmic sweeps."
+            )
+        elif v1.stop == v1.start:
+            errors.append(
+                "VAR1: Stop must differ from Start"
+                " for logarithmic sweeps."
+            )
+
+        if not flags.var1_is_vsu:
+            comp_min, comp_max = SweepConstraints.compliance_range(
+                flags.var1_is_voltage, interlock_open
+            )
+            if not (comp_min <= v1.compliance <= comp_max):
                 errors.append(
-                    f"VAR2 Start: invalid value "
-                    f"(range: {src_min:.3g} – {src_max:.3g})"
+                    f"VAR1 Compliance: invalid value "
+                    f"(range: {comp_min:.3g} – {comp_max:.3g})"
                 )
+            if v1.power_compliance_enabled and not (
+                PCOMP_MIN <= v1.power_compliance <= PCOMP_MAX
+            ):
+                errors.append(
+                    f"VAR1 Power Compliance: invalid "
+                    f"value (range: {PCOMP_MIN:.3g}"
+                    f" – {PCOMP_MAX:.3g})"
+                )
+
+        return errors
+
+    @staticmethod
+    def _validate_var1_linear_step(
+        v1: VAR1Config,
+        flags: SweepUnitFlags,
+        src_min: float,
+        src_max: float,
+        interlock_open: bool,
+    ) -> List[str]:
+        if flags.var1_is_vsu:
+            stp_max = abs(src_max - src_min)
+            stp_min = -stp_max
+        else:
             stp_min, stp_max = SweepConstraints.step_range(
-                var2_is_voltage,
-                is_var2_or_offset=True,
+                flags.var1_is_voltage,
+                is_var2_or_offset=False,
                 interlock_open=interlock_open,
             )
-            if v2.step == 0:
-                errors.append("VAR2 Step: cannot be zero")
-            elif not (stp_min <= v2.step <= stp_max):
-                errors.append(
-                    f"VAR2 Step: invalid value "
-                    f"(range: {stp_min:.3g} – {stp_max:.3g})"
-                )
-            if not (VAR2_POINTS_MIN <= v2.points <= VAR2_POINTS_MAX):
-                errors.append(
-                    f"VAR2 Points: invalid value "
-                    f"(range: {VAR2_POINTS_MIN} – {VAR2_POINTS_MAX})"
-                )
-            if not var2_is_vsu:
-                comp_min, comp_max = SweepConstraints.compliance_range(
-                    var2_is_voltage, interlock_open
-                )
-                if not (comp_min <= v2.compliance <= comp_max):
-                    errors.append(
-                        f"VAR2 Compliance: invalid value "
-                        f"(range: {comp_min:.3g} – {comp_max:.3g})"
-                    )
-                if v2.power_compliance_enabled and not (
-                    PCOMP_MIN <= v2.power_compliance <= PCOMP_MAX
-                ):
-                    errors.append(
-                        f"VAR2 Power Compliance: invalid "
-                        f"value (range: {PCOMP_MIN:.3g}"
-                        f" – {PCOMP_MAX:.3g})"
-                    )
+        if v1.step == 0:
+            return ["VAR1 Step: cannot be zero"]
+        if not (stp_min <= v1.step <= stp_max):
+            return [
+                f"VAR1 Step: invalid value "
+                f"(range: {stp_min:.3g} – {stp_max:.3g})"
+            ]
+        if v1.step > 0 and v1.stop <= v1.start:
+            return [
+                "VAR1: Stop must be greater than Start"
+                " when Step is positive."
+            ]
+        if v1.step < 0 and v1.stop >= v1.start:
+            return [
+                "VAR1: Stop must be less than Start"
+                " when Step is negative."
+            ]
+        return []
 
-        # 5. VARD
-        if has_vard:
-            vd = cfg.vard
-            if var1_is_vsu or var1_is_voltage:
-                if interlock_open and not vard_is_vsu:
-                    off_min, off_max = -V_STEP_ILOCK_MAX, V_STEP_ILOCK_MAX
-                else:
-                    off_min, off_max = VARD_OFFSET_V_MIN, VARD_OFFSET_V_MAX
+    @staticmethod
+    def _validate_point_counts(
+        cfg: SweepConfig,
+        flags: SweepUnitFlags,
+    ) -> List[str]:
+        """Check VAR1 point count and VAR1 x VAR2 total."""
+        v1 = cfg.var1
+        step_val = (
+            v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
+        )
+        v1_count = SweepConstraints.var1_step_count(
+            v1.start, v1.stop, step_val, v1.spacing
+        )
+        if v1_count is None or not (
+            VAR1_POINTS_MIN <= v1_count <= VAR1_POINTS_MAX
+        ):
+            return [
+                f"VAR1: "
+                f"{v1_count if v1_count is not None else 0}"
+                f" points (must be "
+                f"{VAR1_POINTS_MIN}-{VAR1_POINTS_MAX})"
+            ]
+        if flags.has_var2:
+            total = v1_count * cfg.var2.points
+            if total > TOTAL_POINTS_MAX:
+                return [
+                    f"Total points: {v1_count} x "
+                    f"{cfg.var2.points} = {total:,} "
+                    f"(max {TOTAL_POINTS_MAX:,})"
+                ]
+        return []
+
+    @staticmethod
+    def _validate_var2(
+        cfg: SweepConfig,
+        flags: SweepUnitFlags,
+        interlock_open: bool,
+    ) -> List[str]:
+        errors: List[str] = []
+        v2 = cfg.var2
+        src_min, src_max = SweepConstraints.source_range(
+            flags.var2_is_voltage, flags.var2_is_vsu, interlock_open
+        )
+        if not (src_min <= v2.start <= src_max):
+            errors.append(
+                f"VAR2 Start: invalid value "
+                f"(range: {src_min:.3g} – {src_max:.3g})"
+            )
+        stp_min, stp_max = SweepConstraints.step_range(
+            flags.var2_is_voltage,
+            is_var2_or_offset=True,
+            interlock_open=interlock_open,
+        )
+        if v2.step == 0:
+            errors.append("VAR2 Step: cannot be zero")
+        elif not (stp_min <= v2.step <= stp_max):
+            errors.append(
+                f"VAR2 Step: invalid value "
+                f"(range: {stp_min:.3g} – {stp_max:.3g})"
+            )
+        if not (VAR2_POINTS_MIN <= v2.points <= VAR2_POINTS_MAX):
+            errors.append(
+                f"VAR2 Points: invalid value "
+                f"(range: {VAR2_POINTS_MIN}"
+                f" – {VAR2_POINTS_MAX})"
+            )
+        if not flags.var2_is_vsu:
+            comp_min, comp_max = SweepConstraints.compliance_range(
+                flags.var2_is_voltage, interlock_open
+            )
+            if not (comp_min <= v2.compliance <= comp_max):
+                errors.append(
+                    f"VAR2 Compliance: invalid value "
+                    f"(range: {comp_min:.3g} – {comp_max:.3g})"
+                )
+            if v2.power_compliance_enabled and not (
+                PCOMP_MIN <= v2.power_compliance <= PCOMP_MAX
+            ):
+                errors.append(
+                    f"VAR2 Power Compliance: invalid "
+                    f"value (range: {PCOMP_MIN:.3g}"
+                    f" – {PCOMP_MAX:.3g})"
+                )
+        return errors
+
+    @staticmethod
+    def _validate_vard(
+        cfg: SweepConfig,
+        flags: SweepUnitFlags,
+        interlock_open: bool,
+    ) -> List[str]:
+        errors: List[str] = []
+        vd = cfg.vard
+        if flags.var1_is_vsu or flags.var1_is_voltage:
+            if interlock_open and not flags.vard_is_vsu:
+                off_min = -V_STEP_ILOCK_MAX
+                off_max = V_STEP_ILOCK_MAX
             else:
-                off_min, off_max = VARD_OFFSET_I_MIN, VARD_OFFSET_I_MAX
-            if not (off_min <= vd.offset <= off_max):
+                off_min = VARD_OFFSET_V_MIN
+                off_max = VARD_OFFSET_V_MAX
+        else:
+            off_min, off_max = VARD_OFFSET_I_MIN, VARD_OFFSET_I_MAX
+        if not (off_min <= vd.offset <= off_max):
+            errors.append(
+                f"VARD Offset: invalid value "
+                f"(range: {off_min:.3g} – {off_max:.3g})"
+            )
+        if not (RATIO_MIN <= vd.ratio <= RATIO_MAX):
+            errors.append(
+                f"VARD Ratio: invalid value "
+                f"(range: {RATIO_MIN:.3g} – {RATIO_MAX:.3g})"
+            )
+        if flags.has_var1:
+            out_a = cfg.var1.start * vd.ratio + vd.offset
+            out_b = cfg.var1.stop * vd.ratio + vd.offset
+            out_lo = min(out_a, out_b)
+            out_hi = max(out_a, out_b)
+            o_min, o_max = SweepConstraints.source_range(
+                flags.var1_is_voltage,
+                flags.vard_is_vsu,
+                interlock_open,
+            )
+            if out_lo < o_min or out_hi > o_max:
                 errors.append(
-                    f"VARD Offset: invalid value "
-                    f"(range: {off_min:.3g} – {off_max:.3g})"
+                    f"VARD Output: VAR1 x Ratio + Offset"
+                    f" spans {out_lo:.3g} – {out_hi:.3g} "
+                    f"(allowed: {o_min:.3g} – {o_max:.3g})"
                 )
-            if not (RATIO_MIN <= vd.ratio <= RATIO_MAX):
+        if not flags.vard_is_vsu:
+            comp_min, comp_max = SweepConstraints.compliance_range(
+                flags.var1_is_voltage or flags.var1_is_vsu,
+                interlock_open,
+            )
+            if not (comp_min <= vd.compliance <= comp_max):
                 errors.append(
-                    f"VARD Ratio: invalid value "
-                    f"(range: {RATIO_MIN:.3g} – {RATIO_MAX:.3g})"
+                    f"VARD Compliance: invalid value "
+                    f"(range: {comp_min:.3g} – {comp_max:.3g})"
                 )
-            # Resultant output (VAR1 × ratio + offset) must stay within the
-            # VARD unit's source range over the whole VAR1 sweep.  The output
-            # is monotonic in VAR1, so checking both endpoints suffices.
-            if has_var1:
-                out_a = cfg.var1.start * vd.ratio + vd.offset
-                out_b = cfg.var1.stop * vd.ratio + vd.offset
-                out_lo, out_hi = min(out_a, out_b), max(out_a, out_b)
-                o_min, o_max = SweepConstraints.source_range(
-                    var1_is_voltage, vard_is_vsu, interlock_open
+            if vd.power_compliance_enabled and not (
+                PCOMP_MIN <= vd.power_compliance <= PCOMP_MAX
+            ):
+                errors.append(
+                    f"VARD Power Compliance: invalid "
+                    f"value (range: {PCOMP_MIN:.3g}"
+                    f" – {PCOMP_MAX:.3g})"
                 )
-                if out_lo < o_min or out_hi > o_max:
-                    errors.append(
-                        f"VARD Output: VAR1 x Ratio + Offset spans "
-                        f"{out_lo:.3g} – {out_hi:.3g} "
-                        f"(allowed: {o_min:.3g} – {o_max:.3g})"
-                    )
-            if not vard_is_vsu:
-                # Compliance direction follows the VAR1 sweep type
-                comp_min, comp_max = SweepConstraints.compliance_range(
-                    var1_is_voltage or var1_is_vsu, interlock_open
-                )
-                if not (comp_min <= vd.compliance <= comp_max):
-                    errors.append(
-                        f"VARD Compliance: invalid value "
-                        f"(range: {comp_min:.3g} – {comp_max:.3g})"
-                    )
-                if vd.power_compliance_enabled and not (
-                    PCOMP_MIN <= vd.power_compliance <= PCOMP_MAX
-                ):
-                    errors.append(
-                        f"VARD Power Compliance: invalid "
-                        f"value (range: {PCOMP_MIN:.3g}"
-                        f" – {PCOMP_MAX:.3g})"
-                    )
+        return errors
 
-        # 6. Sweep stop vs power compliance cross-rule
+    @staticmethod
+    def validate_config(
+        cfg: SweepConfig,
+        flags: SweepUnitFlags,
+        active_channels: List[dict] = None,
+        interlock_open: bool = False,
+    ) -> List[str]:
+        """
+        Validate the full SweepConfig against hardware constraints.
+        Returns error messages; an empty list means valid.
+        """
+        errors: List[str] = []
+        errors.extend(
+            SweepConstraints._validate_measurement_setup(
+                cfg.measurement_setup,
+            )
+        )
+        errors.extend(SweepConstraints._validate_timing(cfg))
+
+        if flags.has_var1:
+            errors.extend(
+                SweepConstraints._validate_var1(
+                    cfg, flags, interlock_open,
+                )
+            )
+            if not any(e.startswith("VAR1") for e in errors):
+                errors.extend(
+                    SweepConstraints._validate_point_counts(
+                        cfg, flags,
+                    )
+                )
+
+        if flags.has_var2:
+            errors.extend(
+                SweepConstraints._validate_var2(
+                    cfg, flags, interlock_open,
+                )
+            )
+        if flags.has_vard:
+            errors.extend(
+                SweepConstraints._validate_vard(
+                    cfg, flags, interlock_open,
+                )
+            )
+
         any_pcomp = (
-            (has_var1 and not var1_is_vsu
-             and cfg.var1.power_compliance_enabled)
-            or (has_var2 and not var2_is_vsu
+            (flags.has_var1 and not flags.var1_is_vsu
+            and cfg.var1.power_compliance_enabled)
+            or (flags.has_var2 and not flags.var2_is_vsu
                 and cfg.var2.power_compliance_enabled)
-            or (has_vard and not vard_is_vsu
+            or (flags.has_vard and not flags.vard_is_vsu
                 and cfg.vard.power_compliance_enabled)
         )
         if any_pcomp and cfg.sweep_stop == SweepStop.OFF:
@@ -706,7 +787,6 @@ class SweepConstraints:
                 " when power compliance is set"
             )
 
-        # 7. Display variables limit
         if len(cfg.display_vars) > DISPLAY_VARS_MAX:
             errors.append(
                 "Too many display variables selected: "
@@ -714,11 +794,9 @@ class SweepConstraints:
                 f"(maximum is {DISPLAY_VARS_MAX})."
             )
 
-        # 8. Constant Sources Validation
         errors.extend(
             validate_constant_sources(
                 cfg.constants, active_channels, interlock_open
             )
         )
-
         return errors
