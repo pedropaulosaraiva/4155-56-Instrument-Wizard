@@ -15,8 +15,8 @@ def builder():
     [
         (
             "set_integration_mode",
-            ("SHOR",),
-            ":PAGE:MEAS:MSET:ITIM  SHOR",
+            ("SHORT",),
+            ":PAGE:MEAS:MSET:ITIM  SHORT",
             False,
         ),
         ("get_integration_mode", (), ":PAGE:MEAS:MSET:ITIM?", True),

@@ -314,7 +314,7 @@ def test_setup_measurement_orchestrator(setup_director):
     config_sweep = {
         "mode": "SWEEP",
         "channels": {"SMU1": {"disable": True}},
-        "measurement_setup": {"integration_mode": "SHOR"},
+        "measurement_setup": {"integration_mode": "SHORT"},
         "sweep_setup": {"delay": DELAY_TIME},
         "display_vars": ["V1", "I1"],
     }
@@ -324,7 +324,7 @@ def test_setup_measurement_orchestrator(setup_director):
 
     assert cmd_mode.set_command == ":PAGE:CHAN:MODE SWEEP"
     assert cmd_chan.set_command == ":PAGE:CHAN:SMU1:DIS"
-    assert cmd_meas.set_command == ":PAGE:MEAS:MSET:ITIM  SHOR"
+    assert cmd_meas.set_command == ":PAGE:MEAS:MSET:ITIM  SHORT"
     assert cmd_swe.set_command == f":PAGE:MEAS:SWE:DEL {DELAY_TIME}"
     assert cmd_disp.set_command == ":PAGE:DISP:LIST 'V1','I1'"
 
