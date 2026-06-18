@@ -15,7 +15,7 @@ MeasurementUnitType = Literal[SMUnitType, VMUnitType]
 VoltageUnitType = Literal[VMUnitType, VSUnitType]
 UnitType = Literal[SMUnitType, VMUnitType, VSUnitType]
 
-IntegrationType = Literal["SHOR", "MED", "LONG"]
+IntegrationType = Literal["SHORT", "MED", "LONG"]
 RangeType = Literal["AUTO", "FIX", "LIM"]
 
 SamplingModeType = Literal["LINEAR", "L10", "L25", "L50", "THINNEDOUT"]
