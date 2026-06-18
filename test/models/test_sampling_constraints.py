@@ -8,6 +8,8 @@ import pytest
 
 from wizard_4155_4156.models.sampling_config import (
     IINT_MAX,
+    IINT_STOP_COND_MIN,
+    PERIOD_MAX,
     SAMPLE_TIME_CLOSE_RATIO,
     SAMPLE_TIME_EXCEED_RATIO,
     PeriodMode,
@@ -146,7 +148,7 @@ def test_allowed_period_modes(mode, iint, expected):
 def test_period_numeric_bounds():
     lo, hi = SamplingConstraints.period_numeric_bounds(0.01, 101)
     assert lo == pytest.approx(0.01 * 100)
-    assert hi == 1e11
+    assert hi == PERIOD_MAX
 
 
 @pytest.mark.parametrize(
@@ -198,12 +200,15 @@ def test_count_measurement_units_single(channel, display_vars, expected):
     assert count == expected
 
 
+EXPECTED_MIXED_UNIT_COUNT = 3
+
+
 def test_count_measurement_units_mixed():
     channels = [smu(1, "V"), smu(2, "I"), vmu(1), vsu(1)]
     count = SamplingConstraints.count_measurement_units(
         channels, ["@TIME", "I1", "V2", "VMU1"]
     )
-    assert count == 3
+    assert count == EXPECTED_MIXED_UNIT_COUNT
 
 
 # ── validate_config: errors ──────────────────────────────────────────────────
@@ -232,7 +237,7 @@ def test_iint_validation(mode, iint, ok):
     cfg = make_valid_config(mode=mode, initial_interval=iint)
     if mode == SamplingMode.THINNEDOUT:
         cfg.period_mode = PeriodMode.NO_LIMIT
-    if iint < 2e-3:
+    if iint < IINT_STOP_COND_MIN:
         # avoid unrelated fast-sampling errors
         cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
         cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 2.0}}
@@ -301,7 +306,7 @@ def test_thinned_out_auto_not_allowed():
 )
 def test_hold_time_validation(iint, hold, ok):
     cfg = make_valid_config(initial_interval=iint, hold_time=hold)
-    if iint < 2e-3:
+    if iint < IINT_STOP_COND_MIN:
         cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
         cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 2.0}}
         cfg.period_mode = PeriodMode.AUTO

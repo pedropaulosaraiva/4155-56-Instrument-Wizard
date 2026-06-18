@@ -99,11 +99,15 @@ def test_leak_integration_bounds_per_frequency():
     assert leak_integration_bounds(60) == pytest.approx((1 / 60, 100 / 60))
 
 
+EXPECTED_4155_RANGE_COUNT = 2
+EXPECTED_4156_RANGE_COUNT = 4
+
+
 def test_ranges_for_model():
     assert ranges_for_model("4155C") == QSCV_RANGES_4155
     assert ranges_for_model("4156C") == QSCV_RANGES_4156
-    assert len(QSCV_RANGES_4155) == 2
-    assert len(QSCV_RANGES_4156) == 4
+    assert len(QSCV_RANGES_4155) == EXPECTED_4155_RANGE_COUNT
+    assert len(QSCV_RANGES_4156) == EXPECTED_4156_RANGE_COUNT
 
 
 @pytest.mark.parametrize(
