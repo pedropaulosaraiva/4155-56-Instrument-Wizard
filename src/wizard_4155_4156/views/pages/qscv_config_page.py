@@ -13,7 +13,8 @@ replaced by `_QscvMeasSetupSection`.  The voltage staircase lives in
 Layout
 ------
 Left column : channel summary · user-function names (cap/leak) · display vars.
-Right column: QSCV measure setup (accent bar) · VAR1 sweep · constants · timing.
+Right column: QSCV measure setup (accent bar) · VAR1 sweep ·
+constants · timing.
 
 Reused shared sections: ChannelSummarySection, ConstantsSection,
 DisplayVarsSection, and the SciDoubleEdit / SegmentedGroup / SectionFrame /
@@ -147,7 +148,9 @@ class _QscvMeasSetupSection(_SectionFrame):
 
         self._range_combo = QComboBox()
         self._range_combo.setStyleSheet(unit_card_combo_stylesheet())
-        self.body().addWidget(_form_row("Measurement Range", self._range_combo))
+        self.body().addWidget(
+            _form_row("Measurement Range", self._range_combo)
+        )
 
         cap_lo, cap_hi = cap_integration_bounds(50)
         self._cap_int_edit = _SciDoubleEdit(0.1, cap_lo, cap_hi, "s")
@@ -186,7 +189,7 @@ class _QscvMeasSetupSection(_SectionFrame):
             lambda v: self.zero_cancel_changed.emit(v == "ON")
         )
 
-    # ── Display API ───────────────────────────────────────────────────────────
+    # ── Display API ─────────────────────────────────────────────────────
 
     def display_units(self, options: List[str], current: str) -> None:
         self._unit_combo.blockSignals(True)
@@ -248,7 +251,7 @@ class _QscvMeasSetupSection(_SectionFrame):
             )
         return errors
 
-    # ── Private ───────────────────────────────────────────────────────────────
+    # ── Private ─────────────────────────────────────────────────────────
 
     def _update_resolution_label(self) -> None:
         idx = self._range_combo.currentIndex()
@@ -276,10 +279,14 @@ class _QscvTimingSection(_SectionFrame):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__("QSCV Timing", parent)
         self._delay_edit = _SciDoubleEdit(0.0, DELAY_MIN, DELAY_MAX, "s")
-        self._delay_edit._edit.setToolTip(f"Range: {DELAY_MIN} – {DELAY_MAX} s")
+        self._delay_edit._edit.setToolTip(
+            f"Range: {DELAY_MIN} – {DELAY_MAX} s"
+        )
         self.body().addWidget(_form_row("Delay", self._delay_edit))
 
-        self._hold_edit = _SciDoubleEdit(0.0, HOLD_TIME_MIN, HOLD_TIME_MAX, "s")
+        self._hold_edit = _SciDoubleEdit(
+            0.0, HOLD_TIME_MIN, HOLD_TIME_MAX, "s"
+        )
         self._hold_edit._edit.setToolTip(
             f"Range: {HOLD_TIME_MIN} – {HOLD_TIME_MAX} s"
         )
@@ -337,7 +344,8 @@ class _QscvVar1Section(_SectionFrame):
         )
         self._cstep_edit = _SciDoubleEdit(0.1, 0.0, CSTEP_MAX, "V")
         self._cstep_edit._edit.setToolTip(
-            f"Capacitance measurement voltage: 0 < v ≤ {CSTEP_MAX:g} V and ≤ |Step|"
+            "Capacitance measurement voltage: "
+            f"0 < v ≤ {CSTEP_MAX:g} V and ≤ |Step|"
         )
         self._comp_edit = _SciDoubleEdit(0.01, COMP_I_MIN, COMP_I_MAX, "A")
 
@@ -409,7 +417,7 @@ class _QscvVar1Section(_SectionFrame):
         return errors
 
 
-# ── Main page view ────────────────────────────────────────────────────────────
+# ── Main page view ──────────────────────────────────────────────────────
 
 
 class QscvConfigPageView(BasePage):
@@ -460,7 +468,7 @@ class QscvConfigPageView(BasePage):
     def on_activate(self) -> None:
         self.page_activated.emit()
 
-    # ── Display API ───────────────────────────────────────────────────────────
+    # ── Display API ─────────────────────────────────────────────────────
 
     def display_channel_summary(self, active_channels: List[dict]) -> None:
         self._summary_sec.display_channels(active_channels)
@@ -562,7 +570,7 @@ class QscvConfigPageView(BasePage):
             errors.update(self._constants_sec.get_input_errors())
         return errors
 
-    # ── Private — layout ──────────────────────────────────────────────────────
+    # ── Private — layout ──────────────────────────────────────────────
 
     def _on_save_clicked(self) -> None:
         path, _ = QFileDialog.getSaveFileName(
@@ -582,7 +590,8 @@ class QscvConfigPageView(BasePage):
 
         header = QWidget()
         header.setStyleSheet(
-            f"background-color: {P.BG_PANEL}; border-bottom: 1px solid {P.BORDER};"
+            f"background-color: {P.BG_PANEL}; "
+            f"border-bottom: 1px solid {P.BORDER};"
         )
         hh = QHBoxLayout(header)
         hh.setContentsMargins(24, 14, 24, 14)

@@ -43,7 +43,7 @@ from wizard_4155_4156.models.sweep_config import (
 )
 from wizard_4155_4156.views.pages.sweep_config_page import SweepConfigPageView
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Helpers ─────────────────────────────────────────────────────────────
 
 
 def _is_voltage_mode(mode_value: str) -> bool:
@@ -60,7 +60,7 @@ def _fn_to_json_key(fn_value: str) -> str:
     return fn_value
 
 
-# ── Presenter ─────────────────────────────────────────────────────────────────
+# ── Presenter ───────────────────────────────────────────────────────────
 
 
 class SweepConfigPresenter(QObject):
@@ -83,8 +83,9 @@ class SweepConfigPresenter(QObject):
         super().__init__(parent)
         self._view = view
         self._channels_config = channels_snapshot
-        # When copying an existing setup, preload its parameters; otherwise a
-        # fresh default config is built and populated from the channel snapshot.
+        # When copying an existing setup, preload its
+        # parameters; otherwise a fresh default config is
+        # built and populated from the channel snapshot.
         self._config = (
             sweep_config_from_setup(initial_setup)
             if initial_setup is not None
@@ -115,7 +116,7 @@ class SweepConfigPresenter(QObject):
         # Populate the freshly built page before it is first shown.
         self._on_page_activated()
 
-    # ── Public API ─────────────────────────────────────────────────────────────
+    # ── Public API ─────────────────────────────────────────────────────
 
     def get_config(self) -> SweepConfig:
         return copy.deepcopy(self._config)
@@ -133,7 +134,7 @@ class SweepConfigPresenter(QObject):
             )
         return self._build_json()
 
-    # ── Signal wiring ──────────────────────────────────────────────────────────
+    # ── Signal wiring ──────────────────────────────────────────────────
 
     def _connect_view_signals(self) -> None:
         v = self._view
@@ -192,7 +193,7 @@ class SweepConfigPresenter(QObject):
         v.const_compliance_changed.connect(self._on_const_compliance_changed)
 
 
-    # ── Page activation ────────────────────────────────────────────────────────
+    # ── Page activation ────────────────────────────────────────────────
 
     def _on_page_activated(self) -> None:
         self._rebuild_channel_context()
@@ -219,7 +220,7 @@ class SweepConfigPresenter(QObject):
         var2_is_vsu: bool = False
         vard_is_vsu: bool = False
 
-        # ── SMUs ──────────────────────────────────────────────────────────────
+        # ── SMUs ──────────────────────────────────────────────────────
         for idx, smu in ch_cfg.smu.items():
             if not smu.enabled:
                 continue
@@ -248,7 +249,7 @@ class SweepConfigPresenter(QObject):
             elif fn == "VAR1'":
                 vard_ch, vard_is_vsu = ch_id, False
 
-        # ── VMUs ──────────────────────────────────────────────────────────────
+        # ── VMUs ──────────────────────────────────────────────────────
         for idx, vmu in ch_cfg.vmu.items():
             if not vmu.enabled:
                 continue
@@ -264,7 +265,7 @@ class SweepConfigPresenter(QObject):
             })
             available_vars.append(vmu.voltage_name)
 
-        # ── VSUs ──────────────────────────────────────────────────────────────
+        # ── VSUs ──────────────────────────────────────────────────────
         # VSUs source voltage only (always is_voltage=True, ±20 V range).
         for idx, vsu in ch_cfg.vsu.items():
             if not vsu.enabled:
@@ -316,8 +317,10 @@ class SweepConfigPresenter(QObject):
                 updated_ranges[uid] = {"mode": "AUTO"}
         self._config.measurement_setup.ranges = updated_ranges
 
-        # Prune/initialize constant entries to match currently active CONST units
-        # (excluding COMM SMUs). Initialize default values based on unit type and source mode:
+        # Prune/initialize constant entries to match
+        # currently active CONST units (excluding COMM SMUs).
+        # Initialize default values based on unit type
+        # and source mode:
         # SMU Voltage source: source = 0.0 V, compliance = 0.01 A.
         # SMU Current source: source = 0.0 A, compliance = 2.0 V.
         # VSU: source = 0.0 V.
@@ -332,14 +335,15 @@ class SweepConfigPresenter(QObject):
         for uid, ch in active_const_units.items():
             if uid in self._config.constants:
                 updated_constants[uid] = self._config.constants[uid]
-            else:
-                if ch["unit_type"] == "VSU":
-                    updated_constants[uid] = {"source": 0.0}
-                elif ch["unit_type"] == "SMU":
-                    if ch["mode"] in ("V", "VPULSE"):
-                        updated_constants[uid] = {"source": 0.0, "compliance": 0.01}
-                    elif ch["mode"] in ("I", "IPULSE"):
-                        updated_constants[uid] = {"source": 0.0, "compliance": 2.0}
+            elif ch["unit_type"] == "VSU":
+                updated_constants[uid] = {"source": 0.0}
+            elif ch["unit_type"] == "SMU":
+                if ch["mode"] in ("V", "VPULSE"):
+                    updated_constants[uid] = {
+                        "source": 0.0, "compliance": 0.01
+                    }
+                elif ch["mode"] in ("I", "IPULSE"):
+                    updated_constants[uid] = {"source": 0.0, "compliance": 2.0}
         self._config.constants = updated_constants
 
 
@@ -578,7 +582,7 @@ class SweepConfigPresenter(QObject):
             json.dump(result, fp, indent=4)
         self._view.display_save_success(Path(path).name)
 
-    # ── Validation (model driven) ──────────────────────────────────────────────
+    # ── Validation (model driven) ──────────────────────────────────────
 
     def _run_validation(self) -> Dict[str, str]:
         """
@@ -621,7 +625,11 @@ class SweepConfigPresenter(QObject):
                 if v1_count is not None:
                     if self._ctx.get("has_var2"):
                         total = v1_count * self._config.var2.points
-                        msg += f" ({v1_count} x {self._config.var2.points} = {total} points)"
+                        msg += (
+                            f" ({v1_count} x "
+                            f"{self._config.var2.points}"
+                            f" = {total} points)"
+                        )
                     else:
                         msg += f" ({v1_count} points)"
             self._view.display_validation_status(True, msg)
@@ -631,7 +639,7 @@ class SweepConfigPresenter(QObject):
                 first_err += f" +{len(errors) - 1}"
             self._view.display_validation_status(False, first_err)
 
-    # ── JSON builder ───────────────────────────────────────────────────────────
+    # ── JSON builder ───────────────────────────────────────────────────
 
     def _build_json(self) -> dict:
         """
@@ -751,7 +759,7 @@ class SweepConfigPresenter(QObject):
             "display_vars": list(cfg.display_vars),
         }
 
-    # ── Config snapshot (for display_config) ──────────────────────────────────
+    # ── Config snapshot (for display_config) ──────────────────────────
 
     def _config_snapshot(self) -> dict:
         cfg = self._config

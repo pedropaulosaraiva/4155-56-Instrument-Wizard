@@ -10,7 +10,6 @@ from wizard_4155_4156.SCPI.literals_definition import (
     SourceUnitType,
     UnitType,
     VMUnitType,
-    VoltageUnitType,
     VUModeType,
 )
 

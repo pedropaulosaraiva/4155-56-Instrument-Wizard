@@ -39,7 +39,6 @@ from wizard_4155_4156.styles.stylesheets import (
     error_bar_stylesheet,
     meas_status_label_stylesheet,
     recent_panel_header_stylesheet,
-    runs_empty_label_stylesheet,
     runs_list_stylesheet,
     runs_page_stylesheet,
     runs_panel_stylesheet,
@@ -90,7 +89,8 @@ class RunsPageView(BasePage):
         if not rows:
             self._add_placeholder(
                 self._setups,
-                "No setups yet.\nSave the current configuration to create one.",
+                "No setups yet.\nSave the current "
+                "configuration to create one.",
             )
         for row in rows:
             self._setups.addItem(self._make_setup_item(row))
@@ -130,7 +130,10 @@ class RunsPageView(BasePage):
             self._detail.expandToDepth(0)
 
     def set_hardware_ready(self, ready: bool) -> None:
-        """Connected + idle ⇒ the run buttons may be used (with a selection)."""
+        """Connected + idle: run buttons may be used.
+
+        Only meaningful when a setup is also selected.
+        """
         self._hardware_ready = ready
         self._update_button_state()
 

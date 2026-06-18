@@ -74,7 +74,7 @@ __all__ = [
     "VAR1Mode",
 ]
 
-# ── QSCV-specific hardware-limit constants ────────────────────────────────────
+# ── QSCV-specific hardware-limit constants ──────────
 
 # Integration time is specified in PLC (power-line cycles); the second-valued
 # bounds depend on the configured line frequency.
@@ -107,11 +107,14 @@ QSCV_RANGES_4155: Tuple[Tuple[str, float, str], ...] = (
 _NAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9]{0,5}")
 
 
-# ── Module-level helpers ──────────────────────────────────────────────────────
+# ── Module-level helpers ────────────────────────────
 
 
-def cap_integration_bounds(line_frequency_hz: int) -> Tuple[float, float]:
-    """QSCV (capacitance) integration-time bounds in seconds for a line freq."""
+def cap_integration_bounds(
+    line_frequency_hz: int,
+) -> Tuple[float, float]:
+    """QSCV (capacitance) integration-time bounds in seconds
+    for a line freq."""
     f = line_frequency_hz if line_frequency_hz else 50
     return CINT_MIN_PLC / f, CINT_MAX_PLC / f
 
@@ -130,7 +133,9 @@ def ranges_for_model(
     Mirrors the RangeRow convention (``"56" in model`` ⇒ HRSMU/4156C).
     """
     return (
-        QSCV_RANGES_4156 if "56" in (instrument_model or "") else QSCV_RANGES_4155
+        QSCV_RANGES_4156
+        if "56" in (instrument_model or "")
+        else QSCV_RANGES_4155
     )
 
 
@@ -161,7 +166,7 @@ def no_of_step(start: float, stop: float, step: float) -> Optional[int]:
     return 1 if count == 0 else count
 
 
-# ── Per-section dataclasses ───────────────────────────────────────────────────
+# ── Per-section dataclasses ─────────────────────────
 
 
 @dataclass
@@ -197,7 +202,7 @@ class QscvConfig:
     constants: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
 
-# ── Constraint rule-set (cross-parameter) ─────────────────────────────────────
+# ── Constraint rule-set (cross-parameter) ───────────
 
 
 class QscvConstraints:
@@ -226,7 +231,8 @@ class QscvConstraints:
         if not (cmin <= cfg.cap_integration_time <= cmax):
             errors.append(
                 f"QSCV Integration Time: invalid value "
-                f"(range: {cmin:.4g} – {cmax:.4g} s at {line_frequency_hz} Hz)"
+                f"(range: {cmin:.4g} – {cmax:.4g} s "
+                f"at {line_frequency_hz} Hz)"
             )
         lmin, lmax = leak_integration_bounds(line_frequency_hz)
         if not (lmin <= cfg.leak_integration_time <= lmax):
@@ -238,7 +244,9 @@ class QscvConstraints:
         # 2. Timing
         if not (DELAY_MIN <= cfg.delay <= DELAY_MAX):
             errors.append(
-                f"Delay: invalid value (range: {DELAY_MIN:.3g} – {DELAY_MAX:.3g} s)"
+                f"Delay: invalid value "
+                f"(range: {DELAY_MIN:.3g} – "
+                f"{DELAY_MAX:.3g} s)"
             )
         if not (HOLD_TIME_MIN <= cfg.hold_time <= HOLD_TIME_MAX):
             errors.append(
@@ -249,7 +257,8 @@ class QscvConstraints:
         # 3. Names
         if not valid_qscv_name(cfg.cap_name):
             errors.append(
-                "Capacitance Name: must be 1–6 characters and start with a letter"
+                "Capacitance Name: must be 1–6 "
+                "characters and start with a letter"
             )
         if cfg.leak_compensation:
             if not valid_qscv_name(cfg.leak_name):
@@ -259,7 +268,9 @@ class QscvConstraints:
                 )
         elif cfg.leak_name.strip() and not valid_qscv_name(cfg.leak_name):
             errors.append(
-                "Leakage Current Name: must be 1–6 characters and start with a letter"
+                "Leakage Current Name: must be "
+                "1–6 characters and start "
+                "with a letter"
             )
 
         # 4. Measurement range (instrument-gated)
@@ -275,7 +286,9 @@ class QscvConstraints:
         if cfg.measuring_unit != "DEFAULT":
             if cfg.measuring_unit not in set(enabled_smu_ids or []):
                 errors.append(
-                    f"Measurement Unit: {cfg.measuring_unit} is not an enabled SMU"
+                    f"Measurement Unit: "
+                    f"{cfg.measuring_unit} "
+                    f"is not an enabled SMU"
                 )
 
         # 6. VAR1 (always an SMU forcing voltage)
@@ -283,11 +296,15 @@ class QscvConstraints:
         src_min, src_max = SC.source_range(True, False, interlock_open)
         if not (src_min <= v1.start <= src_max):
             errors.append(
-                f"VAR1 Start: invalid value (range: {src_min:.3g} – {src_max:.3g} V)"
+                f"VAR1 Start: invalid value "
+                f"(range: {src_min:.3g} – "
+                f"{src_max:.3g} V)"
             )
         if not (src_min <= v1.stop <= src_max):
             errors.append(
-                f"VAR1 Stop: invalid value (range: {src_min:.3g} – {src_max:.3g} V)"
+                f"VAR1 Stop: invalid value "
+                f"(range: {src_min:.3g} – "
+                f"{src_max:.3g} V)"
             )
         stp_min, stp_max = SC.step_range(
             True, is_var2_or_offset=False, interlock_open=interlock_open
@@ -296,7 +313,9 @@ class QscvConstraints:
             errors.append("VAR1 Step: cannot be zero")
         elif not (stp_min <= v1.step <= stp_max):
             errors.append(
-                f"VAR1 Step: invalid value (range: {stp_min:.3g} – {stp_max:.3g} V)"
+                f"VAR1 Step: invalid value "
+                f"(range: {stp_min:.3g} – "
+                f"{stp_max:.3g} V)"
             )
         elif v1.step > 0 and v1.stop <= v1.start:
             errors.append(
@@ -319,7 +338,9 @@ class QscvConstraints:
         # each DC bias step; it must fit within the step spacing.
         if not (0 < v1.cstep <= CSTEP_MAX):
             errors.append(
-                f"QSCV Meas Voltage: invalid value (range: 0 < v ≤ {CSTEP_MAX:g} V)"
+                f"QSCV Meas Voltage: invalid "
+                f"value (range: 0 < v ≤ "
+                f"{CSTEP_MAX:g} V)"
             )
         elif v1.step != 0 and v1.cstep > abs(v1.step):
             errors.append(
@@ -328,8 +349,12 @@ class QscvConstraints:
 
         # 8. NO. OF STEP (only when the basic VAR1 sweep params are sound)
         if not any(e.startswith("VAR1") for e in errors):
-            count = QscvConstraints.no_of_step(v1.start, v1.stop, v1.step)
-            if count is None or not (NO_OF_STEP_MIN <= count <= NO_OF_STEP_MAX):
+            count = QscvConstraints.no_of_step(
+                v1.start, v1.stop, v1.step
+            )
+            if count is None or not (
+                NO_OF_STEP_MIN <= count <= NO_OF_STEP_MAX
+            ):
                 shown = count if count is not None else 0
                 errors.append(
                     f"VAR1: {shown} steps "
@@ -339,7 +364,8 @@ class QscvConstraints:
         # 9. Display variables limit
         if len(cfg.display_vars) > DISPLAY_VARS_MAX:
             errors.append(
-                f"Too many display variables selected: {len(cfg.display_vars)} "
+                f"Too many display variables "
+                f"selected: {len(cfg.display_vars)} "
                 f"(maximum is {DISPLAY_VARS_MAX})."
             )
 

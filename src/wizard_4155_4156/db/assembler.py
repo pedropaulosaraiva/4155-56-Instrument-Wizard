@@ -8,7 +8,8 @@ verbatim in the ``setup_data`` JSON column, so there is nothing to translate —
 ``config_dict_to_setup`` just constructs the row and ``setup_to_config_dict``
 just returns the stored dict.
 
-Execution side (normalized): the ``{var_name: array}`` fetch result is decomposed
+Execution side (normalized): the ``{var_name: array}`` fetch
+result is decomposed
 into ``ExecutionVariable`` → ``DataPoint`` rows (non-finite readings stored as
 NULL, since SQLite can't store NaN/inf), and rebuilt on read.
 
@@ -27,7 +28,6 @@ from wizard_4155_4156.db.schema import (
     MeasurementExecution,
     MeasurementSetup,
 )
-
 
 # =============================================================================
 # Setup  <->  config dict  (JSON column — no translation)
@@ -60,7 +60,10 @@ def config_dict_to_setup(
 
 
 def setup_to_config_dict(setup: MeasurementSetup) -> dict:
-    """Return the stored config dict (deep-copied so callers can't mutate it)."""
+    """Return the stored config dict.
+
+    Deep-copied so callers can't mutate it.
+    """
     return copy.deepcopy(setup.setup_data or {})
 
 

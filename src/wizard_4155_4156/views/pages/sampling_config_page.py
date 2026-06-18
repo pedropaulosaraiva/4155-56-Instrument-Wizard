@@ -49,15 +49,35 @@ from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
 from wizard_4155_4156.views.widgets.config_sections import (
     ChannelSummarySection as _ChannelSummarySection,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     ConstantsSection as _ConstantsSection,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     DisplayVarsSection as _DisplayVarsSection,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     JsonPreviewDialog as _JsonPreviewDialog,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     MeasSetupSection as _MeasSetupSection,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     RangesSection as _RangesSection,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     SciDoubleEdit as _SciDoubleEdit,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     SectionFrame as _SectionFrame,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     SegmentedGroup as _SegmentedGroup,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     form_row as _form_row,
+)
+from wizard_4155_4156.views.widgets.config_sections import (
     spinbox as _spinbox,
 )
 

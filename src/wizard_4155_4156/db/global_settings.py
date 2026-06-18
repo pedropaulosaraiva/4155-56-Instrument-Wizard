@@ -18,7 +18,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
 
-
 # Permitted AC line frequencies (Hz).  The QSCV integration-time limits scale
 # with line frequency, so this is read by the QSCV configuration page.
 ALLOWED_LINE_FREQUENCIES: tuple[int, ...] = (50, 60)
@@ -32,7 +31,9 @@ def _coerce_line_frequency(value: object) -> int:
     except (TypeError, ValueError):
         return DEFAULT_LINE_FREQUENCY_HZ
     return (
-        ivalue if ivalue in ALLOWED_LINE_FREQUENCIES else DEFAULT_LINE_FREQUENCY_HZ
+        ivalue
+        if ivalue in ALLOWED_LINE_FREQUENCIES
+        else DEFAULT_LINE_FREQUENCY_HZ
     )
 
 
@@ -75,7 +76,10 @@ class GlobalSettings:
 
 
 class GlobalSettingsManager:
-    """Loads / saves :class:`GlobalSettings` to ``~/.wizard4155/settings.json``."""
+    """Loads / saves :class:`GlobalSettings`.
+
+    Target path: ``~/.wizard4155/settings.json``.
+    """
 
     _DEFAULT_DIR = Path.home() / ".wizard4155"
     _CONFIG_FILE = "settings.json"

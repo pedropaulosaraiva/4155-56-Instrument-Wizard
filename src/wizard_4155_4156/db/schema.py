@@ -40,7 +40,8 @@ def _now() -> datetime:
 
 
 class MeasurementSetup(Base):
-    """A saved measurement setup: metadata columns + the config dict as JSON."""
+    """A saved measurement setup: metadata columns
+    + the config dict as JSON."""
 
     __tablename__ = "measurement_setup"
 
@@ -48,7 +49,9 @@ class MeasurementSetup(Base):
     name: Mapped[str] = mapped_column(unique=True, index=True)
     description: Mapped[Optional[str]] = mapped_column(default=None)
     creation_date: Mapped[datetime] = mapped_column(default=_now)
-    last_execution_date: Mapped[Optional[datetime]] = mapped_column(default=None)
+    last_execution_date: Mapped[Optional[datetime]] = mapped_column(
+        default=None
+    )
     author: Mapped[Optional[str]] = mapped_column(default=None)
     organization: Mapped[Optional[str]] = mapped_column(default=None)
     instrument_model: Mapped[str] = mapped_column()
@@ -113,7 +116,10 @@ class MeasurementExecution(Base):
 
 
 class ExecutionVariable(Base):
-    """One measured variable inside an execution (up to eight per execution)."""
+    """One measured variable inside an execution.
+
+    Up to eight per execution.
+    """
 
     __tablename__ = "execution_variable"
     __table_args__ = (UniqueConstraint("execution_id", "var_name"),)
@@ -147,8 +153,9 @@ class DataPoint(Base):
         ForeignKey("execution_variable.id", ondelete="CASCADE"), index=True
     )
     point_index: Mapped[int] = mapped_column()
-    # Nullable: instruments may return non-finite points (overflow/oscillation),
-    # and SQLite stores NaN/inf as NULL — so a missing/non-finite reading is NULL.
+    # Nullable: instruments may return non-finite points
+    # (overflow/oscillation), and SQLite stores NaN/inf
+    # as NULL — so a missing/non-finite reading is NULL.
     value: Mapped[Optional[float]] = mapped_column(default=None)
     # Future fields (raw binary today carries no status/accuracy flags).
     status: Mapped[Optional[str]] = mapped_column(default=None)

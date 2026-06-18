@@ -36,7 +36,7 @@ from wizard_4155_4156.models.qscv_config import (
 from wizard_4155_4156.models.sweep_config import DISPLAY_VARS_MAX
 from wizard_4155_4156.views.pages.qscv_config_page import QscvConfigPageView
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Helpers ─────────────────────────────────────────────────────────────
 
 
 def _fn_to_json_key(fn_value: str) -> str:
@@ -81,7 +81,7 @@ class QscvConfigPresenter(QObject):
         self._connect_view_signals()
         self._on_page_activated()
 
-    # ── Public API ─────────────────────────────────────────────────────────────
+    # ── Public API ─────────────────────────────────────────────────────
 
     def get_config(self) -> QscvConfig:
         return copy.deepcopy(self._config)
@@ -146,7 +146,7 @@ class QscvConfigPresenter(QObject):
         enabled_smu_ids: List[str] = []
         var1_ch: Optional[str] = None
 
-        # ── SMUs ──────────────────────────────────────────────────────────────
+        # ── SMUs ──────────────────────────────────────────────────────
         for idx, smu in ch_cfg.smu.items():
             if not smu.enabled:
                 continue
@@ -168,7 +168,7 @@ class QscvConfigPresenter(QObject):
             if fn == "VAR1":
                 var1_ch = ch_id
 
-        # ── VSUs (CONST only in QSCV) ───────────────────────────────────────────
+        # ── VSUs (CONST only in QSCV) ────────────────────────────────
         for idx, vsu in ch_cfg.vsu.items():
             if not vsu.enabled:
                 continue
@@ -427,7 +427,7 @@ class QscvConfigPresenter(QObject):
             json.dump(self._build_json(), fp, indent=4)
         self._view.display_save_success(Path(path).name)
 
-    # ── Validation ─────────────────────────────────────────────────────────────
+    # ── Validation ─────────────────────────────────────────────────────
 
     def _run_validation(self) -> Dict[str, str]:
         errors = self._view.get_input_errors()
@@ -458,7 +458,7 @@ class QscvConfigPresenter(QObject):
                 first_err += f" +{len(errors) - 1}"
             self._view.display_validation_status(False, first_err)
 
-    # ── JSON builder ───────────────────────────────────────────────────────────
+    # ── JSON builder ───────────────────────────────────────────────────
 
     def _build_json(self) -> dict:
         cfg = self._config
@@ -528,7 +528,7 @@ class QscvConfigPresenter(QObject):
             "display_vars": list(cfg.display_vars),
         }
 
-    # ── Config snapshot (for display_config) ──────────────────────────────────
+    # ── Config snapshot (for display_config) ──────────────────────────
 
     def _config_snapshot(self) -> dict:
         cfg = self._config

@@ -424,7 +424,8 @@ class MainWindow(QMainWindow):
                 "Open or create a project before saving a setup.", 5000
             )
             return
-        # Validate the live config up front so we never prompt on an invalid one.
+        # Validate the live config up front so we never
+        # prompt on an invalid one.
         try:
             self._measure_factory.get_json()
         except ValueError as exc:

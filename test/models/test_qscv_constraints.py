@@ -86,7 +86,7 @@ def validate(
     )
 
 
-# ── Module-level helpers ──────────────────────────────────────────────────────
+# ── Module-level helpers ────────────────────────────────────────────────
 
 
 def test_cap_integration_bounds_per_frequency():
@@ -155,7 +155,7 @@ def test_valid_config_no_errors():
     assert validate(make_valid_config()) == []
 
 
-# ── Integration times (line-frequency aware) ──────────────────────────────────
+# ── Integration times (line-frequency aware) ──────────────────────────
 
 
 @pytest.mark.parametrize(
@@ -198,7 +198,8 @@ def test_leak_integration_validation(freq, leak, ok):
 
 
 @pytest.mark.parametrize(
-    ("delay", "ok"), [(0.0, True), (65.535, True), (-0.1, False), (66.0, False)]
+    ("delay", "ok"),
+    [(0.0, True), (65.535, True), (-0.1, False), (66.0, False)]
 )
 def test_delay_validation(delay, ok):
     errors = validate(make_valid_config(delay=delay))
@@ -206,7 +207,8 @@ def test_delay_validation(delay, ok):
 
 
 @pytest.mark.parametrize(
-    ("hold", "ok"), [(0.0, True), (655.35, True), (-0.1, False), (700.0, False)]
+    ("hold", "ok"),
+    [(0.0, True), (655.35, True), (-0.1, False), (700.0, False)]
 )
 def test_hold_validation(hold, ok):
     errors = validate(make_valid_config(hold_time=hold))
@@ -338,7 +340,7 @@ def test_no_of_step_auto_one_is_valid():
     assert not any("NO. OF STEP" in e for e in validate(cfg))
 
 
-# ── Interlock open tightens the voltage source range ──────────────────────────
+# ── Interlock open tightens the voltage source range ──────────────────
 
 
 def test_interlock_open_caps_voltage():

@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Tuple
 
 from PySide6.QtCore import QObject
 
+from wizard_4155_4156.models.config_loader import sampling_config_from_setup
 from wizard_4155_4156.models.sampling_config import (
     BUILTIN_DISPLAY_VARS,
     DISPLAY_VARS_MAX,
@@ -44,7 +45,6 @@ from wizard_4155_4156.models.sampling_config import (
     SamplingMode,
     SConEvent,
 )
-from wizard_4155_4156.models.config_loader import sampling_config_from_setup
 from wizard_4155_4156.models.sweep_config import IntegrationMode
 from wizard_4155_4156.views.pages.sampling_config_page import (
     SamplingConfigPageView,

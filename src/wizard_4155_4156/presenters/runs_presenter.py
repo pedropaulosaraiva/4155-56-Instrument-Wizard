@@ -42,7 +42,8 @@ from wizard_4155_4156.views.pages.runs_page import RunsPageView
 
 _SAMPLE_POINTS = 21
 
-# Trace-fetch defaults (mirror MeasurementsPresenter / MeasureRunCommandBuilder).
+# Trace-fetch defaults
+# (mirror MeasurementsPresenter / MeasureRunCommandBuilder).
 _FETCH_FORMAT = "REAL"
 _FETCH_LENGTH = 64
 _FETCH_BORDER = "NORM"
@@ -51,7 +52,8 @@ _FETCH_BORDER = "NORM"
 class RunsPresenter(QObject):
     """Mediates RunsPageView ↔ the project database."""
 
-    #: Emitted with a ``{var: [values]}`` dict so MainWindow can show the table.
+    #: Emitted with a ``{var: [values]}`` dict so
+    #: MainWindow can show the table.
     execution_data_ready = Signal(dict)
     #: Emitted with (ChannelsConfig, config_dict) to open a copied config page.
     copy_to_config_requested = Signal(object, dict)
@@ -377,7 +379,10 @@ class RunsPresenter(QObject):
         # an execution records the *actively connected* instrument (which may
         # differ from the setup's defined instrument).
         if connected and name:
-            self._connected_model = name.split(" - ")[0].strip() or name
+            self._connected_model = (
+                name.split(" - ", maxsplit=1)[0].strip()
+                or name
+            )
         else:
             self._connected_model = None
         self._push_hardware_state()
@@ -460,7 +465,9 @@ class RunsPresenter(QObject):
             elif name == "@TIME":
                 out[name] = (x * (n - 1) * 1e-3).tolist()
             else:
-                out[name] = (np.sin(x * np.pi) * (i + 1) + x * (i + 1)).tolist()
+                out[name] = (
+                    np.sin(x * np.pi) * (i + 1) + x * (i + 1)
+                ).tolist()
         return out
 
     @staticmethod

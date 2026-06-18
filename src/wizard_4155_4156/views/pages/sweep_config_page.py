@@ -261,7 +261,7 @@ class _VAR1Section(_SectionFrame):
         is_linear = spacing == "LINEAR"
         self._step_edit.setEnabled(is_linear)
 
-    # ── Display API ───────────────────────────────────────────────────────────
+    # ── Display API ─────────────────────────────────────────────────────
 
     def display_state(
         self,
@@ -319,7 +319,7 @@ class _VAR1Section(_SectionFrame):
         self._step_edit.update_bounds(stp_min, stp_max, src_u)
         self._comp_edit.update_bounds(cmp_min, cmp_max, cmp_u)
 
-    # ── Cross-param helper (read-only) ────────────────────────────────────────
+    # ── Cross-param helper (read-only) ────────────────────────────────
 
     def get_step_count(self) -> Optional[int]:
         start = self._start_edit.get_value()
@@ -483,7 +483,9 @@ class _VARDSection(_SectionFrame):
     pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("VARD  —  VAR1 Derivative", parent, accent=P.FUNC_VARD)
+        super().__init__(
+            "VARD  —  VAR1 Derivative", parent, accent=P.FUNC_VARD
+        )
         self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
@@ -585,7 +587,7 @@ class _VARDSection(_SectionFrame):
         return errors
 
 
-# ── Main page view ────────────────────────────────────────────────────────────
+# ── Main page view ──────────────────────────────────────────────────────
 
 
 class SweepConfigPageView(BasePage):
@@ -650,7 +652,7 @@ class SweepConfigPageView(BasePage):
     def on_activate(self) -> None:
         self.page_activated.emit()
 
-    # ── Display API ───────────────────────────────────────────────────────────
+    # ── Display API ─────────────────────────────────────────────────────
 
     def display_channel_summary(self, active_channels: List[dict]) -> None:
         self._summary_sec.display_channels(active_channels)
@@ -813,7 +815,7 @@ class SweepConfigPageView(BasePage):
             errors.update(self._vard_sec.get_input_errors())
         return errors
 
-    # ── Private — layout ──────────────────────────────────────────────────────
+    # ── Private — layout ──────────────────────────────────────────────
 
     def _setup_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -824,7 +826,8 @@ class SweepConfigPageView(BasePage):
         # Header
         header = QWidget()
         header.setStyleSheet(
-            f"background-color: {P.BG_PANEL}; border-bottom: 1px solid {P.BORDER};"
+            f"background-color: {P.BG_PANEL}; "
+            f"border-bottom: 1px solid {P.BORDER};"
         )
         hh = QHBoxLayout(header)
         hh.setContentsMargins(24, 14, 24, 14)

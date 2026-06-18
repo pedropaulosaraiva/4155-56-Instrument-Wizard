@@ -339,7 +339,10 @@ def test_stop_condition_delay_max():
     assert any(e.startswith("Stop Condition Enable Delay") for e in errors)
 
 
-@pytest.mark.parametrize(("count", "ok"), [(1, True), (200, True), (0, False), (201, False)])
+@pytest.mark.parametrize(
+    ("count", "ok"),
+    [(1, True), (200, True), (0, False), (201, False)],
+)
 def test_stop_condition_event_count(count, ok):
     cfg = make_valid_config(stop_condition=stop_cond(event_count=count))
     errors, _ = validate(cfg)

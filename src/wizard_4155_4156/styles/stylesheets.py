@@ -886,7 +886,8 @@ def channel_row_badge_stylesheet(color: str) -> str:
 
 
 def input_error_stylesheet() -> str:
-    """Applied to a _SciDoubleEdit or QSpinBox when its value is out of range."""
+    """Applied to a _SciDoubleEdit or QSpinBox
+    when its value is out of range."""
     return f"""
         QLineEdit {{
             background-color: rgba(244, 135, 113, 0.12);
@@ -906,13 +907,21 @@ def input_error_stylesheet() -> str:
 
 
 def form_label_stylesheet() -> str:
-    return f"color: {P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_SM}; background: transparent;"
+    return (
+        f"color: {P.TEXT_SECONDARY}; "
+        f"font-size: {P.FONT_SIZE_SM}; "
+        f"background: transparent;"
+    )
 
 
 def unit_label_stylesheet() -> str:
     return (
-        f"color: {P.STATUS_INFO}; font-size: {P.FONT_SIZE_SM}; font-weight: bold; "
-        f"font-family: {P.FONT_FAMILY_MONO}; background: transparent; min-width: 26px;"
+        f"color: {P.STATUS_INFO}; "
+        f"font-size: {P.FONT_SIZE_SM}; "
+        f"font-weight: bold; "
+        f"font-family: {P.FONT_FAMILY_MONO}; "
+        f"background: transparent; "
+        f"min-width: 26px;"
     )
 
 
@@ -997,7 +1006,10 @@ def sweep_spinbox_stylesheet() -> str:
             border: none;
             background: {P.BG_ELEVATED};
         }}
-        QSpinBox:disabled {{ color: {P.TEXT_DISABLED}; border-color: {P.BG_ELEVATED}; }}
+        QSpinBox:disabled {{
+            color: {P.TEXT_DISABLED};
+            border-color: {P.BG_ELEVATED};
+        }}
     """
 
 

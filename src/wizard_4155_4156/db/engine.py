@@ -19,10 +19,9 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from wizard_4155_4156.db.base import Base
-
 # Importing schema registers every table on Base.metadata.
 from wizard_4155_4156.db import schema  # noqa: F401
+from wizard_4155_4156.db.base import Base
 
 #: Canonical project-file extension (SQLite under the hood).
 PROJECT_EXTENSION: str = ".wiz4155"

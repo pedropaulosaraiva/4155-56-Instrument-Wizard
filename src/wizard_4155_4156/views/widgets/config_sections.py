@@ -80,7 +80,7 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 
-# ── Shared helpers ────────────────────────────────────────────────────────────
+# ── Shared helpers ──────────────────────────────────────────────
 
 
 def form_row(
@@ -251,7 +251,7 @@ class SciDoubleEdit(QWidget):
 
         self._edit.editingFinished.connect(self._on_finish)
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    # ── Public API ──────────────────────────────────────────────
 
     def set_value(self, val: float) -> None:
         self._edit.blockSignals(True)
@@ -290,7 +290,7 @@ class SciDoubleEdit(QWidget):
         """Always returns True if a float can be parsed."""
         return self.get_value() is not None
 
-    # ── Private ───────────────────────────────────────────────────────────────
+    # ── Private ─────────────────────────────────────────────────
 
     def _set_text(self, val: float) -> None:
         if val != 0 and (abs(val) < 0.01 or abs(val) >= 1e5):
@@ -304,7 +304,7 @@ class SciDoubleEdit(QWidget):
             self.value_committed.emit(v)
 
 
-# ── SegmentedGroup ────────────────────────────────────────────────────────────
+# ── SegmentedGroup ──────────────────────────────────────────────
 
 
 class SegmentedGroup(QWidget):
@@ -370,7 +370,7 @@ class SegmentedGroup(QWidget):
             )
 
 
-# ── SectionFrame ──────────────────────────────────────────────────────────────
+# ── SectionFrame ────────────────────────────────────────────────
 
 
 class SectionFrame(QFrame):
@@ -410,7 +410,7 @@ class SectionFrame(QFrame):
         return self._body
 
 
-# ── Section widgets ───────────────────────────────────────────────────────────
+# ── Section widgets ─────────────────────────────────────────────
 
 
 class ChannelSummarySection(SectionFrame):
@@ -485,7 +485,8 @@ class ChannelSummarySection(SectionFrame):
             rh.setContentsMargins(0, 2, 0, 2)
             rh.setSpacing(0)
 
-            # 1. Channel (Unity Name) column: container of width 65, badge of width 48
+            # 1. Channel (Unity Name) column:
+            # container of width 65, badge of width 48
             ch_container = QWidget()
             ch_container.setFixedWidth(65)
             ch_layout = QHBoxLayout(ch_container)
@@ -1048,7 +1049,8 @@ class ConstantsSection(SectionFrame):
             if row.compliance_edit is not None:
                 if row.compliance_edit.get_value() is None:
                     errors[f"const_compliance_{ch_id}"] = (
-                        f"{ch_id} Constant Compliance: value is empty or invalid"
+                        f"{ch_id} Constant Compliance:"
+                        " value is empty or invalid"
                     )
         return errors
 
@@ -1092,7 +1094,7 @@ class DisplayVarsSection(SectionFrame):
             cb.blockSignals(False)
 
 
-# ── JSON preview dialog ───────────────────────────────────────────────────────
+# ── JSON preview dialog ─────────────────────────────────────────
 
 
 class JsonPreviewDialog(QDialog):

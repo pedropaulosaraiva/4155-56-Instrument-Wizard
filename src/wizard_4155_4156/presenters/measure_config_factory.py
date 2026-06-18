@@ -158,7 +158,8 @@ class MeasureConfigFactory(QObject):
         Build a fresh config page for a *saved* setup (the "Copy to measurement
         configuration" action).
 
-        ``channels_config`` is a ChannelsConfig reconstructed from the setup and
+        ``channels_config`` is a ChannelsConfig reconstructed
+        from the setup and
         ``setup_dict`` is the setup's canonical config dict; the new presenter
         preloads its parameters.  Like ``generate``, the caller must have
         removed/deleted the previous page first.  Returns None for unsupported

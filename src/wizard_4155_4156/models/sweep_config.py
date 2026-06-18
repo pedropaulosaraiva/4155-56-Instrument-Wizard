@@ -71,7 +71,7 @@ class SweepSpacing(str, Enum):
     L50 = "L50"  # 50 points/decade
 
 
-# ── Hardware limit constants (imported by the view for widget bounds) ─────────
+# ── Hardware limit constants (view widget bounds) ──────────────────────
 
 # Measurement setup
 SHORT_TIME_MIN: float = 8e-5  # 80 µs
@@ -187,7 +187,7 @@ RANGE_VALUES_VMU_DVOL: Tuple[Tuple[str, float], ...] = (
 )
 
 
-# ── Per-section dataclasses ───────────────────────────────────────────────────
+# ── Per-section dataclasses ─────────────────────────────────────────────
 
 
 @dataclass
@@ -284,18 +284,24 @@ def validate_constant_sources(
             if unit_type == "VSU":
                 if not (VSU_VOLTAGE_MIN <= source <= VSU_VOLTAGE_MAX):
                     errors.append(
-                        f"{unit_id} Constant Source: invalid value (range: {VSU_VOLTAGE_MIN:.3g} – {VSU_VOLTAGE_MAX:.3g} V)"
+                        f"{unit_id} Constant Source: invalid "
+                        f"value (range: {VSU_VOLTAGE_MIN:.3g}"
+                        f" – {VSU_VOLTAGE_MAX:.3g} V)"
                     )
             elif unit_type == "SMU":
                 if mode in ("V", "VPULSE"):
                     if not (-v_max <= source <= v_max):
                         errors.append(
-                            f"{unit_id} Constant Source: invalid value (range: {-v_max:.3g} – {v_max:.3g} V)"
+                            f"{unit_id} Constant Source: "
+                            f"invalid value (range: "
+                            f"{-v_max:.3g} – {v_max:.3g} V)"
                         )
                 elif mode in ("I", "IPULSE"):
                     if not (CURRENT_MIN <= source <= CURRENT_MAX):
                         errors.append(
-                            f"{unit_id} Constant Source: invalid value (range: {CURRENT_MIN:.3g} – {CURRENT_MAX:.3g} A)"
+                            f"{unit_id} Constant Source: "
+                            f"invalid value (range: "
+                            f"{CURRENT_MIN:.3g} – {CURRENT_MAX:.3g} A)"
                         )
 
         if unit_type == "SMU":
@@ -304,12 +310,16 @@ def validate_constant_sources(
                 if mode in ("V", "VPULSE"):
                     if not (COMP_I_MIN <= compliance <= COMP_I_MAX):
                         errors.append(
-                            f"{unit_id} Constant Compliance: invalid value (range: {COMP_I_MIN:.3g} – {COMP_I_MAX:.3g} A)"
+                            f"{unit_id} Constant Compliance: "
+                            f"invalid value (range: "
+                            f"{COMP_I_MIN:.3g} – {COMP_I_MAX:.3g} A)"
                         )
                 elif mode in ("I", "IPULSE"):
                     if not (COMP_V_MIN <= compliance <= comp_v_max):
                         errors.append(
-                            f"{unit_id} Constant Compliance: invalid value (range: {COMP_V_MIN:.3g} – {comp_v_max:.3g} V)"
+                            f"{unit_id} Constant Compliance: "
+                            f"invalid value (range: "
+                            f"{COMP_V_MIN:.3g} – {comp_v_max:.3g} V)"
                         )
     return errors
 
@@ -372,7 +382,7 @@ class SweepConstraints:
     def compliance_unit(sweep_is_voltage: bool) -> str:
         return "A" if sweep_is_voltage else "V"
 
-    # ── Cross-parameter computations ──────────────────────────────────────────
+    # ── Cross-parameter computations ────────────────────────────────────
 
     @staticmethod
     def var1_step_count(
@@ -420,7 +430,8 @@ class SweepConstraints:
     ) -> List[str]:
         """
         Runs rigorous logic validation checks on the SweepConfig configuration.
-        Returns a list of error message strings. An empty list indicates configuration is valid.
+        Returns a list of error message strings. An empty list
+        indicates configuration is valid.
         """
         errors: List[str] = []
 
@@ -428,7 +439,8 @@ class SweepConstraints:
         ms = cfg.measurement_setup
         if not (WAIT_MULT_MIN <= ms.wait_multiplier <= WAIT_MULT_MAX):
             errors.append(
-                f"Wait Multiplier: invalid value (range: {WAIT_MULT_MIN:.3g} – {WAIT_MULT_MAX:.3g})"
+                f"Wait Multiplier: invalid value "
+                f"(range: {WAIT_MULT_MIN:.3g} – {WAIT_MULT_MAX:.3g})"
             )
 
         # Ranges validation
@@ -436,28 +448,35 @@ class SweepConstraints:
             mode = r_cfg.get("mode")
             if mode in ("LIM", "FIX") and "value" not in r_cfg:
                 errors.append(
-                    f"Range value for {unit} must be specified when mode is {mode}"
+                    f"Range value for {unit} must be "
+                    f"specified when mode is {mode}"
                 )
 
         if ms.integration_mode == IntegrationMode.SHORT:
             if not (SHORT_TIME_MIN <= ms.short_time <= SHORT_TIME_MAX):
                 errors.append(
-                    f"Short Aperture: invalid value (range: {SHORT_TIME_MIN:.3g} – {SHORT_TIME_MAX:.3g} s)"
+                    f"Short Aperture: invalid value "
+                    f"(range: {SHORT_TIME_MIN:.3g}"
+                    f" – {SHORT_TIME_MAX:.3g} s)"
                 )
         elif ms.integration_mode == IntegrationMode.LONG:
             if not (LONG_CYCLES_MIN <= ms.long_time_cycles <= LONG_CYCLES_MAX):
                 errors.append(
-                    f"Integration Cycles: invalid value (range: {LONG_CYCLES_MIN} – {LONG_CYCLES_MAX} PLC)"
+                    f"Integration Cycles: invalid value "
+                    f"(range: {LONG_CYCLES_MIN}"
+                    f" – {LONG_CYCLES_MAX} PLC)"
                 )
 
         # 2. Sweep Timing
         if not (DELAY_MIN <= cfg.delay <= DELAY_MAX):
             errors.append(
-                f"Delay: invalid value (range: {DELAY_MIN:.3g} – {DELAY_MAX:.3g} s)"
+                f"Delay: invalid value "
+                f"(range: {DELAY_MIN:.3g} – {DELAY_MAX:.3g} s)"
             )
         if not (HOLD_TIME_MIN <= cfg.hold_time <= HOLD_TIME_MAX):
             errors.append(
-                f"Hold Time: invalid value (range: {HOLD_TIME_MIN:.3g} – {HOLD_TIME_MAX:.3g} s)"
+                f"Hold Time: invalid value "
+                f"(range: {HOLD_TIME_MIN:.3g} – {HOLD_TIME_MAX:.3g} s)"
             )
 
         # 3. VAR1
@@ -468,16 +487,19 @@ class SweepConstraints:
             )
             if not (src_min <= v1.start <= src_max):
                 errors.append(
-                    f"VAR1 Start: invalid value (range: {src_min:.3g} – {src_max:.3g})"
+                    f"VAR1 Start: invalid value "
+                    f"(range: {src_min:.3g} – {src_max:.3g})"
                 )
             if not (src_min <= v1.stop <= src_max):
                 errors.append(
-                    f"VAR1 Stop: invalid value (range: {src_min:.3g} – {src_max:.3g})"
+                    f"VAR1 Stop: invalid value "
+                    f"(range: {src_min:.3g} – {src_max:.3g})"
                 )
 
             if v1.spacing == SweepSpacing.LINEAR:
                 if var1_is_vsu:
-                    # VSU step spans the full ±20 V range width in either direction
+                    # VSU step spans the full ±20 V range
+                    # width in either direction
                     stp_max = abs(src_max - src_min)
                     stp_min = -stp_max
                 else:
@@ -490,32 +512,36 @@ class SweepConstraints:
                     errors.append("VAR1 Step: cannot be zero")
                 elif not (stp_min <= v1.step <= stp_max):
                     errors.append(
-                        f"VAR1 Step: invalid value (range: {stp_min:.3g} – {stp_max:.3g})"
+                        f"VAR1 Step: invalid value "
+                        f"(range: {stp_min:.3g} – {stp_max:.3g})"
                     )
                 elif v1.step > 0 and v1.stop <= v1.start:
                     errors.append(
-                        "VAR1: Stop must be greater than Start when Step is positive."
+                        "VAR1: Stop must be greater than Start"
+                        " when Step is positive."
                     )
                 elif v1.step < 0 and v1.stop >= v1.start:
                     errors.append(
-                        "VAR1: Stop must be less than Start when Step is negative."
+                        "VAR1: Stop must be less than Start"
+                        " when Step is negative."
                     )
-            else:
-                # Log spacing constraints: scaling applies to the magnitude
-                # only, so negative values are allowed, but the sweep cannot
-                # cross or touch zero.
-                if v1.start == 0 or v1.stop == 0:
-                    errors.append(
-                        "VAR1: Start and Stop cannot be zero for logarithmic sweeps."
-                    )
-                elif (v1.start < 0) != (v1.stop < 0):
-                    errors.append(
-                        "VAR1: Start and Stop must have the same polarity for logarithmic sweeps."
-                    )
-                elif v1.stop == v1.start:
-                    errors.append(
-                        "VAR1: Stop must differ from Start for logarithmic sweeps."
-                    )
+            # Log spacing constraints: scaling applies to the magnitude
+            # only, so negative values are allowed, but the sweep cannot
+            # cross or touch zero.
+            elif v1.start == 0 or v1.stop == 0:
+                errors.append(
+                    "VAR1: Start and Stop cannot be zero"
+                    " for logarithmic sweeps."
+                )
+            elif (v1.start < 0) != (v1.stop < 0):
+                errors.append(
+                    "VAR1: Start and Stop must have the same"
+                    " polarity for logarithmic sweeps."
+                )
+            elif v1.stop == v1.start:
+                errors.append(
+                    "VAR1: Stop must differ from Start for logarithmic sweeps."
+                )
 
             if not var1_is_vsu:
                 comp_min, comp_max = SweepConstraints.compliance_range(
@@ -523,13 +549,16 @@ class SweepConstraints:
                 )
                 if not (comp_min <= v1.compliance <= comp_max):
                     errors.append(
-                        f"VAR1 Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+                        f"VAR1 Compliance: invalid value "
+                        f"(range: {comp_min:.3g} – {comp_max:.3g})"
                     )
                 if v1.power_compliance_enabled and not (
                     PCOMP_MIN <= v1.power_compliance <= PCOMP_MAX
                 ):
                     errors.append(
-                        f"VAR1 Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                        f"VAR1 Power Compliance: invalid "
+                        f"value (range: {PCOMP_MIN:.3g}"
+                        f" – {PCOMP_MAX:.3g})"
                     )
 
             # Point count & total points checks
@@ -546,14 +575,19 @@ class SweepConstraints:
                     VAR1_POINTS_MIN <= v1_count <= VAR1_POINTS_MAX
                 ):
                     errors.append(
-                        f"VAR1: {v1_count if v1_count is not None else 0} points (must be {VAR1_POINTS_MIN}-{VAR1_POINTS_MAX})"
+                        f"VAR1: "
+                        f"{v1_count if v1_count is not None else 0}"
+                        f" points (must be "
+                        f"{VAR1_POINTS_MIN}-{VAR1_POINTS_MAX})"
                     )
                 elif has_var2:
                     v2 = cfg.var2
                     total = v1_count * v2.points
                     if total > TOTAL_POINTS_MAX:
                         errors.append(
-                            f"Total points: {v1_count} x {v2.points} = {total:,} (max {TOTAL_POINTS_MAX:,})"
+                            f"Total points: {v1_count} x "
+                            f"{v2.points} = {total:,} "
+                            f"(max {TOTAL_POINTS_MAX:,})"
                         )
 
         # 4. VAR2
@@ -564,7 +598,8 @@ class SweepConstraints:
             )
             if not (src_min <= v2.start <= src_max):
                 errors.append(
-                    f"VAR2 Start: invalid value (range: {src_min:.3g} – {src_max:.3g})"
+                    f"VAR2 Start: invalid value "
+                    f"(range: {src_min:.3g} – {src_max:.3g})"
                 )
             stp_min, stp_max = SweepConstraints.step_range(
                 var2_is_voltage,
@@ -575,11 +610,13 @@ class SweepConstraints:
                 errors.append("VAR2 Step: cannot be zero")
             elif not (stp_min <= v2.step <= stp_max):
                 errors.append(
-                    f"VAR2 Step: invalid value (range: {stp_min:.3g} – {stp_max:.3g})"
+                    f"VAR2 Step: invalid value "
+                    f"(range: {stp_min:.3g} – {stp_max:.3g})"
                 )
             if not (VAR2_POINTS_MIN <= v2.points <= VAR2_POINTS_MAX):
                 errors.append(
-                    f"VAR2 Points: invalid value (range: {VAR2_POINTS_MIN} – {VAR2_POINTS_MAX})"
+                    f"VAR2 Points: invalid value "
+                    f"(range: {VAR2_POINTS_MIN} – {VAR2_POINTS_MAX})"
                 )
             if not var2_is_vsu:
                 comp_min, comp_max = SweepConstraints.compliance_range(
@@ -587,13 +624,16 @@ class SweepConstraints:
                 )
                 if not (comp_min <= v2.compliance <= comp_max):
                     errors.append(
-                        f"VAR2 Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+                        f"VAR2 Compliance: invalid value "
+                        f"(range: {comp_min:.3g} – {comp_max:.3g})"
                     )
                 if v2.power_compliance_enabled and not (
                     PCOMP_MIN <= v2.power_compliance <= PCOMP_MAX
                 ):
                     errors.append(
-                        f"VAR2 Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                        f"VAR2 Power Compliance: invalid "
+                        f"value (range: {PCOMP_MIN:.3g}"
+                        f" – {PCOMP_MAX:.3g})"
                     )
 
         # 5. VARD
@@ -608,11 +648,13 @@ class SweepConstraints:
                 off_min, off_max = VARD_OFFSET_I_MIN, VARD_OFFSET_I_MAX
             if not (off_min <= vd.offset <= off_max):
                 errors.append(
-                    f"VARD Offset: invalid value (range: {off_min:.3g} – {off_max:.3g})"
+                    f"VARD Offset: invalid value "
+                    f"(range: {off_min:.3g} – {off_max:.3g})"
                 )
             if not (RATIO_MIN <= vd.ratio <= RATIO_MAX):
                 errors.append(
-                    f"VARD Ratio: invalid value (range: {RATIO_MIN:.3g} – {RATIO_MAX:.3g})"
+                    f"VARD Ratio: invalid value "
+                    f"(range: {RATIO_MIN:.3g} – {RATIO_MAX:.3g})"
                 )
             # Resultant output (VAR1 × ratio + offset) must stay within the
             # VARD unit's source range over the whole VAR1 sweep.  The output
@@ -637,30 +679,39 @@ class SweepConstraints:
                 )
                 if not (comp_min <= vd.compliance <= comp_max):
                     errors.append(
-                        f"VARD Compliance: invalid value (range: {comp_min:.3g} – {comp_max:.3g})"
+                        f"VARD Compliance: invalid value "
+                        f"(range: {comp_min:.3g} – {comp_max:.3g})"
                     )
                 if vd.power_compliance_enabled and not (
                     PCOMP_MIN <= vd.power_compliance <= PCOMP_MAX
                 ):
                     errors.append(
-                        f"VARD Power Compliance: invalid value (range: {PCOMP_MIN:.3g} – {PCOMP_MAX:.3g})"
+                        f"VARD Power Compliance: invalid "
+                        f"value (range: {PCOMP_MIN:.3g}"
+                        f" – {PCOMP_MAX:.3g})"
                     )
 
         # 6. Sweep stop vs power compliance cross-rule
         any_pcomp = (
-            (has_var1 and not var1_is_vsu and cfg.var1.power_compliance_enabled)
-            or (has_var2 and not var2_is_vsu and cfg.var2.power_compliance_enabled)
-            or (has_vard and not vard_is_vsu and cfg.vard.power_compliance_enabled)
+            (has_var1 and not var1_is_vsu
+             and cfg.var1.power_compliance_enabled)
+            or (has_var2 and not var2_is_vsu
+                and cfg.var2.power_compliance_enabled)
+            or (has_vard and not vard_is_vsu
+                and cfg.vard.power_compliance_enabled)
         )
         if any_pcomp and cfg.sweep_stop == SweepStop.OFF:
             errors.append(
-                "Sweep stop must be ABNORMAL or COMPLIANCE when power compliance is set"
+                "Sweep stop must be ABNORMAL or COMPLIANCE"
+                " when power compliance is set"
             )
 
         # 7. Display variables limit
         if len(cfg.display_vars) > DISPLAY_VARS_MAX:
             errors.append(
-                f"Too many display variables selected: {len(cfg.display_vars)} (maximum is {DISPLAY_VARS_MAX})."
+                "Too many display variables selected: "
+                f"{len(cfg.display_vars)} "
+                f"(maximum is {DISPLAY_VARS_MAX})."
             )
 
         # 8. Constant Sources Validation

@@ -257,7 +257,10 @@ def sampling_config_from_setup(config: Mapping[str, Any]) -> SamplingConfig:
 
 
 def _load_measurement_setup(cfg, ms: Mapping[str, Any]) -> None:
-    """Populate the shared ``measurement_setup`` block on a sweep/sampling cfg."""
+    """Populate the shared ``measurement_setup`` block.
+
+    Applies to a sweep/sampling cfg.
+    """
     m = cfg.measurement_setup
     m.integration_mode = _enum(
         IntegrationMode, ms.get("integration_mode"), IntegrationMode.MED
