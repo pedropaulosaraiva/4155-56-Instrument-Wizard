@@ -70,6 +70,7 @@ from wizard_4155_4156.styles.stylesheets import (
     segmented_btn_checked_stylesheet,
     segmented_btn_unchecked_stylesheet,
     sweep_spinbox_stylesheet,
+    transparent_container_stylesheet,
     unit_card_combo_stylesheet,
     unit_card_line_edit_stylesheet,
     unit_enable_checkbox_stylesheet,
@@ -477,6 +478,9 @@ class ChannelSummarySection(SectionFrame):
                 mode_display = "IPUL"
 
             row = QWidget()
+            # Transparent so the section card color (not the darker page body)
+            # shows behind the fixed-width label.
+            row.setStyleSheet(transparent_container_stylesheet())
             rh = QHBoxLayout(row)
             rh.setContentsMargins(0, 2, 0, 2)
             rh.setSpacing(0)
