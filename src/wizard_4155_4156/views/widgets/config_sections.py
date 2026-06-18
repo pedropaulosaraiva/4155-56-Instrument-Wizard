@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Tuple
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QValidator
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QCheckBox,
     QComboBox,
@@ -80,6 +81,10 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 
+_SCI_DISPLAY_LOWER = 0.01
+_SCI_DISPLAY_UPPER = 1e5
+_MAX_SCI_PARTS = 2
+
 # ── Shared helpers ──────────────────────────────────────────────
 
 
@@ -128,18 +133,19 @@ def create_table_header(
     hh.setContentsMargins(0, 0, 0, 4)
     hh.setSpacing(spacing)
     for text, w in columns:
-        l = QLabel(text)  # noqa: E741
-        l.setStyleSheet(
+        col_label = QLabel(text)
+        col_label.setStyleSheet(
             f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
-            "font-weight: bold; letter-spacing: 1px; background: transparent;"
+            "font-weight: bold; letter-spacing: 1px; "
+            "background: transparent;"
         )
-        l.setFixedWidth(w)
-        l.setAlignment(
+        col_label.setFixedWidth(w)
+        col_label.setAlignment(
             Qt.AlignmentFlag.AlignCenter
             if text in ("Unit", "Channel")
             else Qt.AlignmentFlag.AlignLeft
         )
-        hh.addWidget(l)
+        hh.addWidget(col_label)
     hh.addStretch()
     return hdr
 
@@ -151,6 +157,48 @@ def create_horizontal_divider() -> QFrame:
     return div
 
 
+def _placeholder_label(text: str) -> QLabel:
+    label = QLabel(text)
+    label.setStyleSheet(
+        f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_SM}; "
+        "font-style: italic; background: transparent;"
+    )
+    return label
+
+
+def _create_badge_cell(
+    text: str,
+    container_width: int,
+    badge_width: int,
+    color: str,
+) -> QWidget:
+    container = QWidget()
+    container.setFixedWidth(container_width)
+    layout = QHBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
+    label = QLabel(text)
+    label.setFixedWidth(badge_width)
+    label.setStyleSheet(channel_row_badge_stylesheet(color))
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    layout.addStretch()
+    layout.addWidget(label)
+    layout.addStretch()
+    return container
+
+
+def _create_name_label(text: str, width: int) -> QLabel:
+    label = QLabel(text)
+    label.setFixedWidth(width)
+    label.setStyleSheet(
+        f"color:{P.TEXT_SECONDARY};font-size:{P.FONT_SIZE_SM};"
+        f"font-family:{P.FONT_FAMILY_MONO};"
+        "background:transparent;"
+    )
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    return label
+
+
 class SciDoubleValidator(QValidator):
     def __init__(self, min_val: float, max_val: float, parent=None):
         super().__init__(parent)
@@ -159,50 +207,55 @@ class SciDoubleValidator(QValidator):
 
     def validate(self, input_str: str, pos: int):
         val_str = input_str.replace(",", ".").strip()
-        if not val_str:
-            return QValidator.State.Intermediate, input_str, pos
+        return self._determine_state(val_str), input_str, pos
 
-        # Allow sign prefix
-        if val_str in ("-", "+", "-.", "+."):
-            return QValidator.State.Intermediate, input_str, pos
+    def _classify_scientific_notation(
+        self, val_str: str,
+    ) -> QValidator.State | None:
+        parts = val_str.lower().split("e")
+        if len(parts) > _MAX_SCI_PARTS:
+            return QValidator.State.Invalid
+        mantissa, exponent = parts[0], parts[1]
+        if mantissa not in ("", "-", "+", "-.", "+."):
+            try:
+                float(mantissa)
+            except ValueError:
+                return QValidator.State.Invalid
+        if exponent in ("", "-", "+"):
+            return QValidator.State.Intermediate
+        try:
+            int(exponent)
+        except ValueError:
+            return QValidator.State.Invalid
+        return None
 
-        # Check scientific notation intermediate states
-        lower_str = val_str.lower()
-        if "e" in lower_str:
-            parts = lower_str.split("e")
-            if len(parts) > 2:
-                return QValidator.State.Invalid, input_str, pos
-            mantissa, exponent = parts[0], parts[1]
-            if mantissa in ("", "-", "+", "-.", "+."):
-                pass
-            else:
-                try:
-                    float(mantissa)
-                except ValueError:
-                    return QValidator.State.Invalid, input_str, pos
-            if exponent in ("", "-", "+"):
-                return QValidator.State.Intermediate, input_str, pos
-            else:
-                try:
-                    int(exponent)
-                except ValueError:
-                    return QValidator.State.Invalid, input_str, pos
+    def _determine_state(
+        self, val_str: str,
+    ) -> QValidator.State:
+        if not val_str or val_str in ("-", "+", "-.", "+."):
+            return QValidator.State.Intermediate
+
+        if "e" in val_str.lower():
+            result = self._classify_scientific_notation(val_str)
+            if result is not None:
+                return result
         else:
             try:
                 float(val_str)
             except ValueError:
                 if val_str in (".", "0.", "-0.", "+0."):
-                    return QValidator.State.Intermediate, input_str, pos
-                return QValidator.State.Invalid, input_str, pos
+                    return QValidator.State.Intermediate
+                return QValidator.State.Invalid
 
         try:
             val = float(val_str)
-            if self.min_val <= val <= self.max_val:
-                return QValidator.State.Acceptable, input_str, pos
-            else:
-                return QValidator.State.Intermediate, input_str, pos
         except ValueError:
-            return QValidator.State.Invalid, input_str, pos
+            return QValidator.State.Invalid
+        return (
+            QValidator.State.Acceptable
+            if self.min_val <= val <= self.max_val
+            else QValidator.State.Intermediate
+        )
 
 
 class SciDoubleEdit(QWidget):
@@ -293,7 +346,10 @@ class SciDoubleEdit(QWidget):
     # ── Private ─────────────────────────────────────────────────
 
     def _set_text(self, val: float) -> None:
-        if val != 0 and (abs(val) < 0.01 or abs(val) >= 1e5):
+        if val != 0 and (
+            abs(val) < _SCI_DISPLAY_LOWER
+            or abs(val) >= _SCI_DISPLAY_UPPER
+        ):
             self._edit.setText(f"{val:.3e}")
         else:
             self._edit.setText(f"{val:.6g}")
@@ -409,6 +465,12 @@ class SectionFrame(QFrame):
     def body(self) -> QVBoxLayout:
         return self._body
 
+    def _clear_body(self) -> None:
+        while self._body.count():
+            item = self._body.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
 
 # ── Section widgets ─────────────────────────────────────────────
 
@@ -421,24 +483,16 @@ class ChannelSummarySection(SectionFrame):
         self._standby_cbs: Dict[str, QCheckBox] = {}
 
     def display_channels(self, active_channels: List[dict]) -> None:
-        while self.body().count():
-            item = self.body().takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self._clear_body()
         self._standby_cbs.clear()
 
         if not active_channels:
-            lbl = QLabel(
-                "No channels enabled — configure the Channels page first."
-            )
-            lbl.setStyleSheet(
-                f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_SM}; "
-                "font-style: italic; background: transparent;"
-            )
-            self.body().addWidget(lbl)
+            self.body().addWidget(_placeholder_label(
+                "No channels enabled"
+                " — configure the Channels page first."
+            ))
             return
 
-        # Column headers
         hdr = create_table_header(
             [
                 ("Channel", 65),
@@ -468,9 +522,7 @@ class ChannelSummarySection(SectionFrame):
             fn = ch.get("function", "CONST")
             mode = ch.get("mode", "")
 
-            # Apply display aliases
             fn_display = "MONIT" if fn == "MONITOR" else fn
-
             mode_display = mode
             if mode == "VPULSE":
                 mode_display = "VPUL"
@@ -478,130 +530,67 @@ class ChannelSummarySection(SectionFrame):
                 mode_display = "IPUL"
 
             row = QWidget()
-            # Transparent so the section card color (not the darker page body)
-            # shows behind the fixed-width label.
             row.setStyleSheet(transparent_container_stylesheet())
             rh = QHBoxLayout(row)
             rh.setContentsMargins(0, 2, 0, 2)
             rh.setSpacing(0)
 
-            # 1. Channel (Unity Name) column:
-            # container of width 65, badge of width 48
-            ch_container = QWidget()
-            ch_container.setFixedWidth(65)
-            ch_layout = QHBoxLayout(ch_container)
-            ch_layout.setContentsMargins(0, 0, 0, 0)
-            ch_layout.setSpacing(0)
-
-            ch_lbl = QLabel(ch_id)
-            ch_lbl.setFixedWidth(48)
-            ch_lbl.setStyleSheet(channel_row_badge_stylesheet(P.ACCENT_HOVER))
-            ch_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            ch_layout.addStretch()
-            ch_layout.addWidget(ch_lbl)
-            ch_layout.addStretch()
-            rh.addWidget(ch_container)
-
-            # 2. Function column: container of width 70, badge of width 60
-            fn_container = QWidget()
-            fn_container.setFixedWidth(70)
-            fn_layout = QHBoxLayout(fn_container)
-            fn_layout.setContentsMargins(0, 0, 0, 0)
-            fn_layout.setSpacing(0)
-
-            fn_lbl = QLabel(fn_display)
-            fn_lbl.setFixedWidth(60)
-            fn_lbl.setStyleSheet(
-                channel_row_badge_stylesheet(fn_colors.get(fn, P.TEXT_MUTED))
+            fn_color = fn_colors.get(fn, P.TEXT_MUTED)
+            rh.addWidget(
+                _create_badge_cell(ch_id, 65, 48, P.ACCENT_HOVER)
             )
-            fn_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            fn_layout.addStretch()
-            fn_layout.addWidget(fn_lbl)
-            fn_layout.addStretch()
-            rh.addWidget(fn_container)
-
-            # 3. Mode column: container of width 75, badge of width 65
-            mode_container = QWidget()
-            mode_container.setFixedWidth(75)
-            mode_layout = QHBoxLayout(mode_container)
-            mode_layout.setContentsMargins(0, 0, 0, 0)
-            mode_layout.setSpacing(0)
-
-            mode_lbl = QLabel(mode_display)
-            mode_lbl.setFixedWidth(65)
-            mode_lbl.setStyleSheet(
-                channel_row_badge_stylesheet(fn_colors.get(fn, P.TEXT_MUTED))
+            rh.addWidget(
+                _create_badge_cell(fn_display, 70, 60, fn_color)
             )
-            mode_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            mode_layout.addStretch()
-            mode_layout.addWidget(mode_lbl)
-            mode_layout.addStretch()
-            rh.addWidget(mode_container)
-
-            # 4. V-Name column: label of width 55
-            v_name_lbl = QLabel(ch.get("v_name", ""))
-            v_name_lbl.setFixedWidth(55)
-            v_name_lbl.setStyleSheet(
-                f"color:{P.TEXT_SECONDARY};font-size:{P.FONT_SIZE_SM};"
-                f"font-family:{P.FONT_FAMILY_MONO};background:transparent;"
+            rh.addWidget(
+                _create_badge_cell(mode_display, 75, 65, fn_color)
             )
-            v_name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            rh.addWidget(v_name_lbl)
-
-            # 5. I-Name column: label of width 55
-            i_name_lbl = QLabel(ch.get("i_name", "") if is_smu else "—")
-            i_name_lbl.setFixedWidth(55)
-            i_name_lbl.setStyleSheet(
-                f"color:{P.TEXT_SECONDARY};font-size:{P.FONT_SIZE_SM};"
-                f"font-family:{P.FONT_FAMILY_MONO};background:transparent;"
+            rh.addWidget(
+                _create_name_label(ch.get("v_name", ""), 55)
             )
-            i_name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            rh.addWidget(i_name_lbl)
-
-            # 6. Standby column: container of width 55, checkbox/spacer inside
-            if is_smu:
-                cb_container = QWidget()
-                cb_container.setFixedWidth(55)
-                cb_layout = QHBoxLayout(cb_container)
-                cb_layout.setContentsMargins(0, 0, 0, 0)
-                cb_layout.setSpacing(0)
-
-                cb = QCheckBox()
-                cb.setChecked(ch.get("standby", False))
-                cb.setCursor(Qt.CursorShape.PointingHandCursor)
-                cb.setStyleSheet(unit_enable_checkbox_stylesheet())
-                cb.setFixedWidth(16)
-
-                cb_layout.addStretch()
-                cb_layout.addWidget(cb)
-                cb_layout.addStretch()
-
-                cb.toggled.connect(
-                    lambda checked, cid=ch_id: self.smu_standby_changed.emit(
-                        cid, checked
-                    )
+            i_text = ch.get("i_name", "") if is_smu else "—"
+            rh.addWidget(_create_name_label(i_text, 55))
+            rh.addWidget(
+                self._build_standby_cell(
+                    ch_id, is_smu, ch.get("standby", False)
                 )
-                self._standby_cbs[ch_id] = cb
-                rh.addWidget(cb_container)
-            else:
-                spacer_container = QWidget()
-                spacer_container.setFixedWidth(55)
-                sc_layout = QHBoxLayout(spacer_container)
-                sc_layout.setContentsMargins(0, 0, 0, 0)
-                sc_layout.setSpacing(0)
-
-                spacer = QLabel("—")
-                spacer.setStyleSheet(form_label_stylesheet())
-                spacer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-                sc_layout.addWidget(spacer)
-                rh.addWidget(spacer_container)
+            )
 
             rh.addStretch()
             self.body().addWidget(row)
+
+    def _build_standby_cell(
+        self, ch_id: str, is_smu: bool, standby: bool,
+    ) -> QWidget:
+        container = QWidget()
+        container.setFixedWidth(55)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        if is_smu:
+            cb = QCheckBox()
+            cb.setChecked(standby)
+            cb.setCursor(Qt.CursorShape.PointingHandCursor)
+            cb.setStyleSheet(unit_enable_checkbox_stylesheet())
+            cb.setFixedWidth(16)
+            layout.addStretch()
+            layout.addWidget(cb)
+            layout.addStretch()
+            cb.toggled.connect(
+                lambda checked, cid=ch_id:
+                    self.smu_standby_changed.emit(
+                        cid, checked
+                    )
+            )
+            self._standby_cbs[ch_id] = cb
+        else:
+            spacer = QLabel("—")
+            spacer.setStyleSheet(form_label_stylesheet())
+            spacer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(spacer)
+
+        return container
 
     def set_standby(self, ch_id: str, on: bool) -> None:
         if ch_id in self._standby_cbs:
@@ -825,24 +814,18 @@ class RangesSection(SectionFrame):
         instrument_model: str,
         ranges_config: Dict[str, dict],
     ) -> None:
-        while self.body().count():
-            item = self.body().takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self._clear_body()
         self._rows.clear()
 
-        eligible_channels = []
-        for ch in active_channels:
-            if ch["unit_type"] in ("SMU", "VMU"):
-                eligible_channels.append(ch)
+        eligible_channels = [
+            ch for ch in active_channels
+            if ch["unit_type"] in ("SMU", "VMU")
+        ]
 
         if not eligible_channels:
-            lbl = QLabel("No active measurement units (SMU/VMU).")
-            lbl.setStyleSheet(
-                f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_SM}; "
-                "font-style: italic; background: transparent;"
-            )
-            self.body().addWidget(lbl)
+            self.body().addWidget(_placeholder_label(
+                "No active measurement units (SMU/VMU)."
+            ))
             return
 
         # Column headers
@@ -979,28 +962,20 @@ class ConstantsSection(SectionFrame):
         constants_config: Dict[str, dict],
         interlock_open: bool = False,
     ) -> None:
-        while self.body().count():
-            item = self.body().takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self._clear_body()
         self._rows.clear()
 
-        eligible_channels = []
-        for ch in active_channels:
-            if (
-                ch.get("function") == "CONST"
-                and ch.get("unit_type") in ("SMU", "VSU")
-                and ch.get("mode") != "COMM"
-            ):
-                eligible_channels.append(ch)
+        eligible_channels = [
+            ch for ch in active_channels
+            if ch.get("function") == "CONST"
+            and ch.get("unit_type") in ("SMU", "VSU")
+            and ch.get("mode") != "COMM"
+        ]
 
         if not eligible_channels:
-            lbl = QLabel("No constant source units configured.")
-            lbl.setStyleSheet(
-                f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_SM}; "
-                "font-style: italic; background: transparent;"
-            )
-            self.body().addWidget(lbl)
+            self.body().addWidget(_placeholder_label(
+                "No constant source units configured."
+            ))
             return
 
         # Column headers
@@ -1137,6 +1112,4 @@ class JsonPreviewDialog(QDialog):
         )
 
     def _copy(self) -> None:
-        from PySide6.QtWidgets import QApplication
-
         QApplication.clipboard().setText(self._text.toPlainText())
