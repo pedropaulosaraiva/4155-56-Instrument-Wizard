@@ -688,18 +688,16 @@ class SweepConstraints:
         src_min, src_max = SweepConstraints.source_range(
             flags.var1_is_voltage, flags.var1_is_vsu, interlock_open
         )
-        start_ok = src_min <= v1.start <= src_max
-        stop_ok = src_min <= v1.stop <= src_max
-        if not start_ok:
-            errors.append(
-                f"VAR1 Start: invalid value "
-                f"(range: {src_min:.3g} – {src_max:.3g})"
-            )
-        if not stop_ok:
-            errors.append(
-                f"VAR1 Stop: invalid value "
-                f"(range: {src_min:.3g} – {src_max:.3g})"
-            )
+        start_errs = SweepConstraints._validate_source_value(
+            "VAR1 Start", v1.start, src_min, src_max
+        )
+        stop_errs = SweepConstraints._validate_source_value(
+            "VAR1 Stop", v1.stop, src_min, src_max
+        )
+        errors.extend(start_errs)
+        errors.extend(stop_errs)
+        start_ok = not start_errs
+        stop_ok = not stop_errs
 
         if v1.spacing == SweepSpacing.LINEAR:
             errors.extend(
@@ -745,6 +743,18 @@ class SweepConstraints:
                 )
 
         return errors
+
+    @staticmethod
+    def _validate_source_value(
+        label: str, value: float, src_min: float, src_max: float
+    ) -> List[str]:
+        """Validate one source output value against the channel range."""
+        if not (src_min <= value <= src_max):
+            return [
+                f"{label}: invalid value "
+                f"(range: {src_min:.3g} – {src_max:.3g})"
+            ]
+        return []
 
     @staticmethod
     def _validate_compliance(
@@ -853,12 +863,10 @@ class SweepConstraints:
         src_min, src_max = SweepConstraints.source_range(
             flags.var2_is_voltage, flags.var2_is_vsu, interlock_open
         )
-        start_ok = src_min <= v2.start <= src_max
-        if not start_ok:
-            errors.append(
-                f"VAR2 Start: invalid value "
-                f"(range: {src_min:.3g} – {src_max:.3g})"
-            )
+        start_errs = SweepConstraints._validate_source_value(
+            "VAR2 Start", v2.start, src_min, src_max
+        )
+        errors.extend(start_errs)
         stp_min, stp_max = SweepConstraints.step_range(
             flags.var2_is_voltage,
             is_var2_or_offset=True,
@@ -879,9 +887,19 @@ class SweepConstraints:
                 f" – {VAR2_POINTS_MAX})"
             )
         step_ok = v2.step != 0 and stp_min <= v2.step <= stp_max
-        if not flags.var2_is_vsu:
-            if start_ok and step_ok and points_ok:
-                last = v2.start + (v2.points - 1) * v2.step
+
+        # VAR2 "points" is the number of steps the instrument takes, so the
+        # last swept value is Start + Step × Points.  Like VAR1 Stop / VARD
+        # Output it must stay within the channel source range; only meaningful
+        # once Step and Points are themselves valid.
+        if step_ok and points_ok:
+            last = v2.start + v2.points * v2.step
+            errors.extend(
+                SweepConstraints._validate_source_value(
+                    "VAR2 Last Value", last, src_min, src_max
+                )
+            )
+            if not flags.var2_is_vsu and not start_errs:
                 errors.extend(
                     SweepConstraints._validate_compliance(
                         "VAR2",
@@ -892,14 +910,17 @@ class SweepConstraints:
                         interlock_open,
                     )
                 )
-            if v2.power_compliance_enabled and not (
-                PCOMP_MIN <= v2.power_compliance <= PCOMP_MAX
-            ):
-                errors.append(
-                    f"VAR2 Power Compliance: invalid "
-                    f"value (range: {PCOMP_MIN:.3g}"
-                    f" – {PCOMP_MAX:.3g})"
-                )
+
+        if (
+            not flags.var2_is_vsu
+            and v2.power_compliance_enabled
+            and not (PCOMP_MIN <= v2.power_compliance <= PCOMP_MAX)
+        ):
+            errors.append(
+                f"VAR2 Power Compliance: invalid "
+                f"value (range: {PCOMP_MIN:.3g}"
+                f" – {PCOMP_MAX:.3g})"
+            )
         return errors
 
     @staticmethod
