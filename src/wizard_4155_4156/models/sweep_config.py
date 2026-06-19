@@ -123,6 +123,15 @@ COMP_I_MAX: float = 0.1  # 100 mA
 COMP_V_MIN: float = 1e-3  # 1 mV  (when sweeping I → compliance is V)
 COMP_V_MAX: float = 100.0  # V
 
+# Model-dependent current-compliance minimum (Rule 3).
+COMP_I_MIN_MPSMU: float = 1e-12  # 1 pA   (4155 / MPSMU)
+COMP_I_MIN_HRSMU: float = 1e-13  # 100 fA (4156 / HRSMU)
+
+# Rule-2: source-current thresholds (A) stepping the voltage-compliance
+# ceiling down (each boundary is the 2 W SMU output-power limit).
+ICOMP_THRESHOLD_100V: float = 0.02  # |I| ≤ 20 mA → V-comp ≤ 100 V
+ICOMP_THRESHOLD_40V: float = 0.05  # |I| ≤ 50 mA → V-comp ≤ 40 V
+
 # Power compliance
 PCOMP_MIN: float = 1e-3  # 1 mW
 PCOMP_MAX: float = 2.0  # W (all power compliances limited to 2W by equipment)
@@ -268,20 +277,200 @@ class SweepUnitFlags:
 # ── Shared validation helpers ────────────────────────────────────────────────
 
 
+def measured_variable(channel: Dict[str, Any]) -> Optional[str]:
+    """
+    Variable actually measured by a channel context dict, or None for
+    source-only units.  An SMU forcing V/VPULSE (or acting as a COMM return)
+    measures current; an SMU forcing I/IPULSE measures voltage; a VMU
+    measures its voltage.  VSUs are source-only and measure nothing.
+    """
+    unit_type = channel.get("unit_type")
+    if unit_type == "VMU":
+        return channel.get("v_name") or None
+    if unit_type == "SMU":
+        if channel.get("mode") in ("I", "IPULSE"):
+            return channel.get("v_name") or None
+        return channel.get("i_name") or None
+    return None
+
+
+def _is_4156(instrument_model: str) -> bool:
+    """HRSMU (4156) vs MPSMU (4155); mirrors the RangeRow convention."""
+    return "56" in (instrument_model or "")
+
+
+def current_ranges_for(
+    instrument_model: str,
+) -> Tuple[Tuple[str, float], ...]:
+    """SMU current measurement ranges available on the instrument."""
+    return (
+        RANGE_VALUES_HRSMU_CURRENT
+        if _is_4156(instrument_model)
+        else RANGE_VALUES_MPSMU_CURRENT
+    )
+
+
+def smallest_range_at_least(
+    value: float, ranges: Tuple[Tuple[str, float], ...]
+) -> Optional[float]:
+    """Smallest standard range value ≥ |value|; None if it exceeds all."""
+    target = abs(value)
+    for _label, r_val in ranges:
+        if r_val >= target:
+            return r_val
+    return None
+
+
+# Rule-3 table: current-compliance ceiling (A) per voltage output range (V).
+_ICOMP_MAX_BY_V_RANGE: Dict[float, float] = {
+    2.0: 0.1,  # 100 mA
+    20.0: 0.1,  # 100 mA
+    40.0: 0.05,  # 50 mA
+    100.0: 0.02,  # 20 mA
+}
+
+
+def current_compliance_bounds(
+    instrument_model: str,
+    source_v_magnitude: float,
+    interlock_open: bool = False,
+) -> Tuple[float, float]:
+    """
+    Allowed current-compliance range when an SMU sources voltage (Rule 3).
+
+    The lower bound is model-dependent (HRSMU 100 fA, MPSMU 1 pA); the upper
+    bound is set by the voltage *output range* — the smallest standard range
+    that covers the source magnitude.  Interlock-open caps the source at 40 V.
+    """
+    lo = COMP_I_MIN_HRSMU if _is_4156(instrument_model) else COMP_I_MIN_MPSMU
+    mag = abs(source_v_magnitude)
+    if interlock_open:
+        mag = min(mag, VOLTAGE_ILOCK_MAX)
+    v_range = smallest_range_at_least(mag, RANGE_VALUES_SMU_VOLTAGE)
+    if v_range is None:
+        v_range = RANGE_VALUES_SMU_VOLTAGE[-1][1]  # cap at the largest (100 V)
+    return lo, _ICOMP_MAX_BY_V_RANGE[v_range]
+
+
+def voltage_compliance_bounds(
+    source_i_magnitude: float,
+    interlock_open: bool = False,
+) -> Tuple[float, float]:
+    """
+    Allowed voltage-compliance range when an SMU sources current (Rule 2).
+
+    The ceiling depends on the source-current magnitude (the 100 mA output
+    range sub-divides by |I|); interlock-open further caps it at 40 V.
+    """
+    i = abs(source_i_magnitude)
+    if i <= ICOMP_THRESHOLD_100V:
+        hi = COMP_V_MAX
+    elif i <= ICOMP_THRESHOLD_40V:
+        hi = 40.0
+    else:
+        hi = 20.0
+    if interlock_open:
+        hi = min(hi, COMP_V_ILOCK_MAX)
+    return COMP_V_MIN, hi
+
+
+def validate_display_vars(
+    display_vars: List[str],
+    measurement_vars: List[str],
+    *,
+    min_total: int = 2,
+    max_total: int = DISPLAY_VARS_MAX,
+) -> List[str]:
+    """
+    Shared Display-Variables cross-validation (Rule 1 + the display-var cap).
+
+    Errors when: fewer than ``min_total`` variables are selected; no selected
+    variable is a measurement variable; or more than ``max_total`` selected.
+    """
+    errors: List[str] = []
+    selected = list(display_vars)
+    if len(selected) < min_total:
+        errors.append(
+            f"Select at least {min_total} display variables "
+            f"({len(selected)} selected)."
+        )
+    measurement_set = set(measurement_vars)
+    if not any(name in measurement_set for name in selected):
+        errors.append(
+            "Select at least one measurement variable in Display Variables."
+        )
+    if len(selected) > max_total:
+        errors.append(
+            "Too many display variables selected: "
+            f"{len(selected)} (maximum is {max_total})."
+        )
+    return errors
+
+
+def validate_range_vs_compliance(
+    active_channels: List[dict],
+    ranges: Dict[str, Dict[str, Any]],
+    compliance_by_unit: Dict[str, float],
+    instrument_model: str,
+) -> List[str]:
+    """
+    Rule 4: a FIXED / LIMITED-AUTO measurement range may not exceed the lowest
+    standard range that covers the unit's configured compliance.
+
+    SMU forcing V/VPULSE measures current (current ranges); SMU forcing
+    I/IPULSE measures voltage (voltage ranges).  COMM SMUs have a fixed
+    105 mA compliance covered by no range ⇒ any range allowed.  VMUs have no
+    compliance ⇒ skipped.
+    """
+    errors: List[str] = []
+    for ch in active_channels or []:
+        if ch.get("unit_type") != "SMU":
+            continue
+        mode = ch.get("mode")
+        if mode == "COMM":
+            continue
+        unit_id = ch["id"]
+        r_cfg = ranges.get(unit_id, {})
+        if r_cfg.get("mode") not in ("FIX", "LIM"):
+            continue
+        r_value = r_cfg.get("value")
+        compliance = compliance_by_unit.get(unit_id)
+        if r_value is None or compliance is None:
+            continue
+        if mode in ("I", "IPULSE"):
+            cov = smallest_range_at_least(compliance, RANGE_VALUES_SMU_VOLTAGE)
+            unit = "V"
+        else:
+            cov = smallest_range_at_least(
+                compliance, current_ranges_for(instrument_model)
+            )
+            unit = "A"
+        if cov is None:
+            continue  # compliance above all ranges → any range allowed
+        if r_value > cov:
+            errors.append(
+                f"{unit_id} Range: {r_value:.3g} {unit} exceeds the lowest "
+                f"range covering its compliance ({cov:.3g} {unit})"
+            )
+    return errors
+
+
 def validate_constant_sources(
     constants: Dict[str, Dict[str, float]],
     active_channels: List[dict],
     interlock_open: bool = False,
+    instrument_model: str = "4155C",
 ) -> List[str]:
     """
     Validate constant-source values and compliances against the hardware
     limits of each active CONST channel.  Shared by SweepConstraints and
     SamplingConstraints (models/sampling_config.py).
     With the interlock terminal open, SMU voltage limits drop to ±40 V.
+    Compliance limits depend on the source magnitude and instrument model
+    (Rules 2/3).
     """
     errors: List[str] = []
     v_max = VOLTAGE_ILOCK_MAX if interlock_open else VOLTAGE_MAX
-    comp_v_max = COMP_V_ILOCK_MAX if interlock_open else COMP_V_MAX
     for ch in active_channels or []:
         if not (
             ch.get("function") == "CONST"
@@ -322,19 +511,26 @@ def validate_constant_sources(
         if unit_type == "SMU":
             compliance = c_entry.get("compliance")
             if compliance is not None:
+                src_mag = abs(source) if source is not None else 0.0
                 if mode in ("V", "VPULSE"):
-                    if not (COMP_I_MIN <= compliance <= COMP_I_MAX):
+                    c_lo, c_hi = current_compliance_bounds(
+                        instrument_model, src_mag, interlock_open
+                    )
+                    if not (c_lo <= compliance <= c_hi):
                         errors.append(
                             f"{unit_id} Constant Compliance: "
                             f"invalid value (range: "
-                            f"{COMP_I_MIN:.3g} – {COMP_I_MAX:.3g} A)"
+                            f"{c_lo:.3g} – {c_hi:.3g} A)"
                         )
                 elif mode in ("I", "IPULSE"):
-                    if not (COMP_V_MIN <= compliance <= comp_v_max):
+                    c_lo, c_hi = voltage_compliance_bounds(
+                        src_mag, interlock_open
+                    )
+                    if not (c_lo <= compliance <= c_hi):
                         errors.append(
                             f"{unit_id} Constant Compliance: "
                             f"invalid value (range: "
-                            f"{COMP_V_MIN:.3g} – {comp_v_max:.3g} V)"
+                            f"{c_lo:.3g} – {c_hi:.3g} V)"
                         )
     return errors
 
@@ -485,18 +681,21 @@ class SweepConstraints:
         cfg: SweepConfig,
         flags: SweepUnitFlags,
         interlock_open: bool,
+        instrument_model: str,
     ) -> List[str]:
         errors: List[str] = []
         v1 = cfg.var1
         src_min, src_max = SweepConstraints.source_range(
             flags.var1_is_voltage, flags.var1_is_vsu, interlock_open
         )
-        if not (src_min <= v1.start <= src_max):
+        start_ok = src_min <= v1.start <= src_max
+        stop_ok = src_min <= v1.stop <= src_max
+        if not start_ok:
             errors.append(
                 f"VAR1 Start: invalid value "
                 f"(range: {src_min:.3g} – {src_max:.3g})"
             )
-        if not (src_min <= v1.stop <= src_max):
+        if not stop_ok:
             errors.append(
                 f"VAR1 Stop: invalid value "
                 f"(range: {src_min:.3g} – {src_max:.3g})"
@@ -525,13 +724,16 @@ class SweepConstraints:
             )
 
         if not flags.var1_is_vsu:
-            comp_min, comp_max = SweepConstraints.compliance_range(
-                flags.var1_is_voltage, interlock_open
-            )
-            if not (comp_min <= v1.compliance <= comp_max):
-                errors.append(
-                    f"VAR1 Compliance: invalid value "
-                    f"(range: {comp_min:.3g} – {comp_max:.3g})"
+            if start_ok and stop_ok:
+                errors.extend(
+                    SweepConstraints._validate_compliance(
+                        "VAR1",
+                        v1.compliance,
+                        flags.var1_is_voltage,
+                        max(abs(v1.start), abs(v1.stop)),
+                        instrument_model,
+                        interlock_open,
+                    )
                 )
             if v1.power_compliance_enabled and not (
                 PCOMP_MIN <= v1.power_compliance <= PCOMP_MAX
@@ -543,6 +745,33 @@ class SweepConstraints:
                 )
 
         return errors
+
+    @staticmethod
+    def _validate_compliance(
+        label: str,
+        compliance: float,
+        is_voltage_source: bool,
+        source_magnitude: float,
+        instrument_model: str,
+        interlock_open: bool,
+    ) -> List[str]:
+        """Compliance bounds gated on the source output range (Rules 2/3)."""
+        if is_voltage_source:
+            comp_min, comp_max = current_compliance_bounds(
+                instrument_model, source_magnitude, interlock_open
+            )
+            unit = "A"
+        else:
+            comp_min, comp_max = voltage_compliance_bounds(
+                source_magnitude, interlock_open
+            )
+            unit = "V"
+        if not (comp_min <= compliance <= comp_max):
+            return [
+                f"{label} Compliance: invalid value "
+                f"(range: {comp_min:.3g} – {comp_max:.3g} {unit})"
+            ]
+        return []
 
     @staticmethod
     def _validate_var1_linear_step(
@@ -617,13 +846,15 @@ class SweepConstraints:
         cfg: SweepConfig,
         flags: SweepUnitFlags,
         interlock_open: bool,
+        instrument_model: str,
     ) -> List[str]:
         errors: List[str] = []
         v2 = cfg.var2
         src_min, src_max = SweepConstraints.source_range(
             flags.var2_is_voltage, flags.var2_is_vsu, interlock_open
         )
-        if not (src_min <= v2.start <= src_max):
+        start_ok = src_min <= v2.start <= src_max
+        if not start_ok:
             errors.append(
                 f"VAR2 Start: invalid value "
                 f"(range: {src_min:.3g} – {src_max:.3g})"
@@ -640,20 +871,26 @@ class SweepConstraints:
                 f"VAR2 Step: invalid value "
                 f"(range: {stp_min:.3g} – {stp_max:.3g})"
             )
-        if not (VAR2_POINTS_MIN <= v2.points <= VAR2_POINTS_MAX):
+        points_ok = VAR2_POINTS_MIN <= v2.points <= VAR2_POINTS_MAX
+        if not points_ok:
             errors.append(
                 f"VAR2 Points: invalid value "
                 f"(range: {VAR2_POINTS_MIN}"
                 f" – {VAR2_POINTS_MAX})"
             )
+        step_ok = v2.step != 0 and stp_min <= v2.step <= stp_max
         if not flags.var2_is_vsu:
-            comp_min, comp_max = SweepConstraints.compliance_range(
-                flags.var2_is_voltage, interlock_open
-            )
-            if not (comp_min <= v2.compliance <= comp_max):
-                errors.append(
-                    f"VAR2 Compliance: invalid value "
-                    f"(range: {comp_min:.3g} – {comp_max:.3g})"
+            if start_ok and step_ok and points_ok:
+                last = v2.start + (v2.points - 1) * v2.step
+                errors.extend(
+                    SweepConstraints._validate_compliance(
+                        "VAR2",
+                        v2.compliance,
+                        flags.var2_is_voltage,
+                        max(abs(v2.start), abs(last)),
+                        instrument_model,
+                        interlock_open,
+                    )
                 )
             if v2.power_compliance_enabled and not (
                 PCOMP_MIN <= v2.power_compliance <= PCOMP_MAX
@@ -670,6 +907,7 @@ class SweepConstraints:
         cfg: SweepConfig,
         flags: SweepUnitFlags,
         interlock_open: bool,
+        instrument_model: str,
     ) -> List[str]:
         errors: List[str] = []
         vd = cfg.vard
@@ -692,31 +930,37 @@ class SweepConstraints:
                 f"VARD Ratio: invalid value "
                 f"(range: {RATIO_MIN:.3g} – {RATIO_MAX:.3g})"
             )
+        vard_mag = abs(vd.offset)
+        output_ok = True
         if flags.has_var1:
             out_a = cfg.var1.start * vd.ratio + vd.offset
             out_b = cfg.var1.stop * vd.ratio + vd.offset
             out_lo = min(out_a, out_b)
             out_hi = max(out_a, out_b)
+            vard_mag = max(abs(out_lo), abs(out_hi))
             o_min, o_max = SweepConstraints.source_range(
                 flags.var1_is_voltage,
                 flags.vard_is_vsu,
                 interlock_open,
             )
             if out_lo < o_min or out_hi > o_max:
+                output_ok = False
                 errors.append(
                     f"VARD Output: VAR1 x Ratio + Offset"
                     f" spans {out_lo:.3g} – {out_hi:.3g} "
                     f"(allowed: {o_min:.3g} – {o_max:.3g})"
                 )
         if not flags.vard_is_vsu:
-            comp_min, comp_max = SweepConstraints.compliance_range(
-                flags.var1_is_voltage or flags.var1_is_vsu,
-                interlock_open,
-            )
-            if not (comp_min <= vd.compliance <= comp_max):
-                errors.append(
-                    f"VARD Compliance: invalid value "
-                    f"(range: {comp_min:.3g} – {comp_max:.3g})"
+            if output_ok:
+                errors.extend(
+                    SweepConstraints._validate_compliance(
+                        "VARD",
+                        vd.compliance,
+                        flags.var1_is_voltage or flags.var1_is_vsu,
+                        vard_mag,
+                        instrument_model,
+                        interlock_open,
+                    )
                 )
             if vd.power_compliance_enabled and not (
                 PCOMP_MIN <= vd.power_compliance <= PCOMP_MAX
@@ -729,11 +973,36 @@ class SweepConstraints:
         return errors
 
     @staticmethod
+    def _compliance_by_unit(
+        cfg: SweepConfig, active_channels: List[dict]
+    ) -> Dict[str, float]:
+        """Map each SMU's id to the compliance governing it (by function)."""
+        fn_to_comp = {
+            "VAR1": cfg.var1.compliance,
+            "VAR2": cfg.var2.compliance,
+            "VAR1'": cfg.vard.compliance,
+        }
+        comp_map: Dict[str, float] = {}
+        for ch in active_channels or []:
+            if ch.get("unit_type") != "SMU":
+                continue
+            cid = ch["id"]
+            fn = ch.get("function")
+            if fn in fn_to_comp:
+                comp_map[cid] = fn_to_comp[fn]
+            elif fn == "CONST":
+                comp = cfg.constants.get(cid, {}).get("compliance")
+                if comp is not None:
+                    comp_map[cid] = comp
+        return comp_map
+
+    @staticmethod
     def validate_config(
         cfg: SweepConfig,
         flags: SweepUnitFlags,
         active_channels: List[dict] = None,
         interlock_open: bool = False,
+        instrument_model: str = "4155C",
     ) -> List[str]:
         """
         Validate the full SweepConfig against hardware constraints.
@@ -750,7 +1019,7 @@ class SweepConstraints:
         if flags.has_var1:
             errors.extend(
                 SweepConstraints._validate_var1(
-                    cfg, flags, interlock_open,
+                    cfg, flags, interlock_open, instrument_model,
                 )
             )
             if not any(e.startswith("VAR1") for e in errors):
@@ -763,13 +1032,13 @@ class SweepConstraints:
         if flags.has_var2:
             errors.extend(
                 SweepConstraints._validate_var2(
-                    cfg, flags, interlock_open,
+                    cfg, flags, interlock_open, instrument_model,
                 )
             )
         if flags.has_vard:
             errors.extend(
                 SweepConstraints._validate_vard(
-                    cfg, flags, interlock_open,
+                    cfg, flags, interlock_open, instrument_model,
                 )
             )
 
@@ -787,16 +1056,29 @@ class SweepConstraints:
                 " when power compliance is set"
             )
 
-        if len(cfg.display_vars) > DISPLAY_VARS_MAX:
-            errors.append(
-                "Too many display variables selected: "
-                f"{len(cfg.display_vars)} "
-                f"(maximum is {DISPLAY_VARS_MAX})."
-            )
+        measurement_vars = [
+            measured_variable(ch)
+            for ch in (active_channels or [])
+            if measured_variable(ch)
+        ]
+        errors.extend(
+            validate_display_vars(cfg.display_vars, measurement_vars)
+        )
 
         errors.extend(
             validate_constant_sources(
-                cfg.constants, active_channels, interlock_open
+                cfg.constants,
+                active_channels,
+                interlock_open,
+                instrument_model,
+            )
+        )
+        errors.extend(
+            validate_range_vs_compliance(
+                active_channels or [],
+                cfg.measurement_setup.ranges,
+                SweepConstraints._compliance_by_unit(cfg, active_channels),
+                instrument_model,
             )
         )
         return errors

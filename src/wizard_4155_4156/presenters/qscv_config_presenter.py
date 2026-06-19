@@ -35,7 +35,10 @@ from wizard_4155_4156.models.qscv_config import (
     leak_integration_bounds,
     ranges_for_model,
 )
-from wizard_4155_4156.models.sweep_config import DISPLAY_VARS_MAX
+from wizard_4155_4156.models.sweep_config import (
+    DISPLAY_VARS_MAX,
+    measured_variable,
+)
 from wizard_4155_4156.views.pages.qscv_config_page import QscvConfigPageView
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -221,6 +224,14 @@ class QscvConfigPresenter(QObject):
             else:  # I / IPULSE
                 updated_constants[uid] = {"source": 0.0, "compliance": 2.0}
         self._config.constants = updated_constants
+
+        # QSCV measures only C / IL: hide each unit's *measurable* variable
+        # (e.g. an SMU forcing V contributes its source voltage, not its
+        # current) from the display-variable options.
+        measured = {
+            measured_variable(ch) for ch in active if measured_variable(ch)
+        }
+        channel_vars = [v for v in channel_vars if v not in measured]
 
         self._ctx = {
             "instrument_model": instrument_model,

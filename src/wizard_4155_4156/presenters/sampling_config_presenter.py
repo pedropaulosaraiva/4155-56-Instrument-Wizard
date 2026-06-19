@@ -485,6 +485,7 @@ class SamplingConfigPresenter(QObject):
             self._ctx["active_channels"],
             self._ctx["measured_vars"],
             interlock_open=bool(self._channels_config.interlock_open),
+            instrument_model=self._ctx["instrument_model"],
         )
         for i, err in enumerate(model_errors):
             errors[f"model_err_{i}"] = err

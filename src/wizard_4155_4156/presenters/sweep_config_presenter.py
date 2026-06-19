@@ -610,6 +610,7 @@ class SweepConfigPresenter(QObject):
             ),
             active_channels=self._ctx.get("active_channels"),
             interlock_open=self._ctx.get("interlock_open", False),
+            instrument_model=self._ctx.get("instrument_model", "4155C"),
         )
 
         for i, err in enumerate(model_errors):

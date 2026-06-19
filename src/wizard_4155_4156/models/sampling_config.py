@@ -52,7 +52,10 @@ from wizard_4155_4156.models.sweep_config import (
     WAIT_MULT_MIN,
     IntegrationMode,
     MeasurementSetup,
+    measured_variable,
     validate_constant_sources,
+    validate_display_vars,
+    validate_range_vs_compliance,
 )
 
 # ── Enumerations ─────────────────────────────────────────────────────────────
@@ -229,20 +232,8 @@ class SamplingConstraints:
 
     @staticmethod
     def measured_variable(channel: dict) -> str | None:
-        """
-        Variable actually measured by a channel context dict, or None for
-        source-only units.  SMU forcing V (or acting as COMM return)
-        measures current; SMU forcing I measures voltage; VMU measures
-        its voltage.
-        """
-        unit_type = channel.get("unit_type")
-        if unit_type == "VMU":
-            return channel.get("v_name") or None
-        if unit_type == "SMU":
-            if channel.get("mode") == "I":
-                return channel.get("v_name") or None
-            return channel.get("i_name") or None
-        return None
+        """Delegates to the shared :func:`measured_variable` helper."""
+        return measured_variable(channel)
 
     @staticmethod
     def count_measurement_units(
@@ -460,6 +451,7 @@ class SamplingConstraints:
         active_channels: List[dict],
         available_vars: List[str],
         interlock_open: bool = False,
+        instrument_model: str = "4155C",
     ) -> Tuple[List[str], List[str]]:
         """
         Validate the full sampling configuration.
@@ -493,14 +485,39 @@ class SamplingConstraints:
         )
         errors.extend(
             validate_constant_sources(
-                cfg.constants, active_channels, interlock_open
+                cfg.constants,
+                active_channels,
+                interlock_open,
+                instrument_model,
             )
         )
-        if len(cfg.display_vars) > DISPLAY_VARS_MAX:
-            errors.append(
-                "Too many display variables selected: "
-                f"{len(cfg.display_vars)} (maximum is {DISPLAY_VARS_MAX})."
+
+        measurement_vars = [
+            measured_variable(ch)
+            for ch in (active_channels or [])
+            if measured_variable(ch)
+        ]
+        errors.extend(
+            validate_display_vars(
+                cfg.display_vars,
+                measurement_vars,
+                max_total=DISPLAY_VARS_MAX,
             )
+        )
+
+        compliance_by_unit = {
+            cid: c["compliance"]
+            for cid, c in cfg.constants.items()
+            if c.get("compliance") is not None
+        }
+        errors.extend(
+            validate_range_vs_compliance(
+                active_channels or [],
+                cfg.measurement_setup.ranges,
+                compliance_by_unit,
+                instrument_model,
+            )
+        )
 
         warnings = sampling_constraints._timing_warnings(cfg, n_units)
         return errors, warnings

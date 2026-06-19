@@ -57,6 +57,7 @@ def make_valid_config(**overrides):
     cfg.meas_range = 1e-9
     cfg.cap_name = "C"
     cfg.leak_name = "IL"
+    cfg.display_vars = ["C", "IL"]
     cfg.var1.start = 0.0
     cfg.var1.stop = 1.0
     cfg.var1.step = 0.1
@@ -370,3 +371,17 @@ def test_constant_source_out_of_range():
 def test_too_many_display_vars():
     cfg = make_valid_config(display_vars=[f"X{i}" for i in range(9)])
     assert any("Too many display variables" in e for e in validate(cfg))
+
+
+def test_display_vars_requires_two_on_qscv():
+    cfg = make_valid_config(display_vars=["C"])
+    assert any("at least 2 display variables" in e for e in validate(cfg))
+
+
+def test_display_vars_requires_c_or_il():
+    # Only non-measurable (source) variables selected → Rule 1 fails;
+    # for QSCV the measurement variables are C/IL only.
+    cfg = make_valid_config(display_vars=["V2", "VSU1"])
+    assert any(
+        "at least one measurement variable" in e for e in validate(cfg)
+    )

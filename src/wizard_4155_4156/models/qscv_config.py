@@ -53,7 +53,9 @@ from wizard_4155_4156.models.sweep_config import (
     SweepConstraints,
     SweepStop,
     VAR1Mode,
+    current_compliance_bounds,
     validate_constant_sources,
+    validate_display_vars,
 )
 
 __all__ = [
@@ -328,12 +330,18 @@ class QscvConstraints:
                 "VAR1: Stop must be less than Start when Step is negative."
             )
 
-        comp_min, comp_max = SC.compliance_range(True, interlock_open)
-        if not (comp_min <= v1.compliance <= comp_max):
-            errors.append(
-                f"VAR1 Compliance: invalid value "
-                f"(range: {comp_min:.3g} – {comp_max:.3g} A)"
+        if not any(
+            e.startswith(("VAR1 Start", "VAR1 Stop")) for e in errors
+        ):
+            v1_mag = max(abs(v1.start), abs(v1.stop))
+            comp_min, comp_max = current_compliance_bounds(
+                instrument_model, v1_mag, interlock_open
             )
+            if not (comp_min <= v1.compliance <= comp_max):
+                errors.append(
+                    f"VAR1 Compliance: invalid value "
+                    f"(range: {comp_min:.3g} – {comp_max:.3g} A)"
+                )
 
         # 7. QSCV meas voltage (cstep): 0 < cstep ≤ 10 V and cstep ≤ |step|.
         # cvoltage is a small perturbation window (output ± cvoltage/2) around
@@ -361,13 +369,19 @@ class QscvConstraints:
                     f"(NO. OF STEP must be {NO_OF_STEP_MIN}–{NO_OF_STEP_MAX})"
                 )
 
-        # 9. Display variables limit
-        if len(cfg.display_vars) > DISPLAY_VARS_MAX:
-            errors.append(
-                f"Too many display variables "
-                f"selected: {len(cfg.display_vars)} "
-                f"(maximum is {DISPLAY_VARS_MAX})."
+        # 9. Display variables: ≥2 selected, ≥1 measurement variable (C/IL).
+        measurement_vars: List[str] = []
+        if cfg.cap_name.strip():
+            measurement_vars.append(cfg.cap_name.strip())
+        if cfg.leak_name.strip():
+            measurement_vars.append(cfg.leak_name.strip())
+        errors.extend(
+            validate_display_vars(
+                cfg.display_vars,
+                measurement_vars,
+                max_total=DISPLAY_VARS_MAX,
             )
+        )
 
         # 10. Constant sources (shared validator)
         errors.extend(

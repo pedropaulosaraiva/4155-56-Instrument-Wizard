@@ -240,7 +240,7 @@ def test_iint_validation(mode, iint, ok):
     if iint < IINT_STOP_COND_MIN:
         # avoid unrelated fast-sampling errors
         cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
-        cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 2.0}}
+        cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 0.01}}
     errors, _ = validate(cfg)
     iint_errors = [e for e in errors if e.startswith("Initial Interval")]
     assert bool(iint_errors) != ok
@@ -267,7 +267,7 @@ def test_period_auto_only_below_threshold():
         initial_interval=400e-6, period_mode=PeriodMode.NUMERIC
     )
     cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
-    cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 2.0}}
+    cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 0.01}}
     errors, _ = validate(cfg)
     assert any(e.startswith("Total Samp. Time") for e in errors)
 
@@ -308,7 +308,7 @@ def test_hold_time_validation(iint, hold, ok):
     cfg = make_valid_config(initial_interval=iint, hold_time=hold)
     if iint < IINT_STOP_COND_MIN:
         cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
-        cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 2.0}}
+        cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 0.01}}
         cfg.period_mode = PeriodMode.AUTO
     errors, _ = validate(cfg)
     hold_errors = [e for e in errors if e.startswith("Hold Time")]
@@ -330,7 +330,7 @@ def test_stop_condition_requires_2ms():
         initial_interval=1e-3, stop_condition=stop_cond()
     )
     cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
-    cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 2.0}}
+    cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 0.01}}
     cfg.period_mode = PeriodMode.AUTO
     errors, _ = validate(cfg)
     assert any(e.startswith("Stop Condition: requires") for e in errors)
@@ -378,7 +378,7 @@ def fast_config(**overrides):
     cfg = make_valid_config(initial_interval=1e-3, **overrides)
     cfg.period_mode = PeriodMode.AUTO
     cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
-    cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 2.0}}
+    cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 0.01}}
     return cfg
 
 
@@ -391,7 +391,7 @@ def test_fast_sampling_multi_unit_error():
     channels = [smu(1, "V"), smu(2, "V")]
     cfg = fast_config()
     cfg.display_vars = ["I1", "I2"]
-    cfg.measurement_setup.ranges["SMU2"] = {"mode": "FIX", "value": 2.0}
+    cfg.measurement_setup.ranges["SMU2"] = {"mode": "FIX", "value": 0.01}
     cfg.constants["SMU2"] = {"source": 0.0, "compliance": 0.01}
     errors, _ = validate(cfg, channels, ["I1", "I2"])
     assert any("only 1 measurement unit" in e for e in errors)
@@ -426,6 +426,28 @@ def test_too_many_display_vars():
     cfg.display_vars = [f"X{i}" for i in range(9)]
     errors, _ = validate(cfg)
     assert any("Too many display variables" in e for e in errors)
+
+
+def test_display_vars_requires_two():
+    cfg = make_valid_config()
+    cfg.display_vars = ["I1"]
+    errors, _ = validate(cfg)
+    assert any("at least 2 display variables" in e for e in errors)
+
+
+def test_display_vars_requires_measurement_variable():
+    cfg = make_valid_config()
+    cfg.display_vars = ["@TIME", "@INDEX"]  # builtins only, no measured var
+    errors, _ = validate(cfg)
+    assert any("at least one measurement variable" in e for e in errors)
+
+
+def test_range_vs_compliance_blocks_oversized_fixed_range():
+    cfg = make_valid_config()
+    cfg.constants["SMU1"]["compliance"] = 0.005  # 5 mA → covering = 10 mA
+    cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 0.1}}
+    errors, _ = validate(cfg)
+    assert any(e.startswith("SMU1 Range") for e in errors)
 
 
 # ── Timing warnings (non-blocking) ───────────────────────────────────────────
