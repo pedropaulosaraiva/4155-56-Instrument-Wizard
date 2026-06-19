@@ -64,7 +64,48 @@ class MeasurementSetupDirector(BaseDirector):
             )
         )
 
-        scpi_sequence.append(
+        # The graph axes and display list are intentionally NOT cleared here:
+        # applying the config re-populates them, so they are finalized in
+        # `post_setup`, which clears and re-sets them after the config.
+        return scpi_sequence
+
+    def build_full_setup(self, config: dict[str, Any]) -> list[CommandPair]:
+        """Reset, apply the measurement config, then finalize the display.
+
+        This is the production entry point for configuring the instrument:
+        every setup starts from *RST defaults with auto-calibration disabled,
+        applies the measurement config, and ends with ``post_setup`` so the
+        graph/list reflect the chosen display variables rather than whatever
+        the instrument auto-assigned while the config commands were applied.
+        """
+        return (
+            self.reset_instrument()
+            + self.setup_measurement(config)
+            + self.post_setup(config)
+        )
+
+    def post_setup(self, config: dict[str, Any]) -> list[CommandPair]:
+        """Finalize the display after the config commands have been applied.
+
+        Applying channel/variable config makes the instrument auto-assign
+        graph axis variables and list entries. This runs *after* all config
+        commands to undo that: clear each graph axis, clear the list, then set
+        the list to the user's chosen display variables. Ordering follows the
+        intended sequence (graph reset -> list reset -> list set); the list-set
+        is deliberately the final command of the setup phase.
+        """
+        commands: list[CommandPair] = []
+
+        for axis in ("X", "Y1", "Y2"):
+            commands.append(
+                self._build_pair(
+                    MeasureRunCommandBuilder,
+                    MeasureRunCommandBuilder.delete_graphics_axis,
+                    (axis,),
+                )
+            )
+
+        commands.append(
             self._build_pair(
                 MeasureRunCommandBuilder,
                 MeasureRunCommandBuilder.delete_all_display_list,
@@ -72,15 +113,18 @@ class MeasurementSetupDirector(BaseDirector):
             )
         )
 
-        return scpi_sequence
+        if "display_vars" in config and config["display_vars"]:
+            commands.append(
+                self._build_pair(
+                    MeasureRunCommandBuilder,
+                    MeasureRunCommandBuilder.set_display_list_select,
+                    tuple(config["display_vars"]),
+                    MeasureRunCommandBuilder.get_display_list_select,
+                    (),
+                )
+            )
 
-    def build_full_setup(self, config: dict[str, Any]) -> list[CommandPair]:
-        """Reset + disable auto-cal, then apply the measurement config.
-
-        This is the production entry point for configuring the instrument:
-        every setup starts from *RST defaults with auto-calibration disabled.
-        """
-        return self.reset_instrument() + self.setup_measurement(config)
+        return commands
 
     def setup_measurement(self, config: dict[str, Any]) -> list[CommandPair]:
         scpi_sequence: list[CommandPair] = []
@@ -116,17 +160,9 @@ class MeasurementSetupDirector(BaseDirector):
         elif mode == "QSCV" and "qscv_setup" in config:
             scpi_sequence.extend(self._setup_qscv(config["qscv_setup"]))
 
-        if "display_vars" in config and config["display_vars"]:
-            scpi_sequence.append(
-                self._build_pair(
-                    MeasureRunCommandBuilder,
-                    MeasureRunCommandBuilder.set_display_list_select,
-                    tuple(config["display_vars"]),
-                    MeasureRunCommandBuilder.get_display_list_select,
-                    (),
-                )
-            )
-
+        # The display list / graph are NOT set here on purpose: applying the
+        # config above makes the instrument auto-assign them, so they are
+        # finalized in `post_setup`, which runs after all config commands.
         return scpi_sequence
 
     def _setup_channels(

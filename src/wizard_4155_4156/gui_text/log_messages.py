@@ -16,11 +16,9 @@ class LogMsg(StrEnum):
     SETUP_SEND = "<span style='color:green;'>SEND: {command}</span>"
     SETUP_VERIFY = "<span style='color:blue;'>VERIFY: {cmd} -> {resp}</span>"
     SETUP_ABORTED = "<span style='color:red;'>Setup Aborted: {error}</span>"
-    MEASURE_SEND = "<span style='color:green;'>SEND: :PAGE:SCON:SING</span>"
 
     # Fetch + Errors
     FETCH_START = "<span style='color:blue;'>Fetching Binary Data...</span>"
-    FETCH_QUERY = "<span style='color:green;'>QUERY: :DATA? '{var}'</span>"
     FETCH_RECEIVED = (
         "<span style='color:blue;'>RECEIVED: {var} ({points} points)</span>"
     )
@@ -36,7 +34,6 @@ class StatusMsg(StrEnum):
     SCAN_COMPLETE = "Scan Complete"
 
     # Setup
-    SETUP_RESET = "Resetting Instrument (*RST)"
     SETUP_SENDING = "Sending: {command}"
     SETUP_COMPLETE = "Setup Complete"
 

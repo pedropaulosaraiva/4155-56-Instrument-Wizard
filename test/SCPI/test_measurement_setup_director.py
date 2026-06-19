@@ -55,29 +55,64 @@ def setup_director():
 
 
 def test_reset_instrument(setup_director):
-    cmd_rst, cmd_cls, cmd_cal, cmd_disp_del = setup_director.reset_instrument()
+    cmd_rst, cmd_cls, cmd_cal = setup_director.reset_instrument()
 
     assert cmd_rst.set_command == "*RST"
     assert cmd_cls.set_command == "*CLS"
     # Auto-calibration must be disabled *after* *RST (which re-enables it).
     assert cmd_cal.set_command == ":CAL:AUTO OFF"
     assert cmd_cal.get_command == ":CAL:AUTO?"
-    assert cmd_disp_del.set_command == ":PAGE:DISP:LIST:DEL:ALL"
+    # The graph axes / display list are NOT cleared here — that is post_setup.
 
 
 def test_build_full_setup(setup_director):
-    config = {"mode": "SAMP", "sampling_setup": {"points": SAMP_POINTS}}
+    config = {
+        "mode": "SAMP",
+        "sampling_setup": {"points": SAMP_POINTS},
+        "display_vars": ["V1", "I1"],
+    }
 
     reset_cmds = setup_director.reset_instrument()
     setup_cmds = setup_director.setup_measurement(config)
+    post_cmds = setup_director.post_setup(config)
     full = setup_director.build_full_setup(config)
 
-    # Reset (incl. :CAL:AUTO OFF) is prepended, then the measurement config.
-    assert full == reset_cmds + setup_cmds
-    assert [pair.set_command for pair in reset_cmds] == [
-        pair.set_command for pair in full[: len(reset_cmds)]
-    ]
+    # reset -> config -> post_setup, in that order.
+    assert full == reset_cmds + setup_cmds + post_cmds
     assert any(pair.set_command == ":CAL:AUTO OFF" for pair in full)
+    # post_setup finalizes the display, so the very last command sets the list.
+    assert full[-1].set_command == ":PAGE:DISP:LIST 'V1','I1'"
+
+
+def test_post_setup(setup_director):
+    config = {"display_vars": ["V1", "I1"]}
+
+    (
+        cmd_grap_x,
+        cmd_grap_y1,
+        cmd_grap_y2,
+        cmd_list_del,
+        cmd_list_set,
+    ) = setup_director.post_setup(config)
+
+    # Graph axes reset, then list reset, then list set (in that order).
+    assert cmd_grap_x.set_command == ":PAGE:DISP:GRAP:X:DEL"
+    assert cmd_grap_y1.set_command == ":PAGE:DISP:GRAP:Y1:DEL"
+    assert cmd_grap_y2.set_command == ":PAGE:DISP:GRAP:Y2:DEL"
+    assert cmd_list_del.set_command == ":PAGE:DISP:LIST:DEL:ALL"
+    assert cmd_list_set.set_command == ":PAGE:DISP:LIST 'V1','I1'"
+
+
+def test_post_setup_without_display_vars(setup_director):
+    # No display vars -> graph + list are cleared but the list is not re-set.
+    cmds = setup_director.post_setup({})
+
+    assert [pair.set_command for pair in cmds] == [
+        ":PAGE:DISP:GRAP:X:DEL",
+        ":PAGE:DISP:GRAP:Y1:DEL",
+        ":PAGE:DISP:GRAP:Y2:DEL",
+        ":PAGE:DISP:LIST:DEL:ALL",
+    ]
 
 
 def test_setup_channels(setup_director):
@@ -336,7 +371,8 @@ def test_setup_measurement_orchestrator(setup_director):
         "sweep_setup": {"delay": DELAY_TIME},
         "display_vars": ["V1", "I1"],
     }
-    cmd_mode, cmd_chan, cmd_meas, cmd_swe, cmd_disp = (
+    # The display list is set by post_setup, not setup_measurement.
+    cmd_mode, cmd_chan, cmd_meas, cmd_swe = (
         setup_director.setup_measurement(config_sweep)
     )
 
@@ -344,7 +380,6 @@ def test_setup_measurement_orchestrator(setup_director):
     assert cmd_chan.set_command == ":PAGE:CHAN:SMU1:DIS"
     assert cmd_meas.set_command == ":PAGE:MEAS:MSET:ITIM  SHORT"
     assert cmd_swe.set_command == f":PAGE:MEAS:SWE:DEL {DELAY_TIME}"
-    assert cmd_disp.set_command == ":PAGE:DISP:LIST 'V1','I1'"
 
     config_samp = {"mode": "SAMP", "sampling_setup": {"points": SAMP_POINTS}}
     cmd_mode, cmd_samp = setup_director.setup_measurement(config_samp)

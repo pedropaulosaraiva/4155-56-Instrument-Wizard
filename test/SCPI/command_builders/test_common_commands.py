@@ -34,5 +34,5 @@ def test_set_auto_calibration(builder, state):
 
 
 def test_set_auto_calibration_invalid(builder):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid parameter"):
         builder.set_auto_calibration("MAYBE")
