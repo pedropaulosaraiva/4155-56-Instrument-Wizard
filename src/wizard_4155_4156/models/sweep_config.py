@@ -28,7 +28,7 @@ Compliance (I)         : 1 pA – 0.1 A   (when sweeping V)
 Compliance (V)         : 1 mV – 100 V   (when sweeping I)
 Interlock open         : SMU voltage ±40 V | step ±80 V | compliance (V) ≤ 40 V
 Power compliance       : 1 mW – 20 W
-VAR2 points            : 1 – 128
+VAR2 number of steps   : 1 – 128
 VAR1 points            : 1 – 1001  (cross-rule)
 Total points           : VAR1 × VAR2 ≤ 10 001  (cross-rule)
 VARD ratio             : ±1000
@@ -143,8 +143,8 @@ RATIO_MAX: float = 1000.0
 # Point counts
 VAR1_POINTS_MIN: int = 1
 VAR1_POINTS_MAX: int = 1001
-VAR2_POINTS_MIN: int = 1
-VAR2_POINTS_MAX: int = 128  # strictly defined in measure_sweep.py
+VAR2_N_OF_STEPS_MIN: int = 1
+VAR2_N_OF_STEPS_MAX: int = 128  # strictly defined in measure_sweep.py
 TOTAL_POINTS_MAX: int = 10_001  # VAR1 × VAR2 cross-rule
 DISPLAY_VARS_MAX: int = 8
 # Range values for SMU and VMU measurement modes
@@ -225,7 +225,7 @@ class VAR1Config:
 class VAR2Config:
     start: float = 0.0
     step: float = 0.1
-    points: int = 3
+    n_of_steps: int = 3
     compliance: float = 0.01
     power_compliance: float = 0.01
     power_compliance_enabled: bool = False
@@ -842,11 +842,11 @@ class SweepConstraints:
                 f"{VAR1_POINTS_MIN}-{VAR1_POINTS_MAX})"
             ]
         if flags.has_var2:
-            total = v1_count * cfg.var2.points
+            total = v1_count * cfg.var2.n_of_steps
             if total > TOTAL_POINTS_MAX:
                 return [
                     f"Total points: {v1_count} x "
-                    f"{cfg.var2.points} = {total:,} "
+                    f"{cfg.var2.n_of_steps} = {total:,} "
                     f"(max {TOTAL_POINTS_MAX:,})"
                 ]
         return []
@@ -879,21 +879,22 @@ class SweepConstraints:
                 f"VAR2 Step: invalid value "
                 f"(range: {stp_min:.3g} – {stp_max:.3g})"
             )
-        points_ok = VAR2_POINTS_MIN <= v2.points <= VAR2_POINTS_MAX
-        if not points_ok:
+        n_steps_ok = (
+            VAR2_N_OF_STEPS_MIN <= v2.n_of_steps <= VAR2_N_OF_STEPS_MAX
+        )
+        if not n_steps_ok:
             errors.append(
-                f"VAR2 Points: invalid value "
-                f"(range: {VAR2_POINTS_MIN}"
-                f" – {VAR2_POINTS_MAX})"
+                f"VAR2 Number of Steps: invalid value "
+                f"(range: {VAR2_N_OF_STEPS_MIN}"
+                f" – {VAR2_N_OF_STEPS_MAX})"
             )
         step_ok = v2.step != 0 and stp_min <= v2.step <= stp_max
 
-        # VAR2 "points" is the number of steps the instrument takes, so the
-        # last swept value is Start + Step × Points.  Like VAR1 Stop / VARD
-        # Output it must stay within the channel source range; only meaningful
-        # once Step and Points are themselves valid.
-        if step_ok and points_ok:
-            last = v2.start + v2.points * v2.step
+        # The last swept value is Start + Step × Number of Steps.  Like
+        # VAR1 Stop / VARD Output it must stay within the channel source range;
+        # only meaningful once Step and Number of Steps are themselves valid.
+        if step_ok and n_steps_ok:
+            last = v2.start + v2.n_of_steps * v2.step
             errors.extend(
                 SweepConstraints._validate_source_value(
                     "VAR2 Last Value", last, src_min, src_max

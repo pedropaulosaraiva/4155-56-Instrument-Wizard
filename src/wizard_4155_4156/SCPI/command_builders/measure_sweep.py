@@ -31,8 +31,8 @@ class MeasureSweepCommandBuilder(SCPICommandBuilder):
     MAX_PULSE_WID: Final[float] = 1e-1
     MIN_PCOMP: Final[float] = 1e-3
     MAX_PCOMP: Final[float] = 2.0
-    MIN_VAR2_PTS: Final[int] = 1
-    MAX_VAR2_PTS: Final[int] = 128
+    MIN_VAR2_N_OF_STEPS: Final[int] = 1
+    MAX_VAR2_N_OF_STEPS: Final[int] = 128
 
     def __init__(self):
         super().__init__()
@@ -289,16 +289,20 @@ class MeasureSweepCommandBuilder(SCPICommandBuilder):
         self._is_command_ready = True
         self._is_command_query = True
 
-    def set_var2_points(self, points: int):
-        if not (self.MIN_VAR2_PTS <= points <= self.MAX_VAR2_PTS):
+    def set_var2_n_of_steps(self, n_of_steps: int):
+        if not (
+            self.MIN_VAR2_N_OF_STEPS
+            <= n_of_steps
+            <= self.MAX_VAR2_N_OF_STEPS
+        ):
             raise ValueError(
-                f"VAR2 points must be {self.MIN_VAR2_PTS} <= pts"
-                f" <= {self.MAX_VAR2_PTS}. Input: {points}"
+                f"VAR2 number of steps must be {self.MIN_VAR2_N_OF_STEPS}"
+                f" <= n <= {self.MAX_VAR2_N_OF_STEPS}. Input: {n_of_steps}"
             )
-        self._add_command_segment(f":VAR2:POIN {points}")
+        self._add_command_segment(f":VAR2:POIN {n_of_steps}")
         self._is_command_ready = True
 
-    def get_var2_points(self):
+    def get_var2_n_of_steps(self):
         self._add_command_segment(":VAR2:POIN?")
         self._is_command_ready = True
         self._is_command_query = True

@@ -229,16 +229,17 @@ def var2_flags(is_voltage=True):
 
 
 @pytest.mark.parametrize(
-    ("start", "step", "points", "ok"),
+    ("start", "step", "n_of_steps", "ok"),
     [
         (0.0, 0.1, 3, True),  # last = 0.3 V
         (50.0, 1.0, 128, False),  # last = 178 V > 100 V
         (-50.0, -1.0, 128, False),  # last = -178 V < -100 V
     ],
 )
-def test_var2_last_value_voltage(start, step, points, ok):
+def test_var2_last_value_voltage(start, step, n_of_steps, ok):
     cfg = make_config()
-    cfg.var2.start, cfg.var2.step, cfg.var2.points = start, step, points
+    cfg.var2.start, cfg.var2.step = start, step
+    cfg.var2.n_of_steps = n_of_steps
     channels = [smu(1, mode="V", function="VAR2")]
     errors = validate(cfg, flags=var2_flags(True), channels=channels)
     last_errs = [e for e in errors if e.startswith("VAR2 Last Value")]
@@ -247,7 +248,8 @@ def test_var2_last_value_voltage(start, step, points, ok):
 
 def test_var2_last_value_interlock_open_caps_at_40v():
     cfg = make_config()
-    cfg.var2.start, cfg.var2.step, cfg.var2.points = 30.0, 1.0, 20  # last 50 V
+    # last value = 30 + 20 × 1 = 50 V (above the 40 V interlock cap)
+    cfg.var2.start, cfg.var2.step, cfg.var2.n_of_steps = 30.0, 1.0, 20
     channels = [smu(1, mode="V", function="VAR2")]
     assert not any(
         e.startswith("VAR2 Last Value")
@@ -266,7 +268,8 @@ def test_var2_last_value_interlock_open_caps_at_40v():
 
 def test_var2_last_value_current_mode():
     cfg = make_config()
-    cfg.var2.start, cfg.var2.step, cfg.var2.points = 0.0, 0.01, 128  # 1.28 A
+    # last value = 0 + 128 × 0.01 = 1.28 A (above the ±0.1 A limit)
+    cfg.var2.start, cfg.var2.step, cfg.var2.n_of_steps = 0.0, 0.01, 128
     cfg.var2.compliance = 1.0  # in-range V compliance, isolate the test
     channels = [smu(1, mode="I", function="VAR2")]
     errors = validate(cfg, flags=var2_flags(False), channels=channels)

@@ -49,8 +49,8 @@ from wizard_4155_4156.models.sweep_config import (
     PCOMP_MIN,
     RATIO_MAX,
     RATIO_MIN,
-    VAR2_POINTS_MAX,
-    VAR2_POINTS_MIN,
+    VAR2_N_OF_STEPS_MAX,
+    VAR2_N_OF_STEPS_MIN,
     VAR2_V_STEP_MAX,
     VAR2_V_STEP_MIN,
     VARD_OFFSET_I_MAX,
@@ -364,7 +364,7 @@ class _VAR1Section(_SectionFrame):
 class _VAR2Section(_SectionFrame):
     start_committed = Signal(float)
     step_committed = Signal(float)
-    points_changed = Signal(int)
+    n_of_steps_changed = Signal(int)
     comp_committed = Signal(float)
     pcomp_committed = Signal(float)
     pcomp_enabled_changed = Signal(bool)
@@ -383,9 +383,11 @@ class _VAR2Section(_SectionFrame):
         self._step_edit = _SciDoubleEdit(
             0.1, VAR2_V_STEP_MIN, VAR2_V_STEP_MAX, "V", disallow_zero=True
         )
-        self._points_sb = _spinbox(VAR2_POINTS_MIN, VAR2_POINTS_MAX, 3)
-        self._points_sb.setToolTip(
-            f"Range: {VAR2_POINTS_MIN} – {VAR2_POINTS_MAX}"
+        self._n_steps_sb = _spinbox(
+            VAR2_N_OF_STEPS_MIN, VAR2_N_OF_STEPS_MAX, 3
+        )
+        self._n_steps_sb.setToolTip(
+            f"Range: {VAR2_N_OF_STEPS_MIN} – {VAR2_N_OF_STEPS_MAX}"
         )
         self._comp_edit = _SciDoubleEdit(0.01, COMP_I_MIN, COMP_I_MAX, "A")
         self._pcomp_widget = _PCompWidget()
@@ -395,7 +397,7 @@ class _VAR2Section(_SectionFrame):
         for row in [
             _form_row("Start", self._start_edit),
             _form_row("Step", self._step_edit),
-            _form_row("Points", self._points_sb),
+            _form_row("Number of steps", self._n_steps_sb),
             self._comp_row,
             self._pcomp_row,
         ]:
@@ -403,7 +405,7 @@ class _VAR2Section(_SectionFrame):
 
         self._start_edit.value_committed.connect(self.start_committed)
         self._step_edit.value_committed.connect(self.step_committed)
-        self._points_sb.valueChanged.connect(self.points_changed)
+        self._n_steps_sb.valueChanged.connect(self.n_of_steps_changed)
         self._comp_edit.value_committed.connect(self.comp_committed)
         self._pcomp_widget.value_committed.connect(self.pcomp_committed)
         self._pcomp_widget.enabled_changed.connect(self.pcomp_enabled_changed)
@@ -412,16 +414,16 @@ class _VAR2Section(_SectionFrame):
         self,
         start: float,
         step: float,
-        points: int,
+        n_of_steps: int,
         compliance: float,
         pcomp: float,
         pcomp_enabled: bool,
     ) -> None:
         self._start_edit.set_value(start)
         self._step_edit.set_value(step)
-        self._points_sb.blockSignals(True)
-        self._points_sb.setValue(points)
-        self._points_sb.blockSignals(False)
+        self._n_steps_sb.blockSignals(True)
+        self._n_steps_sb.setValue(n_of_steps)
+        self._n_steps_sb.blockSignals(False)
         self._comp_edit.set_value(compliance)
         self._pcomp_widget.display_state(pcomp, pcomp_enabled)
 
@@ -451,8 +453,8 @@ class _VAR2Section(_SectionFrame):
         self._step_edit.update_bounds(stp_min, stp_max, src_u)
         self._comp_edit.update_bounds(cmp_min, cmp_max, cmp_u)
 
-    def get_points(self) -> int:
-        return self._points_sb.value()
+    def get_n_of_steps(self) -> int:
+        return self._n_steps_sb.value()
 
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
@@ -623,7 +625,7 @@ class SweepConfigPageView(BasePage):
 
     var2_start_committed = Signal(float)
     var2_step_committed = Signal(float)
-    var2_points_changed = Signal(int)
+    var2_n_of_steps_changed = Signal(int)
     var2_comp_committed = Signal(float)
     var2_pcomp_committed = Signal(float)
     var2_pcomp_enabled_changed = Signal(bool)
@@ -695,7 +697,7 @@ class SweepConfigPageView(BasePage):
         self._var2_sec.display_state(
             v2.get("start", 0.0),
             v2.get("step", 0.1),
-            v2.get("points", 3),
+            v2.get("n_of_steps", 3),
             v2.get("compliance", 0.01),
             v2.get("power_compliance", 0.01),
             v2.get("power_compliance_enabled", False),
@@ -954,7 +956,7 @@ class SweepConfigPageView(BasePage):
         v2 = self._var2_sec
         v2.start_committed.connect(self.var2_start_committed)
         v2.step_committed.connect(self.var2_step_committed)
-        v2.points_changed.connect(self.var2_points_changed)
+        v2.n_of_steps_changed.connect(self.var2_n_of_steps_changed)
         v2.comp_committed.connect(self.var2_comp_committed)
         v2.pcomp_committed.connect(self.var2_pcomp_committed)
         v2.pcomp_enabled_changed.connect(self.var2_pcomp_enabled_changed)

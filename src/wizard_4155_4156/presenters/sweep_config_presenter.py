@@ -165,7 +165,7 @@ class SweepConfigPresenter(QObject):
         # VAR2
         v.var2_start_committed.connect(self._on_var2_start)
         v.var2_step_committed.connect(self._on_var2_step)
-        v.var2_points_changed.connect(self._on_var2_points)
+        v.var2_n_of_steps_changed.connect(self._on_var2_n_of_steps)
         v.var2_comp_committed.connect(self._on_var2_comp)
         v.var2_pcomp_committed.connect(self._on_var2_pcomp)
         v.var2_pcomp_enabled_changed.connect(self._on_var2_pcomp_enabled)
@@ -510,8 +510,8 @@ class SweepConfigPresenter(QObject):
         self._config.var2.step = val
         self._update_validation()
 
-    def _on_var2_points(self, val: int) -> None:
-        self._config.var2.points = val
+    def _on_var2_n_of_steps(self, val: int) -> None:
+        self._config.var2.n_of_steps = val
         self._update_validation()
 
     def _on_var2_comp(self, val: float) -> None:
@@ -632,10 +632,10 @@ class SweepConfigPresenter(QObject):
                 )
                 if v1_count is not None:
                     if self._ctx.get("has_var2"):
-                        total = v1_count * self._config.var2.points
+                        total = v1_count * self._config.var2.n_of_steps
                         msg += (
                             f" ({v1_count} x "
-                            f"{self._config.var2.points}"
+                            f"{self._config.var2.n_of_steps}"
                             f" = {total} points)"
                         )
                     else:
@@ -738,7 +738,7 @@ class SweepConfigPresenter(QObject):
             sweep_json["var2"] = {
                 "start": v2.start,
                 "step": v2.step,
-                "points": v2.points,
+                "n_of_steps": v2.n_of_steps,
             }
             if not self._ctx.get("var2_is_vsu"):
                 sweep_json["var2"]["compliance"] = v2.compliance
@@ -796,7 +796,7 @@ class SweepConfigPresenter(QObject):
             "var2": {
                 "start": cfg.var2.start,
                 "step": cfg.var2.step,
-                "points": cfg.var2.points,
+                "n_of_steps": cfg.var2.n_of_steps,
                 "compliance": cfg.var2.compliance,
                 "power_compliance": cfg.var2.power_compliance,
                 "power_compliance_enabled": cfg.var2.power_compliance_enabled,

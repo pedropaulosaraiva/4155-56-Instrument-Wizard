@@ -190,7 +190,7 @@ def test_setup_sweep_full(setup_director):
         "var2": {
             "start": SWEEP_START,
             "step": SWEEP_STEP,
-            "points": SWEEP_POINTS,
+            "n_of_steps": SWEEP_POINTS,
             "compliance": COMPLIANCE,
             "pcompliance": PCOMPLIANCE,
             "pcompliance_state": "ON",

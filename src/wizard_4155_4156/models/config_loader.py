@@ -188,7 +188,7 @@ def sweep_config_from_setup(config: Mapping[str, Any]) -> SweepConfig:
         v = ss["var2"]
         cfg.var2.start = v.get("start", cfg.var2.start)
         cfg.var2.step = v.get("step", cfg.var2.step)
-        cfg.var2.points = v.get("points", cfg.var2.points)
+        cfg.var2.n_of_steps = v.get("n_of_steps", cfg.var2.n_of_steps)
         _load_compliance(cfg.var2, v)
     if "vard" in ss:
         v = ss["vard"]

@@ -129,8 +129,8 @@ def builder():
             ":PAGE:MEAS:SWE:VAR2:PCOM:STAT?",
             True,
         ),
-        ("set_var2_points", (10,), ":PAGE:MEAS:SWE:VAR2:POIN 10", False),
-        ("get_var2_points", (), ":PAGE:MEAS:SWE:VAR2:POIN?", True),
+        ("set_var2_n_of_steps", (10,), ":PAGE:MEAS:SWE:VAR2:POIN 10", False),
+        ("get_var2_n_of_steps", (), ":PAGE:MEAS:SWE:VAR2:POIN?", True),
         ("set_var2_start", (0.0,), ":PAGE:MEAS:SWE:VAR2:STAR 0.0", False),
         ("get_var2_start", (), ":PAGE:MEAS:SWE:VAR2:STAR?", True),
         ("set_var2_step", (0.1,), ":PAGE:MEAS:SWE:VAR2:STEP 0.1", False),
@@ -208,8 +208,8 @@ def test_sweep_commands(builder, method, args, expected, is_query):
         ("set_pulse_period", (2.0,), "Pulse period must be"),
         ("set_pulse_width", (1e-4,), "Pulse width must be"),
         ("set_pulse_width", (0.2,), "Pulse width must be"),
-        ("set_var2_points", (0,), "VAR2 points must be"),
-        ("set_var2_points", (129,), "VAR2 points must be"),
+        ("set_var2_n_of_steps", (0,), "VAR2 number of steps must be"),
+        ("set_var2_n_of_steps", (129,), "VAR2 number of steps must be"),
     ],
 )
 def test_sweep_exceptions(builder, method, args, match):

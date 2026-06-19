@@ -463,13 +463,13 @@ class MeasurementSetupDirector(BaseDirector):
                     (),
                 )
             )
-        if "points" in var2:
+        if "n_of_steps" in var2:
             commands.append(
                 self._build_pair(
                     builder,
-                    builder.set_var2_points,
-                    (var2["points"],),
-                    builder.get_var2_points,
+                    builder.set_var2_n_of_steps,
+                    (var2["n_of_steps"],),
+                    builder.get_var2_n_of_steps,
                     (),
                 )
             )
