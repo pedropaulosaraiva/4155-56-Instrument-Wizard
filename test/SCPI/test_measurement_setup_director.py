@@ -55,11 +55,29 @@ def setup_director():
 
 
 def test_reset_instrument(setup_director):
-    cmd_rst, cmd_cls, cmd_disp_del = setup_director.reset_instrument()
+    cmd_rst, cmd_cls, cmd_cal, cmd_disp_del = setup_director.reset_instrument()
 
     assert cmd_rst.set_command == "*RST"
     assert cmd_cls.set_command == "*CLS"
+    # Auto-calibration must be disabled *after* *RST (which re-enables it).
+    assert cmd_cal.set_command == ":CAL:AUTO OFF"
+    assert cmd_cal.get_command == ":CAL:AUTO?"
     assert cmd_disp_del.set_command == ":PAGE:DISP:LIST:DEL:ALL"
+
+
+def test_build_full_setup(setup_director):
+    config = {"mode": "SAMP", "sampling_setup": {"points": SAMP_POINTS}}
+
+    reset_cmds = setup_director.reset_instrument()
+    setup_cmds = setup_director.setup_measurement(config)
+    full = setup_director.build_full_setup(config)
+
+    # Reset (incl. :CAL:AUTO OFF) is prepended, then the measurement config.
+    assert full == reset_cmds + setup_cmds
+    assert [pair.set_command for pair in reset_cmds] == [
+        pair.set_command for pair in full[: len(reset_cmds)]
+    ]
+    assert any(pair.set_command == ":CAL:AUTO OFF" for pair in full)
 
 
 def test_setup_channels(setup_director):

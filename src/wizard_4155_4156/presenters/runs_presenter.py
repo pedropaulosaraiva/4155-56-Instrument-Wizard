@@ -294,7 +294,7 @@ class RunsPresenter(QObject):
         config = self._config_for(setup_id)
         if config is None:
             return
-        setup_cmds = self._setup_director.setup_measurement(config)
+        setup_cmds = self._setup_director.build_full_setup(config)
         self._connector.trigger_setup_only(setup_cmds)
 
     def _on_apply_run_fetch(self, setup_id: int) -> None:
@@ -318,7 +318,7 @@ class RunsPresenter(QObject):
         config = self._config_for(setup_id)
         if config is None:
             return
-        setup_cmds = self._setup_director.setup_measurement(config)
+        setup_cmds = self._setup_director.build_full_setup(config)
         run_cmds = self._run_director.run_measurement({"standby": "OFF"})
         fetch_cmds = self._run_director.take_data(self._fetch_config(config))
         # Persist the result when data_ready returns (see _on_connector_data).

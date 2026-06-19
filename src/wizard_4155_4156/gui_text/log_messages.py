@@ -12,7 +12,7 @@ class LogMsg(StrEnum):
     DISCONNECTED = "<span style='color:red;'>Disconnected.</span>"
 
     # Setup + Measure
-    SETUP_RST = "<span style='color:green;'>SEND: *RST ; :CAL:AUTO OFF</span>"
+    SETUP_RST = "<span style='color:blue;'>Starting setup sequence...</span>"
     SETUP_SEND = "<span style='color:green;'>SEND: {command}</span>"
     SETUP_VERIFY = "<span style='color:blue;'>VERIFY: {cmd} -> {resp}</span>"
     SETUP_ABORTED = "<span style='color:red;'>Setup Aborted: {error}</span>"

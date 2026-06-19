@@ -94,7 +94,7 @@ class MeasurementsPresenter(QObject):
         config = self._resolve_config()
         if config is None:
             return
-        setup_cmds = self._setup_director.setup_measurement(config)
+        setup_cmds = self._setup_director.build_full_setup(config)
         self._connector_presenter.trigger_setup_only(setup_cmds)
 
     @Slot()
@@ -111,7 +111,7 @@ class MeasurementsPresenter(QObject):
         config = self._resolve_config()
         if config is None:
             return
-        setup_cmds = self._setup_director.setup_measurement(config)
+        setup_cmds = self._setup_director.build_full_setup(config)
         run_cmds = self._run_director.run_measurement({"standby": "OFF"})
         fetch_cmds = self._run_director.take_data(self._fetch_config(config))
         self._connector_presenter.trigger_full_sequence(

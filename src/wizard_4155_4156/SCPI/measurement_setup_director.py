@@ -51,6 +51,19 @@ class MeasurementSetupDirector(BaseDirector):
             )
         )
 
+        # Disable auto self-calibration. Ordering is load-bearing: this MUST
+        # follow *RST, which resets :CAL:AUTO to its power-on default (ON).
+        # Moving it before *RST would silently re-enable auto-calibration.
+        scpi_sequence.append(
+            self._build_pair(
+                CommonCommandBuilder,
+                CommonCommandBuilder.set_auto_calibration,
+                ("OFF",),
+                CommonCommandBuilder.get_auto_calibration,
+                (),
+            )
+        )
+
         scpi_sequence.append(
             self._build_pair(
                 MeasureRunCommandBuilder,
@@ -60,6 +73,14 @@ class MeasurementSetupDirector(BaseDirector):
         )
 
         return scpi_sequence
+
+    def build_full_setup(self, config: dict[str, Any]) -> list[CommandPair]:
+        """Reset + disable auto-cal, then apply the measurement config.
+
+        This is the production entry point for configuring the instrument:
+        every setup starts from *RST defaults with auto-calibration disabled.
+        """
+        return self.reset_instrument() + self.setup_measurement(config)
 
     def setup_measurement(self, config: dict[str, Any]) -> list[CommandPair]:
         scpi_sequence: list[CommandPair] = []
