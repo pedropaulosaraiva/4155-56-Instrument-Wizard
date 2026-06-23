@@ -738,7 +738,7 @@ class ChannelsPageView(BasePage):
             vmu_cards.append(card)
         units_layout.addWidget(
             _make_unit_group(
-                "VOLTAGE MONITOR UNITS ", vmu_cards, accent=P.UNIT_VMU
+                "VOLTAGE MONITOR UNITS (VMU)", vmu_cards, accent=P.UNIT_VMU
             )
         )
 
@@ -785,7 +785,7 @@ class ChannelsPageView(BasePage):
 
         bp_layout.addStretch()
 
-        self._configure_btn = QPushButton("⚙️  Configure Measure")
+        self._configure_btn = QPushButton("⚙️ Generate Setup Page")
         self._configure_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._configure_btn.setStyleSheet(
             configure_measure_button_stylesheet()

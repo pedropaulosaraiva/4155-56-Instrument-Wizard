@@ -213,7 +213,7 @@ class _VAR1Section(_SectionFrame):
     pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("VAR1  —  Primary Sweep", parent, accent=P.FUNC_VAR1)
+        super().__init__("VAR1  —  Basic Sweep", parent, accent=P.FUNC_VAR1)
         self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
@@ -370,7 +370,11 @@ class _VAR2Section(_SectionFrame):
     pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("VAR2  —  Stepped Sweep", parent, accent=P.FUNC_VAR2)
+        super().__init__(
+            "VAR2  —  Subordinate Sweep",
+            parent,
+            accent=P.FUNC_VAR2
+        )
         self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
@@ -486,7 +490,7 @@ class _VARDSection(_SectionFrame):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(
-            "VARD  —  VAR1 Derivative", parent, accent=P.FUNC_VARD
+            "VARD  —  Synchronous Sweep", parent, accent=P.FUNC_VARD
         )
         self._is_vsu = False
         self._channel_lbl = QLabel("")

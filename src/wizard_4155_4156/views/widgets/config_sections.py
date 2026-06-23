@@ -611,7 +611,7 @@ class MeasSetupSection(SectionFrame):
 
     def _setup_widgets(self) -> None:
         self._mode_seg = SegmentedGroup(["SHORT", "MED", "LONG"], "MED")
-        self.body().addWidget(form_row("Integration Mode", self._mode_seg))
+        self.body().addWidget(form_row("Integration Time", self._mode_seg))
 
         self._short_edit = SciDoubleEdit(
             2e-4, SHORT_TIME_MIN, SHORT_TIME_MAX, "s"

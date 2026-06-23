@@ -110,7 +110,7 @@ class _QscvNamesSection(_SectionFrame):
         self._iname_edit.setStyleSheet(unit_card_line_edit_stylesheet())
         self._iname_edit.setMaxLength(6)
         self.body().addWidget(
-            _form_row("Leakage Curr. Name", self._iname_edit)
+            _form_row("Leakage Current Name", self._iname_edit)
         )
 
         self._cname_edit.editingFinished.connect(
@@ -155,13 +155,13 @@ class _QscvMeasSetupSection(_SectionFrame):
         cap_lo, cap_hi = cap_integration_bounds(50)
         self._cap_int_edit = _SciDoubleEdit(0.1, cap_lo, cap_hi, "s")
         self.body().addWidget(
-            _form_row("QSCV Integ. Time", self._cap_int_edit)
+            _form_row("QSCV Integration Time", self._cap_int_edit)
         )
 
         leak_lo, leak_hi = leak_integration_bounds(50)
         self._leak_int_edit = _SciDoubleEdit(0.1, leak_lo, leak_hi, "s")
         self.body().addWidget(
-            _form_row("Leak Integ. Time", self._leak_int_edit)
+            _form_row("Leak Integration Time", self._leak_int_edit)
         )
 
         self._leak_seg = _SegmentedGroup(["OFF", "ON"], "OFF")

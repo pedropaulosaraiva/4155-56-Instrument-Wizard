@@ -136,7 +136,7 @@ class _SamplingSetupSection(_SectionFrame):
         )
 
         self._points_sb = _spinbox(SAMPLES_MIN, SAMPLES_MAX, 11)
-        self.body().addWidget(_form_row("No. of Samples", self._points_sb))
+        self.body().addWidget(_form_row("Number of Samples", self._points_sb))
 
         # Total Sampling Time: mode combo + numeric value
         period_w = QWidget()
@@ -149,7 +149,7 @@ class _SamplingSetupSection(_SectionFrame):
         ph.addWidget(self._period_combo)
         self._period_edit = _SciDoubleEdit(1.0, 0.0, PERIOD_MAX, "s")
         ph.addWidget(self._period_edit, stretch=1)
-        self._period_row = _form_row("Total Samp. Time", period_w)
+        self._period_row = _form_row("Total Sampling Time", period_w)
         self.body().addWidget(self._period_row)
 
         self._hold_edit = _SciDoubleEdit(
@@ -293,7 +293,10 @@ class _StopConditionSection(_SectionFrame):
 
         self._name_combo = QComboBox()
         self._name_combo.setStyleSheet(unit_card_combo_stylesheet())
-        self.body().addWidget(_form_row("Variable (NAME)", self._name_combo))
+        self.body().addWidget(_form_row(
+            "Variable Name (Val)",
+            self._name_combo
+        ))
 
         self._event_combo = QComboBox()
         self._event_combo.setStyleSheet(unit_card_combo_stylesheet())
@@ -303,14 +306,17 @@ class _StopConditionSection(_SectionFrame):
 
         self._threshold_edit = _SciDoubleEdit(0.0, -1e30, 1e30, "")
         self.body().addWidget(
-            _form_row("Threshold", self._threshold_edit)
+            _form_row("Threshold (Th)", self._threshold_edit)
         )
 
         self._count_sb = _spinbox(EVENT_COUNT_MIN, EVENT_COUNT_MAX, 1)
         self._count_sb.setToolTip(
             f"Range: {EVENT_COUNT_MIN} – {EVENT_COUNT_MAX}"
         )
-        self.body().addWidget(_form_row("Event No.", self._count_sb))
+        self.body().addWidget(_form_row(
+            "Maximum Number of Events",
+            self._count_sb
+        ))
 
         self._delay_edit = _SciDoubleEdit(0.0, 0.0, 1e30, "s")
         self.body().addWidget(
