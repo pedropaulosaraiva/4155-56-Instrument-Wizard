@@ -377,6 +377,18 @@ class ChannelsConstraints:
     def validate_config(cfg: ChannelsConfig) -> list[str]:
         errors: list[str] = []
 
+        # 1.1.0) An enabled unit has a blank voltage/current name.
+        # A blank name would propagate as an empty SCPI variable token into
+        # the generated measurement page (display vars / commands), so it
+        # must block configuration here.
+        if any(
+            not name.strip()
+            for name in ChannelsConstraints._active_variable_names(cfg)
+        ):
+            errors.append(
+                "One or more enabled units have a blank variable name"
+            )
+
         # 1.1.1) Two units or more share the same voltage/current name
         norm_names = [
             name.strip().upper()  # TODO: remove case insensitive?

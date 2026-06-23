@@ -140,6 +140,29 @@ def test_blank_names_are_not_duplicates():
     assert not any("same voltage/current" in e for e in errors)
 
 
+def test_blank_name_on_enabled_unit_is_invalid():
+    cfg = ChannelsConfig()
+    cfg.smu[1].voltage_name = ""
+    errors = ChannelsConstraints.validate_config(cfg)
+    assert any("blank variable name" in e for e in errors)
+
+
+def test_whitespace_only_name_is_invalid():
+    cfg = ChannelsConfig()
+    cfg.smu[1].current_name = "   "
+    errors = ChannelsConstraints.validate_config(cfg)
+    assert any("blank variable name" in e for e in errors)
+
+
+def test_blank_name_on_disabled_unit_is_ignored():
+    cfg = ChannelsConfig()
+    cfg.smu[4].enabled = False
+    cfg.smu[4].voltage_name = ""
+    cfg.smu[4].current_name = ""
+    errors = ChannelsConstraints.validate_config(cfg)
+    assert not any("blank variable name" in e for e in errors)
+
+
 def test_all_units_disabled():
     cfg = ChannelsConfig()
     for smu in cfg.smu.values():
