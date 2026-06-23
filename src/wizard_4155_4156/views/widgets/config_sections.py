@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QValidator
 from PySide6.QtWidgets import (
     QApplication,
@@ -125,29 +125,82 @@ def spinbox(lo: int, hi: int, default: int) -> QSpinBox:
     return sb
 
 
-def create_table_header(
-    columns: List[Tuple[str, int]], spacing: int = 10
-) -> QWidget:
-    hdr = QWidget()
-    hh = QHBoxLayout(hdr)
-    hh.setContentsMargins(0, 0, 0, 4)
-    hh.setSpacing(spacing)
-    for text, w in columns:
-        col_label = QLabel(text)
-        col_label.setStyleSheet(
-            f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
-            "font-weight: bold; letter-spacing: 1px; "
-            "background: transparent;"
+# ── Table grid (shared header + data rows) ──────────────────────
+#
+# A measurement-config table is a single QGridLayout: row 0 holds the
+# column headers, row 1 a full-width divider and each data row is added
+# cell by cell beneath them.  Because the header and every row share the
+# same grid, the columns line up automatically from the widest cell in
+# each column — there are no per-widget fixed widths to keep in sync.
+# Per-table column stretch factors let the data-entry columns grow to
+# fill a wide section instead of clustering on the left.
+
+# A zero alignment lets a cell widget fill its grid cell horizontally;
+# an explicit alignment keeps the widget at its natural size.
+CELL_FILL = Qt.AlignmentFlag(0)
+CELL_CENTER = Qt.AlignmentFlag.AlignCenter
+CELL_LEFT = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+
+TableHeader = Tuple[str, Qt.AlignmentFlag]  # (title, header alignment)
+TableCell = Tuple[QWidget, Qt.AlignmentFlag]  # (widget, cell alignment)
+
+
+def _create_header_label(text: str, alignment: Qt.AlignmentFlag) -> QLabel:
+    label = QLabel(text)
+    label.setStyleSheet(
+        f"color: {P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_XS}; "
+        "font-weight: bold; letter-spacing: 1px; background: transparent;"
+    )
+    label.setAlignment(alignment)
+    return label
+
+
+class TableGrid(QWidget):
+    """A header row and data rows sharing one QGridLayout so columns stay
+    aligned without fixed widths.  ``column_stretch`` maps a column index
+    to a stretch factor so the chosen columns expand to fill a wide
+    section."""
+
+    _HEADER_ROW = 0
+    _DIVIDER_ROW = 1
+    _FIRST_DATA_ROW = 2
+
+    def __init__(
+        self,
+        headers: List[TableHeader],
+        column_stretch: Dict[int, int],
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setStyleSheet(transparent_container_stylesheet())
+        self._grid = QGridLayout(self)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setHorizontalSpacing(12)
+        self._grid.setVerticalSpacing(6)
+        self._next_data_row = self._FIRST_DATA_ROW
+
+        for column, (text, alignment) in enumerate(headers):
+            self._grid.addWidget(
+                _create_header_label(text, alignment),
+                self._HEADER_ROW,
+                column,
+            )
+        self._grid.addWidget(
+            create_horizontal_divider(),
+            self._DIVIDER_ROW,
+            0,
+            1,
+            len(headers),
         )
-        col_label.setFixedWidth(w)
-        col_label.setAlignment(
-            Qt.AlignmentFlag.AlignCenter
-            if text in ("Unit", "Channel")
-            else Qt.AlignmentFlag.AlignLeft
-        )
-        hh.addWidget(col_label)
-    hh.addStretch()
-    return hdr
+        for column, factor in column_stretch.items():
+            self._grid.setColumnStretch(column, factor)
+
+    def add_row(self, cells: List[TableCell]) -> None:
+        for column, (widget, alignment) in enumerate(cells):
+            self._grid.addWidget(
+                widget, self._next_data_row, column, alignment
+            )
+        self._next_data_row += 1
 
 
 def create_horizontal_divider() -> QFrame:
@@ -166,30 +219,17 @@ def _placeholder_label(text: str) -> QLabel:
     return label
 
 
-def _create_badge_cell(
-    text: str,
-    container_width: int,
-    badge_width: int,
-    color: str,
-) -> QWidget:
-    container = QWidget()
-    container.setFixedWidth(container_width)
-    layout = QHBoxLayout(container)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(0)
-    label = QLabel(text)
-    label.setFixedWidth(badge_width)
-    label.setStyleSheet(channel_row_badge_stylesheet(color))
-    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    layout.addStretch()
-    layout.addWidget(label)
-    layout.addStretch()
-    return container
+def _create_unit_badge(text: str, color: str = P.ACCENT_HOVER) -> QLabel:
+    """Pill-style unit/function badge.  Sizes to its text (the badge
+    stylesheet supplies the padding/border), so it needs no fixed width."""
+    badge = QLabel(text)
+    badge.setStyleSheet(channel_row_badge_stylesheet(color))
+    badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    return badge
 
 
-def _create_name_label(text: str, width: int) -> QLabel:
+def _create_name_label(text: str) -> QLabel:
     label = QLabel(text)
-    label.setFixedWidth(width)
     label.setStyleSheet(
         f"color:{P.TEXT_SECONDARY};font-size:{P.FONT_SIZE_SM};"
         f"font-family:{P.FONT_FAMILY_MONO};"
@@ -493,27 +533,24 @@ class ChannelSummarySection(SectionFrame):
             ))
             return
 
-        hdr = create_table_header(
-            [
-                ("Channel", 65),
-                ("Function", 70),
-                ("Mode", 75),
-                ("V-Name", 55),
-                ("I-Name", 55),
-                ("Standby", 55),
-            ],
-            spacing=0,
-        )
-        self.body().addWidget(hdr)
-        self.body().addWidget(create_horizontal_divider())
+        headers: List[TableHeader] = [
+            ("Channel", CELL_CENTER),
+            ("Function", CELL_CENTER),
+            ("Mode", CELL_CENTER),
+            ("V-Name", CELL_CENTER),
+            ("I-Name", CELL_CENTER),
+            ("Standby", CELL_CENTER),
+        ]
+        # Spread the columns evenly so the table fills the panel width.
+        column_stretch = {col: 1 for col in range(len(headers))}
+        table = TableGrid(headers, column_stretch)
 
         fn_colors = {
             "VAR1": P.FUNC_VAR1,
             "VAR2": P.FUNC_VAR2,
             "VAR1'": P.FUNC_VARD,
-            "CONST": P.TEXT_MUTED,
-            "COMM": P.TEXT_DISABLED,
-            "MONITOR": P.TEXT_DISABLED,
+            "CONST": P.TEXT_SECONDARY,
+            "MONITOR": P.TEXT_SECONDARY,
         }
 
         for ch in active_channels:
@@ -529,68 +566,43 @@ class ChannelSummarySection(SectionFrame):
             elif mode == "IPULSE":
                 mode_display = "IPUL"
 
-            row = QWidget()
-            row.setStyleSheet(transparent_container_stylesheet())
-            rh = QHBoxLayout(row)
-            rh.setContentsMargins(0, 2, 0, 2)
-            rh.setSpacing(0)
-
             fn_color = fn_colors.get(fn, P.TEXT_MUTED)
-            rh.addWidget(
-                _create_badge_cell(ch_id, 65, 48, P.ACCENT_HOVER)
-            )
-            rh.addWidget(
-                _create_badge_cell(fn_display, 70, 60, fn_color)
-            )
-            rh.addWidget(
-                _create_badge_cell(mode_display, 75, 65, fn_color)
-            )
-            rh.addWidget(
-                _create_name_label(ch.get("v_name", ""), 55)
-            )
             i_text = ch.get("i_name", "") if is_smu else "—"
-            rh.addWidget(_create_name_label(i_text, 55))
-            rh.addWidget(
-                self._build_standby_cell(
-                    ch_id, is_smu, ch.get("standby", False)
-                )
-            )
+            table.add_row([
+                (_create_unit_badge(ch_id), CELL_CENTER),
+                (_create_unit_badge(fn_display, fn_color), CELL_CENTER),
+                (_create_unit_badge(mode_display, fn_color), CELL_CENTER),
+                (_create_name_label(ch.get("v_name", "")), CELL_CENTER),
+                (_create_name_label(i_text), CELL_CENTER),
+                (
+                    self._build_standby_cell(
+                        ch_id, is_smu, ch.get("standby", False)
+                    ),
+                    CELL_CENTER,
+                ),
+            ])
 
-            rh.addStretch()
-            self.body().addWidget(row)
+        self.body().addWidget(table)
 
     def _build_standby_cell(
         self, ch_id: str, is_smu: bool, standby: bool,
     ) -> QWidget:
-        container = QWidget()
-        container.setFixedWidth(55)
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
         if is_smu:
             cb = QCheckBox()
             cb.setChecked(standby)
             cb.setCursor(Qt.CursorShape.PointingHandCursor)
             cb.setStyleSheet(unit_enable_checkbox_stylesheet())
-            cb.setFixedWidth(16)
-            layout.addStretch()
-            layout.addWidget(cb)
-            layout.addStretch()
             cb.toggled.connect(
                 lambda checked, cid=ch_id:
-                    self.smu_standby_changed.emit(
-                        cid, checked
-                    )
+                    self.smu_standby_changed.emit(cid, checked)
             )
             self._standby_cbs[ch_id] = cb
-        else:
-            spacer = QLabel("—")
-            spacer.setStyleSheet(form_label_stylesheet())
-            spacer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.addWidget(spacer)
+            return cb
 
-        return container
+        dash = QLabel("—")
+        dash.setStyleSheet(form_label_stylesheet())
+        dash.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        return dash
 
     def set_standby(self, ch_id: str, on: bool) -> None:
         if ch_id in self._standby_cbs:
@@ -680,7 +692,11 @@ MODE_DISPLAY_TO_INTERNAL = {
 MODE_INTERNAL_TO_DISPLAY = {v: k for k, v in MODE_DISPLAY_TO_INTERNAL.items()}
 
 
-class RangeRow(QWidget):
+class RangeRow(QObject):
+    """Builds the cells of one Measurement-Ranges row and exposes them via
+    ``cells`` for a TableGrid to mount.  Not a widget itself, so the cells
+    live directly in the shared grid and align with the header."""
+
     changed = Signal(str, object)  # (mode, value)
 
     def __init__(
@@ -691,7 +707,7 @@ class RangeRow(QWidget):
         instrument_model: str,
         initial_mode: str = "AUTO",
         initial_value: Optional[float] = None,
-        parent: QWidget | None = None,
+        parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self.unit_id = unit_id
@@ -702,40 +718,33 @@ class RangeRow(QWidget):
         # Determine range options
         self.options = self._get_options()
 
-        # Layout
-        h = QHBoxLayout(self)
-        h.setContentsMargins(0, 2, 0, 2)
-        h.setSpacing(10)
-
         # 1. Badge / Name
-        self.badge = QLabel(unit_id)
-        self.badge.setFixedWidth(48)
-        self.badge.setStyleSheet(channel_row_badge_stylesheet(P.ACCENT_HOVER))
-        self.badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        h.addWidget(self.badge)
+        self.badge = _create_unit_badge(unit_id)
 
         # 2. Mode combo box
         self.mode_combo = QComboBox()
         self.mode_combo.setStyleSheet(unit_card_combo_stylesheet())
-        self.mode_combo.setFixedWidth(180)
         for label in ["Automatic", "Automatic with limitation", "Fixed"]:
             self.mode_combo.addItem(label)
 
         display_mode = MODE_INTERNAL_TO_DISPLAY.get(initial_mode, "Automatic")
         self.mode_combo.setCurrentText(display_mode)
-        h.addWidget(self.mode_combo, stretch=1)
 
         # 3. Value combo box
         self.val_combo = QComboBox()
         self.val_combo.setStyleSheet(unit_card_combo_stylesheet())
-        self.val_combo.setFixedWidth(100)
-        h.addWidget(self.val_combo, stretch=1)
 
         self._repopulate_values(initial_value)
 
         # Connect signals
         self.mode_combo.currentTextChanged.connect(self._on_mode_changed)
         self.val_combo.currentIndexChanged.connect(self._on_value_changed)
+
+        self.cells: List[TableCell] = [
+            (self.badge, CELL_CENTER),
+            (self.mode_combo, CELL_FILL),
+            (self.val_combo, CELL_FILL),
+        ]
 
     def _get_options(self) -> Tuple[Tuple[str, float], ...]:
         if self.unit_type == "SMU":
@@ -828,17 +837,14 @@ class RangesSection(SectionFrame):
             ))
             return
 
-        # Column headers
-        hdr = create_table_header(
-            [
-                ("Unit", 48),
-                ("Range Mode", 180),
-                ("Range Value", 100),
-            ],
-            spacing=10,
-        )
-        self.body().addWidget(hdr)
-        self.body().addWidget(create_horizontal_divider())
+        # Column headers — the two data-entry columns share the surplus
+        # width so the section fills out instead of clustering on the left.
+        headers: List[TableHeader] = [
+            ("Unit", CELL_CENTER),
+            ("Range Mode", CELL_LEFT),
+            ("Range Value", CELL_LEFT),
+        ]
+        table = TableGrid(headers, column_stretch={1: 3, 2: 2})
 
         for ch in eligible_channels:
             ch_id = ch["id"]
@@ -853,16 +859,21 @@ class RangesSection(SectionFrame):
                 instrument_model=instrument_model,
                 initial_mode=mode,
                 initial_value=value,
-                parent=self,
+                parent=table,
             )
             row.changed.connect(
                 lambda m, v, cid=ch_id: self.range_changed.emit(cid, m, v)
             )
             self._rows[ch_id] = row
-            self.body().addWidget(row)
+            table.add_row(row.cells)
+
+        self.body().addWidget(table)
 
 
-class ConstantRow(QWidget):
+class ConstantRow(QObject):
+    """Builds the cells of one Constant-Sources row and exposes them via
+    ``cells`` for a TableGrid to mount."""
+
     source_changed = Signal(str, float)
     compliance_changed = Signal(str, float)
 
@@ -874,23 +885,15 @@ class ConstantRow(QWidget):
         initial_source: float,
         initial_compliance: Optional[float] = None,
         interlock_open: bool = False,
-        parent: QWidget | None = None,
+        parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self.unit_id = unit_id
         self.unit_type = unit_type
         self.unit_mode = unit_mode
 
-        h = QHBoxLayout(self)
-        h.setContentsMargins(0, 2, 0, 2)
-        h.setSpacing(10)
-
         # 1. Badge / Name
-        self.badge = QLabel(unit_id)
-        self.badge.setFixedWidth(48)
-        self.badge.setStyleSheet(channel_row_badge_stylesheet(P.ACCENT_HOVER))
-        self.badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        h.addWidget(self.badge)
+        self.badge = _create_unit_badge(unit_id)
 
         # 2. Source input
         if unit_type == "VSU":
@@ -904,17 +907,13 @@ class ConstantRow(QWidget):
         else:
             min_s, max_s, unit_s = CURRENT_MIN, CURRENT_MAX, "A"
 
-        self.source_edit = SciDoubleEdit(
-            initial_source, min_s, max_s, unit_s, parent=self
-        )
+        self.source_edit = SciDoubleEdit(initial_source, min_s, max_s, unit_s)
         self.source_edit._edit.setToolTip(
             f"Range: {min_s:.3g} – {max_s:.3g} {unit_s}"
         )
-        self.source_edit.setFixedWidth(160)
         self.source_edit.value_committed.connect(
             lambda val: self.source_changed.emit(self.unit_id, val)
         )
-        h.addWidget(self.source_edit, stretch=1)
 
         # 3. Compliance input (SMU only)
         if unit_type == "SMU":
@@ -929,23 +928,27 @@ class ConstantRow(QWidget):
                 initial_compliance if initial_compliance is not None else 0.01
             )
             self.compliance_edit = SciDoubleEdit(
-                comp_val, min_c, max_c, unit_c, parent=self
+                comp_val, min_c, max_c, unit_c
             )
             self.compliance_edit._edit.setToolTip(
                 f"Range: {min_c:.3g} – {max_c:.3g} {unit_c}"
             )
-            self.compliance_edit.setFixedWidth(160)
             self.compliance_edit.value_committed.connect(
                 lambda val: self.compliance_changed.emit(self.unit_id, val)
             )
-            h.addWidget(self.compliance_edit, stretch=1)
+            compliance_cell: TableCell = (self.compliance_edit, CELL_FILL)
         else:
             self.compliance_edit = None
-            spacer = QLabel("—")
-            spacer.setStyleSheet(form_label_stylesheet())
-            spacer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            spacer.setFixedWidth(160)
-            h.addWidget(spacer, stretch=1)
+            dash = QLabel("—")
+            dash.setStyleSheet(form_label_stylesheet())
+            dash.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            compliance_cell = (dash, CELL_CENTER)
+
+        self.cells: List[TableCell] = [
+            (self.badge, CELL_CENTER),
+            (self.source_edit, CELL_FILL),
+            compliance_cell,
+        ]
 
 
 class ConstantsSection(SectionFrame):
@@ -978,17 +981,14 @@ class ConstantsSection(SectionFrame):
             ))
             return
 
-        # Column headers
-        hdr = create_table_header(
-            [
-                ("Unit", 48),
-                ("Constant Source", 160),
-                ("Compliance Limit", 160),
-            ],
-            spacing=10,
-        )
-        self.body().addWidget(hdr)
-        self.body().addWidget(create_horizontal_divider())
+        # Column headers — the source and compliance columns share the
+        # surplus width so the section fills out evenly.
+        headers: List[TableHeader] = [
+            ("Unit", CELL_CENTER),
+            ("Constant Source", CELL_LEFT),
+            ("Compliance Limit", CELL_LEFT),
+        ]
+        table = TableGrid(headers, column_stretch={1: 1, 2: 1})
 
         for ch in eligible_channels:
             ch_id = ch["id"]
@@ -1007,12 +1007,14 @@ class ConstantsSection(SectionFrame):
                 initial_source=source_val,
                 initial_compliance=comp_val,
                 interlock_open=interlock_open,
-                parent=self,
+                parent=table,
             )
             row.source_changed.connect(self.const_source_changed)
             row.compliance_changed.connect(self.const_compliance_changed)
             self._rows[ch_id] = row
-            self.body().addWidget(row)
+            table.add_row(row.cells)
+
+        self.body().addWidget(table)
 
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
