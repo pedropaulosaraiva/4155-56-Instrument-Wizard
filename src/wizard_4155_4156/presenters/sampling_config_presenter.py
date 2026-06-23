@@ -565,13 +565,17 @@ class SamplingConfigPresenter(QObject):
                 channels_json[ch_id] = {"disable": 1}
 
         ms = cfg.measurement_setup
-        meas_json = {
+        meas_json: Dict[str, Any] = {
             "integration_mode": ms.integration_mode.value,
-            "short_time": ms.short_time,
-            "long_time_cycles": ms.long_time_cycles,
-            "wait_time": ms.wait_multiplier,  # JSON key kept as "wait_time"
-            "ranges": copy.deepcopy(ms.ranges),
         }
+        # short_time / long_time_cycles only apply to their own mode;
+        # MED carries neither.
+        if ms.integration_mode == IntegrationMode.SHORT:
+            meas_json["short_time"] = ms.short_time
+        elif ms.integration_mode == IntegrationMode.LONG:
+            meas_json["long_time_cycles"] = ms.long_time_cycles
+        meas_json["wait_time"] = ms.wait_multiplier  # JSON key kept
+        meas_json["ranges"] = copy.deepcopy(ms.ranges)
 
         sampling_json: Dict[str, Any] = {
             "mode": cfg.mode.value,

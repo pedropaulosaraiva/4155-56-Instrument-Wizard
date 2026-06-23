@@ -705,13 +705,17 @@ class SweepConfigPresenter(QObject):
                 channels_json[ch_id] = {"disable": 1}
 
         ms = cfg.measurement_setup
-        meas_json = {
+        meas_json: Dict[str, Any] = {
             "integration_mode": ms.integration_mode.value,
-            "short_time": ms.short_time,
-            "long_time_cycles": ms.long_time_cycles,
-            "wait_time": ms.wait_multiplier,  # JSON key kept as "wait_time"
-            "ranges": ms.ranges,
         }
+        # short_time / long_time_cycles only apply to their own mode;
+        # MED carries neither.
+        if ms.integration_mode == IntegrationMode.SHORT:
+            meas_json["short_time"] = ms.short_time
+        elif ms.integration_mode == IntegrationMode.LONG:
+            meas_json["long_time_cycles"] = ms.long_time_cycles
+        meas_json["wait_time"] = ms.wait_multiplier  # JSON key kept
+        meas_json["ranges"] = ms.ranges
 
         sweep_json: Dict[str, Any] = {
             "delay": cfg.delay,
@@ -726,8 +730,11 @@ class SweepConfigPresenter(QObject):
                 "spacing": v1.spacing.value,
                 "start": v1.start,
                 "stop": v1.stop,
-                "step": v1.step,
             }
+            # "step" only applies to LINEAR spacing; logarithmic
+            # spacings (L10/L25/L50) derive their points from the decade.
+            if v1.spacing == SweepSpacing.LINEAR:
+                sweep_json["var1"]["step"] = v1.step
             if not self._ctx.get("var1_is_vsu"):
                 sweep_json["var1"]["compliance"] = v1.compliance
                 if v1.power_compliance_enabled:
