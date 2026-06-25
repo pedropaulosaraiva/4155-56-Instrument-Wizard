@@ -197,7 +197,17 @@ PLACEHOLDER_MD = """
 # Add an entry here once a page module is authored; anything missing falls
 # back to PLACEHOLDER_MD.
 DOC_BODIES: dict[DocTopic, str] = {
+    DocTopic.CHANNELS_SMU: pages.channels_smu.BODY,
     DocTopic.MEASUREMENT_RANGES: pages.measurement_ranges.BODY,
+    DocTopic.SWEEP_VAR1: pages.var1_basic_sweep.BODY,
+    DocTopic.SWEEP_VAR2: pages.var2_subordinate_sweep.BODY,
+    DocTopic.SWEEP_VARD: pages.vard_synchronous_sweep.BODY,
+    DocTopic.SAMPLING_OVERVIEW: pages.sampling_mode.BODY,
+    DocTopic.SAMPLING_PARAMETERS: pages.sampling_parameters.BODY,
+    DocTopic.STOP_CONDITION: pages.stop_condition.BODY,
+    DocTopic.QSCV_OVERVIEW: pages.qscv_mode.BODY,
+    DocTopic.QSCV_MEASURE_SETUP: pages.qscv_measure_setup.BODY,
+    DocTopic.QSCV_VAR1: pages.qscv_var1_voltage_sweep.BODY,
 }
 
 

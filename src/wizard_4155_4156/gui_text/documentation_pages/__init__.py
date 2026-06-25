@@ -16,9 +16,32 @@ To add a documentation page
    (the ``DOC_BODIES`` registry).
 """
 
-from . import measurement_ranges, welcome
+from . import (
+    channels_smu,
+    measurement_ranges,
+    qscv_measure_setup,
+    qscv_mode,
+    qscv_var1_voltage_sweep,
+    sampling_mode,
+    sampling_parameters,
+    stop_condition,
+    var1_basic_sweep,
+    var2_subordinate_sweep,
+    vard_synchronous_sweep,
+    welcome,
+)
 
 __all__ = [
+    "channels_smu",
     "measurement_ranges",
+    "qscv_measure_setup",
+    "qscv_mode",
+    "qscv_var1_voltage_sweep",
+    "sampling_mode",
+    "sampling_parameters",
+    "stop_condition",
+    "var1_basic_sweep",
+    "var2_subordinate_sweep",
+    "vard_synchronous_sweep",
     "welcome",
 ]
