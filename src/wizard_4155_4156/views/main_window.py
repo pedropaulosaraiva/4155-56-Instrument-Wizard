@@ -25,6 +25,7 @@ Responsibilities
 - Expose on_data_ready / on_hardware_busy for connector widget signals.
 """
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -48,6 +49,9 @@ from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
 from wizard_4155_4156.models.project import RecentProjectsManager
 from wizard_4155_4156.presenters.channels_presenter import ChannelsPresenter
 from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
+from wizard_4155_4156.presenters.documentation_presenter import (
+    DocumentationPresenter,
+)
 from wizard_4155_4156.presenters.home_presenter import HomePresenter
 from wizard_4155_4156.presenters.measure_config_factory import (
     MeasureConfigFactory,
@@ -65,6 +69,7 @@ from wizard_4155_4156.styles.stylesheets import (
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.connection_top_bar import ConnectionTopBar
 from wizard_4155_4156.views.connector_widget import CompactConnectorWidget
+from wizard_4155_4156.views.documentation_window import DocumentationWindow
 from wizard_4155_4156.views.navigation_bar import NavigationBar
 from wizard_4155_4156.views.pages import (
     BasePage,
@@ -91,6 +96,9 @@ class MainWindow(QMainWindow):
         self._project_manager = ProjectManager()
         self._global_settings = GlobalSettingsManager()
 
+        # Open documentation windows (each request opens a fresh one).
+        self._doc_windows: list[DocumentationWindow] = []
+
         # ── Build UI ─────────────────────────────────────────────────────────
         self._build_menu()
         self._build_central_widget()
@@ -111,6 +119,9 @@ class MainWindow(QMainWindow):
         self._home_presenter.settings_requested.connect(
             self._show_settings_dialog
         )
+        self._home_presenter.documentation_requested.connect(
+            self._open_documentation
+        )
 
         # ── ChannelsPresenter ────────────────────────────────────────────────
         # Call self._channels_presenter.get_config() from SweepConfigPresenter
@@ -121,6 +132,10 @@ class MainWindow(QMainWindow):
         )
         self._channels_presenter.measure_configured.connect(
             self._on_measure_configured
+        )
+        # Section-header / standalone doc icons on the Channels page.
+        self._channels_page.documentation_requested.connect(
+            self._on_doc_topic_requested
         )
 
         # ── MeasureConfigFactory ─────────────────────────────────────────────
@@ -449,6 +464,34 @@ class MainWindow(QMainWindow):
             self._global_settings.save(dlg.get_settings())
             self._status_bar.showMessage("Settings saved.", 3000)
 
+    def _on_doc_topic_requested(self, topic: str) -> None:
+        """A documentation icon was clicked → open collapsed on that page."""
+        self._open_documentation(topic, collapse=True)
+
+    def _open_documentation(
+        self, topic: str | None = None, *, collapse: bool = False
+    ) -> None:
+        """Open a NEW documentation window (one per request)."""
+        window = DocumentationWindow()
+        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        # Presenter lives and dies with its window.
+        presenter = DocumentationPresenter(view=window, parent=window)
+        if topic:
+            presenter.show_topic(topic, collapse=collapse)
+        else:
+            presenter.show_default()
+
+        self._doc_windows.append(window)
+        window.destroyed.connect(lambda *_: self._forget_doc_window(window))
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        self._status_bar.showMessage("Documentation opened.", 3000)
+
+    def _forget_doc_window(self, window: DocumentationWindow) -> None:
+        # Compare by identity — the C++ object may already be gone.
+        self._doc_windows = [w for w in self._doc_windows if w is not window]
+
     def _on_measure_configured(self, _config_dict: dict) -> None:
         """
         "Configure Measure" clicked on the Channels page: discard any
@@ -496,6 +539,8 @@ class MainWindow(QMainWindow):
         self._page_widgets[Page.MEASURE_CONFIG] = new_page
         # "Save Setup" on the config page persists to the DB + jumps to Runs.
         new_page.save_to_db_requested.connect(self._on_save_setup_to_db)
+        # Section-header doc icons on the generated config page.
+        new_page.documentation_requested.connect(self._on_doc_topic_requested)
         self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, True)
         self._navigate_to(Page.MEASURE_CONFIG)
         self._status_bar.showMessage(success_msg, 5000)
@@ -559,6 +604,8 @@ class MainWindow(QMainWindow):
         Without this, background tasks may attempt to access Qt objects
         that are already being torn down, causing a segfault.
         """
+        for window in list(self._doc_windows):
+            window.close()
         self._connector_presenter.cleanup()
         self._project_manager.close()
         super().closeEvent(event)

@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.models.sampling_config import (
     EVENT_COUNT_MAX,
     EVENT_COUNT_MIN,
@@ -121,7 +122,12 @@ class _SamplingSetupSection(_SectionFrame):
     filter_changed = Signal(str)  # ON | OFF
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Sampling Parameters", parent, accent=P.STATUS_INFO)
+        super().__init__(
+            "Sampling Parameters",
+            parent,
+            accent=P.STATUS_INFO,
+            doc_topic=DocTopic.SAMPLING_PARAMETERS,
+        )
 
         self._mode_seg = _SegmentedGroup(
             list(_SAMPLING_MODE_DISPLAY_TO_SCPI.keys()), "LINEAR"
@@ -274,7 +280,12 @@ class _StopConditionSection(_SectionFrame):
     enable_delay_committed = Signal(float)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Stop Condition", parent, accent=P.STATUS_CAUTION)
+        super().__init__(
+            "Stop Condition",
+            parent,
+            accent=P.STATUS_CAUTION,
+            doc_topic=DocTopic.STOP_CONDITION,
+        )
         self._allowed = True
 
         self._enable_cb = QCheckBox("Enable stop condition")
@@ -464,11 +475,14 @@ class SamplingConfigPageView(BasePage):
     save_requested = Signal(str)  # chosen file path (Save JSON)
     save_to_db_requested = Signal()  # save setup into the project database
     save_message_expired = Signal()
+    documentation_requested = Signal(str)  # DocTopic value (section doc icon)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._setup_ui()
         self._wire_sections()
+        for section in self.findChildren(_SectionFrame):
+            section.doc_requested.connect(self.documentation_requested)
 
     def on_activate(self) -> None:
         self.page_activated.emit()

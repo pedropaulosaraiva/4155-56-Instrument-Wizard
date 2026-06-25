@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.stylesheets import (
     bottom_panel_stylesheet,
@@ -65,8 +66,6 @@ from wizard_4155_4156.styles.stylesheets import (
     unit_card_separator_stylesheet,
     unit_card_stylesheet,
     unit_enable_checkbox_stylesheet,
-    unit_group_header_stylesheet,
-    unit_group_separator_stylesheet,
     units_container_stylesheet,
     units_scroll_area_stylesheet,
     units_scroll_viewport_stylesheet,
@@ -74,6 +73,10 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
+from wizard_4155_4156.views.widgets.doc_tooltip import (
+    DocTooltipButton,
+    SectionHeader,
+)
 
 # ── Internal helpers ─────────────────────────────────────────────────────────
 _NAME_VALIDATOR = QRegularExpressionValidator(
@@ -442,6 +445,7 @@ class _ConfigPanel(QFrame):
 
     instrument_model_changed = Signal(str)  # InstrumentModel.value
     measurement_mode_changed = Signal(str)  # MeasurementMode.value
+    documentation_requested = Signal(str)  # DocTopic value
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -484,7 +488,13 @@ class _ConfigPanel(QFrame):
         model_col.setSpacing(4)
         model_label = QLabel("INSTRUMENT MODEL")
         model_label.setStyleSheet(config_section_label_stylesheet())
-        model_col.addWidget(model_label)
+        model_col.addLayout(
+            _label_with_tooltip(
+                model_label,
+                DocTopic.CHANNELS_INSTRUMENT_MODEL,
+                self.documentation_requested,
+            )
+        )
         self._model_combo = QComboBox()
         for model_value in ("4155B", "4156B", "4155C", "4156C"):
             self._model_combo.addItem(model_value, model_value)
@@ -498,7 +508,13 @@ class _ConfigPanel(QFrame):
         mode_col.setSpacing(4)
         mode_label = QLabel("MEASUREMENT MODE")
         mode_label.setStyleSheet(config_section_label_stylesheet())
-        mode_col.addWidget(mode_label)
+        mode_col.addLayout(
+            _label_with_tooltip(
+                mode_label,
+                DocTopic.CHANNELS_MEASUREMENT_MODE,
+                self.documentation_requested,
+            )
+        )
         self._mode_combo = QComboBox()
         for mode_value in ("SWEEP", "SAMPLING", "QSCV"):
             self._mode_combo.addItem(mode_value, mode_value)
@@ -525,8 +541,27 @@ class _ConfigPanel(QFrame):
 # ── Unit group container ─────────────────────────────────────────────────────
 
 
+def _label_with_tooltip(
+    label: QLabel, doc_topic: DocTopic, doc_sink: Signal
+) -> QHBoxLayout:
+    """Row: a section label followed by its standalone documentation icon."""
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(8)
+    row.addWidget(label)
+    button = DocTooltipButton(doc_topic)
+    button.requested.connect(doc_sink)
+    row.addWidget(button)
+    row.addStretch()
+    return row
+
+
 def _make_unit_group(
-    title: str, cards: list[QFrame], accent: str | None = None
+    title: str,
+    cards: list[QFrame],
+    accent: str | None = None,
+    doc_topic: DocTopic | None = None,
+    doc_sink: Signal | None = None,
 ) -> QWidget:
     """Return a titled section containing a horizontal row of cards."""
     group = QWidget()
@@ -534,21 +569,10 @@ def _make_unit_group(
     group_layout.setContentsMargins(0, 0, 0, 0)
     group_layout.setSpacing(10)
 
-    # Header row: label + horizontal rule
-    header_row = QWidget()
-    header_layout = QHBoxLayout(header_row)
-    header_layout.setContentsMargins(0, 0, 0, 0)
-    header_layout.setSpacing(12)
-
-    title_label = QLabel(title)
-    title_label.setStyleSheet(unit_group_header_stylesheet(accent))
-    header_layout.addWidget(title_label)
-
-    separator = QFrame()
-    separator.setFrameShape(QFrame.Shape.HLine)
-    separator.setStyleSheet(unit_group_separator_stylesheet(accent))
-    header_layout.addWidget(separator, stretch=1)
-    group_layout.addWidget(header_row)
+    header = SectionHeader(title, accent=accent, doc_topic=doc_topic)
+    if doc_sink is not None:
+        header.doc_requested.connect(doc_sink)
+    group_layout.addWidget(header)
 
     # Card row
     cards_widget = QWidget()
@@ -618,6 +642,7 @@ class ChannelsPageView(BasePage):
     vsu_function_changed = Signal(int, str)
     vsu_vname_changed = Signal(int, str)
     configure_measure_clicked = Signal()
+    documentation_requested = Signal(str)  # DocTopic value
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -726,7 +751,11 @@ class ChannelsPageView(BasePage):
             smu_cards.append(card)
         units_layout.addWidget(
             _make_unit_group(
-                "SOURCE MONITOR UNITS  (SMU)", smu_cards, accent=P.UNIT_SMU
+                "SOURCE MONITOR UNITS  (SMU)",
+                smu_cards,
+                accent=P.UNIT_SMU,
+                doc_topic=DocTopic.CHANNELS_SMU,
+                doc_sink=self.documentation_requested,
             )
         )
 
@@ -738,7 +767,11 @@ class ChannelsPageView(BasePage):
             vmu_cards.append(card)
         units_layout.addWidget(
             _make_unit_group(
-                "VOLTAGE MONITOR UNITS (VMU)", vmu_cards, accent=P.UNIT_VMU
+                "VOLTAGE MONITOR UNITS (VMU)",
+                vmu_cards,
+                accent=P.UNIT_VMU,
+                doc_topic=DocTopic.CHANNELS_VMU,
+                doc_sink=self.documentation_requested,
             )
         )
 
@@ -750,7 +783,11 @@ class ChannelsPageView(BasePage):
             vsu_cards.append(card)
         units_layout.addWidget(
             _make_unit_group(
-                "VOLTAGE SOURCE UNITS  (VSU)", vsu_cards, accent=P.UNIT_VSU
+                "VOLTAGE SOURCE UNITS  (VSU)",
+                vsu_cards,
+                accent=P.UNIT_VSU,
+                doc_topic=DocTopic.CHANNELS_VSU,
+                doc_sink=self.documentation_requested,
             )
         )
 
@@ -803,6 +840,9 @@ class ChannelsPageView(BasePage):
         )
         self._config_panel.measurement_mode_changed.connect(
             self.measurement_mode_changed
+        )
+        self._config_panel.documentation_requested.connect(
+            self.documentation_requested
         )
         self._ground_cb.toggled.connect(self.ground_changed)
         self._interlock_cb.toggled.connect(self.interlock_changed)

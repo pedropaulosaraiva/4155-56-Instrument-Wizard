@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.models.sweep_config import (
     COMP_I_MAX,
     COMP_I_MIN,
@@ -161,7 +162,9 @@ class _SweepTimingSection(_SectionFrame):
     sweep_stop_changed = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Sweep Timing", parent)
+        super().__init__(
+            "Sweep Timing", parent, doc_topic=DocTopic.SWEEP_TIMING
+        )
         self._delay_edit = _SciDoubleEdit(0.1, DELAY_MIN, DELAY_MAX, "s")
         self._delay_edit._edit.setToolTip(
             f"Range: {DELAY_MIN} – {DELAY_MAX} s"
@@ -213,7 +216,12 @@ class _VAR1Section(_SectionFrame):
     pcomp_enabled_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("VAR1  —  Basic Sweep", parent, accent=P.FUNC_VAR1)
+        super().__init__(
+            "VAR1  —  Basic Sweep",
+            parent,
+            accent=P.FUNC_VAR1,
+            doc_topic=DocTopic.SWEEP_VAR1,
+        )
         self._is_vsu = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
@@ -373,7 +381,8 @@ class _VAR2Section(_SectionFrame):
         super().__init__(
             "VAR2  —  Subordinate Sweep",
             parent,
-            accent=P.FUNC_VAR2
+            accent=P.FUNC_VAR2,
+            doc_topic=DocTopic.SWEEP_VAR2,
         )
         self._is_vsu = False
         self._channel_lbl = QLabel("")
@@ -490,7 +499,10 @@ class _VARDSection(_SectionFrame):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(
-            "VARD  —  Synchronous Sweep", parent, accent=P.FUNC_VARD
+            "VARD  —  Synchronous Sweep",
+            parent,
+            accent=P.FUNC_VARD,
+            doc_topic=DocTopic.SWEEP_VARD,
         )
         self._is_vsu = False
         self._channel_lbl = QLabel("")
@@ -649,11 +661,14 @@ class SweepConfigPageView(BasePage):
     range_changed = Signal(str, str, object)
     const_source_changed = Signal(str, float)
     const_compliance_changed = Signal(str, float)
+    documentation_requested = Signal(str)  # DocTopic value (section doc icon)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._setup_ui()
         self._wire_sections()
+        for section in self.findChildren(_SectionFrame):
+            section.doc_requested.connect(self.documentation_requested)
 
     def on_activate(self) -> None:
         self.page_activated.emit()

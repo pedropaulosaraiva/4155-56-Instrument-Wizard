@@ -1319,3 +1319,115 @@ def runs_empty_label_stylesheet() -> str:
         f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_MD}; "
         f"background: transparent; padding: 24px;"
     )
+
+
+# ── Documentation (tooltip icon, window, tree, viewer) ───────────────────────
+
+
+def doc_tooltip_icon_stylesheet(size: int = 16) -> str:
+    """Circular info ``ⓘ`` button — soft-white 'i' on a blue background."""
+    radius = size // 2
+    glyph = max(10, size - 5)
+    return f"""
+        QToolButton {{
+            background-color: {P.ACCENT};
+            color: #e8edf2;
+            border: none;
+            border-radius: {radius}px;
+            font-family: Georgia, "Times New Roman", serif;
+            font-style: italic;
+            font-weight: bold;
+            font-size: {glyph}px;
+            padding: 0px;
+        }}
+        QToolButton:hover {{ background-color: {P.ACCENT_HOVER}; }}
+        QToolButton:pressed {{ background-color: {P.ACCENT_PRESSED}; }}
+    """
+
+
+def documentation_window_stylesheet() -> str:
+    return f"""
+        QMainWindow, QWidget#doc_root {{
+            background-color: {P.BG_DEEP};
+        }}
+        QSplitter::handle {{ background-color: {P.BORDER}; width: 1px; }}
+    """
+
+
+def documentation_tree_stylesheet() -> str:
+    """Modern single-column nav tree: rounded hover/selection, roomy rows."""
+    return f"""
+        QTreeWidget {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_SECONDARY};
+            border: none;
+            outline: 0;
+            font-family: {P.FONT_FAMILY_UI};
+            font-size: {P.FONT_SIZE_MD};
+            padding: 8px 6px;
+        }}
+        QTreeWidget::item {{
+            min-height: 24px;
+            padding: 5px 6px;
+            border: none;
+            border-radius: {P.RADIUS_SM};
+        }}
+        QTreeWidget::item:hover {{
+            background-color: {P.BG_ELEVATED};
+        }}
+        QTreeWidget::item:selected {{
+            background-color: {P.ACCENT_MUTED};
+            color: {P.TEXT_WHITE};
+        }}
+        QTreeWidget::branch {{
+            background: transparent;
+        }}
+    """
+
+
+def documentation_viewer_stylesheet() -> str:
+    return f"""
+        QTextBrowser {{
+            background-color: {P.BG_DEEP};
+            color: {P.TEXT_PRIMARY};
+            border: none;
+            padding: 12px 22px;
+            font-family: {P.FONT_FAMILY_UI};
+            font-size: {P.FONT_SIZE_MD};
+        }}
+    """
+
+
+def documentation_document_css() -> str:
+    """Default style sheet applied to the rendered Markdown (QTextDocument).
+
+    Set via ``QTextBrowser.document().setDefaultStyleSheet(...)`` before
+    ``setMarkdown`` so headings, links, code and tables follow the dark theme.
+    """
+    return f"""
+        h1 {{ color: {P.TEXT_WHITE}; }}
+        h2 {{ color: {P.STATUS_INFO}; }}
+        h3 {{ color: {P.TEXT_PRIMARY}; }}
+        a {{ color: {P.ACCENT_HOVER}; }}
+        p, li {{ color: {P.TEXT_PRIMARY}; }}
+        code {{
+            background-color: {P.BG_INPUT};
+            color: {P.STATUS_WARN};
+            font-family: {P.FONT_FAMILY_MONO};
+        }}
+        pre {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_PRIMARY};
+            font-family: {P.FONT_FAMILY_MONO};
+        }}
+        blockquote {{ color: {P.TEXT_SECONDARY}; }}
+        th {{
+            background-color: {P.BG_ELEVATED};
+            color: {P.TEXT_WHITE};
+            padding: 6px 10px;
+        }}
+        td {{
+            color: {P.TEXT_PRIMARY};
+            padding: 6px 10px;
+        }}
+    """

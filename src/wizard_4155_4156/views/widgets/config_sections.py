@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.models.sweep_config import (
     COMP_I_MAX,
     COMP_I_MIN,
@@ -75,11 +76,10 @@ from wizard_4155_4156.styles.stylesheets import (
     unit_card_combo_stylesheet,
     unit_card_line_edit_stylesheet,
     unit_enable_checkbox_stylesheet,
-    unit_group_header_stylesheet,
-    unit_group_separator_stylesheet,
     unit_label_stylesheet,
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
+from wizard_4155_4156.views.widgets.doc_tooltip import SectionHeader
 
 _SCI_DISPLAY_LOWER = 0.01
 _SCI_DISPLAY_UPPER = 1e5
@@ -470,29 +470,25 @@ class SegmentedGroup(QWidget):
 
 
 class SectionFrame(QFrame):
+    # Re-exposes the header's doc icon click; the owning page forwards this
+    # to its own documentation_requested signal.
+    doc_requested = Signal(str)  # DocTopic value
+
     def __init__(
         self,
         title: str,
         parent: QWidget | None = None,
         accent: str | None = None,
+        doc_topic: DocTopic | None = None,
     ) -> None:
         super().__init__(parent)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(8)
 
-        header_row = QWidget()
-        hr = QHBoxLayout(header_row)
-        hr.setContentsMargins(0, 0, 0, 0)
-        hr.setSpacing(12)
-        lbl = QLabel(title.upper())
-        lbl.setStyleSheet(unit_group_header_stylesheet(accent))
-        hr.addWidget(lbl)
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(unit_group_separator_stylesheet(accent))
-        hr.addWidget(sep, stretch=1)
-        root.addWidget(header_row)
+        header = SectionHeader(title, accent=accent, doc_topic=doc_topic)
+        header.doc_requested.connect(self.doc_requested)
+        root.addWidget(header)
 
         self._card = QFrame()
         self._card.setObjectName("section_card")
@@ -519,7 +515,11 @@ class ChannelSummarySection(SectionFrame):
     smu_standby_changed = Signal(str, bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Channel Assignments", parent)
+        super().__init__(
+            "Channel Assignments",
+            parent,
+            doc_topic=DocTopic.CHANNEL_ASSIGNMENTS,
+        )
         self._standby_cbs: Dict[str, QCheckBox] = {}
 
     def display_channels(self, active_channels: List[dict]) -> None:
@@ -618,7 +618,11 @@ class MeasSetupSection(SectionFrame):
     wait_multiplier_committed = Signal(float)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Measurement Setup", parent)
+        super().__init__(
+            "Measurement Setup",
+            parent,
+            doc_topic=DocTopic.MEASUREMENT_SETUP,
+        )
         self._setup_widgets()
 
     def _setup_widgets(self) -> None:
@@ -814,7 +818,11 @@ class RangesSection(SectionFrame):
     range_changed = Signal(str, str, object)  # (unit_id, mode, value)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Measurement Ranges", parent)
+        super().__init__(
+            "Measurement Ranges",
+            parent,
+            doc_topic=DocTopic.MEASUREMENT_RANGES,
+        )
         self._rows: Dict[str, RangeRow] = {}
 
     def display_ranges(
@@ -956,7 +964,11 @@ class ConstantsSection(SectionFrame):
     const_compliance_changed = Signal(str, float)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Constant Sources", parent)
+        super().__init__(
+            "Constant Sources",
+            parent,
+            doc_topic=DocTopic.CONSTANT_SOURCES,
+        )
         self._rows: Dict[str, ConstantRow] = {}
 
     def display_constants(
@@ -1036,7 +1048,11 @@ class DisplayVarsSection(SectionFrame):
     var_toggled = Signal(str, bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Display Variables", parent)
+        super().__init__(
+            "Display Variables",
+            parent,
+            doc_topic=DocTopic.DISPLAY_VARIABLES,
+        )
         self._checkboxes: Dict[str, QCheckBox] = {}
         self._grid = QGridLayout()
         self._grid.setSpacing(8)

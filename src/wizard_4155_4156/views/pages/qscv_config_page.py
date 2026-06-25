@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.models.qscv_config import (
     CSTEP_MAX,
     cap_integration_bounds,
@@ -99,7 +100,11 @@ class _QscvNamesSection(_SectionFrame):
     leak_name_changed = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("User Functions", parent)
+        super().__init__(
+            "User Functions",
+            parent,
+            doc_topic=DocTopic.QSCV_USER_FUNCTIONS,
+        )
 
         self._cname_edit = QLineEdit()
         self._cname_edit.setStyleSheet(unit_card_line_edit_stylesheet())
@@ -138,7 +143,12 @@ class _QscvMeasSetupSection(_SectionFrame):
     zero_cancel_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("QSCV Measure Setup", parent, accent=P.ACCENT)
+        super().__init__(
+            "QSCV Measure Setup",
+            parent,
+            accent=P.ACCENT,
+            doc_topic=DocTopic.QSCV_MEASURE_SETUP,
+        )
         self._range_values: List[float] = []
         self._range_resolutions: List[str] = []
 
@@ -277,7 +287,9 @@ class _QscvTimingSection(_SectionFrame):
     sweep_stop_changed = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("QSCV Timing", parent)
+        super().__init__(
+            "QSCV Timing", parent, doc_topic=DocTopic.QSCV_TIMING
+        )
         self._delay_edit = _SciDoubleEdit(0.0, DELAY_MIN, DELAY_MAX, "s")
         self._delay_edit._edit.setToolTip(
             f"Range: {DELAY_MIN} – {DELAY_MAX} s"
@@ -328,7 +340,12 @@ class _QscvVar1Section(_SectionFrame):
     comp_committed = Signal(float)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("VAR1  —  Voltage Sweep", parent, accent=P.FUNC_VAR1)
+        super().__init__(
+            "VAR1  —  Voltage Sweep",
+            parent,
+            accent=P.FUNC_VAR1,
+            doc_topic=DocTopic.QSCV_VAR1,
+        )
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
             f"color: {P.FUNC_VAR1}; font-size: {P.FONT_SIZE_SM}; "
@@ -459,11 +476,14 @@ class QscvConfigPageView(BasePage):
     save_message_expired = Signal()
     const_source_changed = Signal(str, float)
     const_compliance_changed = Signal(str, float)
+    documentation_requested = Signal(str)  # DocTopic value (section doc icon)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._setup_ui()
         self._wire_sections()
+        for section in self.findChildren(_SectionFrame):
+            section.doc_requested.connect(self.documentation_requested)
 
     def on_activate(self) -> None:
         self.page_activated.emit()

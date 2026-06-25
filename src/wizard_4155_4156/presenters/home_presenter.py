@@ -37,6 +37,7 @@ class HomePresenter(QObject):
     project_file_opened = Signal(str)
     new_project_triggered = Signal()
     settings_requested = Signal()
+    documentation_requested = Signal()
 
     def __init__(
         self,
@@ -69,6 +70,7 @@ class HomePresenter(QObject):
         self._view.project_remove_requested.connect(self._on_remove_project)
         self._view.clear_history_requested.connect(self._on_clear_history)
         self._view.settings_requested.connect(self.settings_requested)
+        self._view.documentation_requested.connect(self.documentation_requested)
 
     def _refresh_view(self) -> None:
         self._view.display_recent_projects(self._model.get_projects())
