@@ -31,6 +31,11 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 
 _TOPIC_ROLE = Qt.ItemDataRole.UserRole
+_LABEL_ROLE = Qt.ItemDataRole.UserRole + 1
+
+# Disclosure glyphs prefixed to the top-level section labels.
+_ARROW_OPEN = "▾"  # subtopics shown
+_ARROW_CLOSED = "▸"  # subtopics hidden
 
 
 class DocumentationWindow(QMainWindow):
@@ -54,11 +59,15 @@ class DocumentationWindow(QMainWindow):
 
         self._tree = QTreeWidget()
         self._tree.setHeaderHidden(True)
-        self._tree.setRootIsDecorated(True)
+        # Native branch arrows are replaced by glyphs in the section labels.
+        self._tree.setRootIsDecorated(False)
+        self._tree.setIndentation(18)
         self._tree.setAnimated(True)
         self._tree.setExpandsOnDoubleClick(False)
         self._tree.setStyleSheet(documentation_tree_stylesheet())
         self._tree.itemClicked.connect(self._on_item_clicked)
+        self._tree.itemExpanded.connect(self._on_branch_toggled)
+        self._tree.itemCollapsed.connect(self._on_branch_toggled)
         splitter.addWidget(self._tree)
 
         self._viewer = QTextBrowser()
@@ -81,12 +90,14 @@ class DocumentationWindow(QMainWindow):
         for section in sections:
             sect_item = QTreeWidgetItem(self._tree, [section.label])
             sect_item.setData(0, _TOPIC_ROLE, str(section.topic))
+            sect_item.setData(0, _LABEL_ROLE, section.label)
             sect_item.setFont(0, bold)
             self._register(section.topic, sect_item)
             for node in section.children:
                 child = QTreeWidgetItem(sect_item, [node.label])
                 child.setData(0, _TOPIC_ROLE, str(node.topic))
                 self._register(node.topic, child)
+        self._refresh_section_arrows()
 
     def display_page(self, title: str, markdown: str) -> None:
         self.setWindowTitle(f"Documentation — {title}")
@@ -104,6 +115,7 @@ class DocumentationWindow(QMainWindow):
             self._tree.collapseAll()
         else:
             self.expand_sections()
+        self._refresh_section_arrows()
 
         item = self._items.get(topic)
         if item is None:
@@ -121,6 +133,7 @@ class DocumentationWindow(QMainWindow):
     def expand_sections(self) -> None:
         for i in range(self._tree.topLevelItemCount()):
             self._tree.topLevelItem(i).setExpanded(True)
+        self._refresh_section_arrows()
 
     # ── Private ──────────────────────────────────────────────────────────────
 
@@ -128,6 +141,22 @@ class DocumentationWindow(QMainWindow):
         self._items.setdefault(str(topic), item)
 
     def _on_item_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
+        # Top-level sections toggle their subtopics when clicked.
+        if item.parent() is None and item.childCount() > 0:
+            item.setExpanded(not item.isExpanded())
         topic = item.data(0, _TOPIC_ROLE)
         if topic:
             self.topic_selected.emit(str(topic))
+
+    def _on_branch_toggled(self, _item: QTreeWidgetItem) -> None:
+        self._refresh_section_arrows()
+
+    def _refresh_section_arrows(self) -> None:
+        """Prefix each section label with ▾ (open) or ▸ (collapsed)."""
+        for i in range(self._tree.topLevelItemCount()):
+            item = self._tree.topLevelItem(i)
+            label = item.data(0, _LABEL_ROLE)
+            if label is None:
+                continue
+            arrow = _ARROW_OPEN if item.isExpanded() else _ARROW_CLOSED
+            item.setText(0, f"{arrow}  {label}")
