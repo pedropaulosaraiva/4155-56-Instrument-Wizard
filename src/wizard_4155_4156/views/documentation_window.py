@@ -12,13 +12,16 @@ view only emits ``topic_selected`` when the user clicks a tree entry.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QHBoxLayout,
     QMainWindow,
     QSplitter,
     QTextBrowser,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -28,6 +31,7 @@ from wizard_4155_4156.styles.stylesheets import (
     documentation_tree_stylesheet,
     documentation_viewer_stylesheet,
     documentation_window_stylesheet,
+    documentation_zoom_bar_stylesheet,
 )
 
 _TOPIC_ROLE = Qt.ItemDataRole.UserRole
@@ -36,6 +40,12 @@ _LABEL_ROLE = Qt.ItemDataRole.UserRole + 1
 # Disclosure glyphs prefixed to the top-level section labels.
 _ARROW_OPEN = "▾"  # subtopics shown
 _ARROW_CLOSED = "▸"  # subtopics hidden
+
+# Markdown viewer font sizing (pixels) for the zoom controls.
+_BASE_FONT_PX = 13
+_MIN_FONT_PX = 9
+_MAX_FONT_PX = 30
+_FONT_STEP_PX = 2
 
 
 class DocumentationWindow(QMainWindow):
@@ -50,6 +60,7 @@ class DocumentationWindow(QMainWindow):
         self.setStyleSheet(documentation_window_stylesheet())
         # topic value → first tree item carrying it (shared topics map once).
         self._items: dict[str, QTreeWidgetItem] = {}
+        self._font_px = _BASE_FONT_PX
         self._build_ui()
 
     # ── Build ────────────────────────────────────────────────────────────────
@@ -70,15 +81,88 @@ class DocumentationWindow(QMainWindow):
         self._tree.itemCollapsed.connect(self._on_branch_toggled)
         splitter.addWidget(self._tree)
 
-        self._viewer = QTextBrowser()
-        self._viewer.setOpenExternalLinks(True)
-        self._viewer.setStyleSheet(documentation_viewer_stylesheet())
-        splitter.addWidget(self._viewer)
+        splitter.addWidget(self._build_viewer_pane())
 
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([280, 680])
         self.setCentralWidget(splitter)
+
+        self._install_zoom_shortcuts()
+        self._apply_zoom()
+
+    def _build_viewer_pane(self) -> QWidget:
+        """Right pane: a top-right zoom strip above the Markdown viewer."""
+        pane = QWidget()
+        layout = QVBoxLayout(pane)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        bar = QWidget()
+        bar.setObjectName("doc_zoombar")
+        bar.setStyleSheet(documentation_zoom_bar_stylesheet())
+        bar_layout = QHBoxLayout(bar)
+        bar_layout.setContentsMargins(8, 6, 12, 6)
+        bar_layout.setSpacing(6)
+        bar_layout.addStretch(1)
+
+        self._zoom_out_btn = QToolButton()
+        self._zoom_out_btn.setText("−")  # minus sign
+        self._zoom_out_btn.setToolTip("Zoom out (Ctrl -)")
+        self._zoom_out_btn.clicked.connect(self._zoom_out)
+        bar_layout.addWidget(self._zoom_out_btn)
+
+        self._zoom_in_btn = QToolButton()
+        self._zoom_in_btn.setText("+")
+        self._zoom_in_btn.setToolTip("Zoom in (Ctrl +)")
+        self._zoom_in_btn.clicked.connect(self._zoom_in)
+        bar_layout.addWidget(self._zoom_in_btn)
+
+        layout.addWidget(bar)
+
+        self._viewer = QTextBrowser()
+        self._viewer.setOpenExternalLinks(True)
+        layout.addWidget(self._viewer, 1)
+        return pane
+
+    def _install_zoom_shortcuts(self) -> None:
+        for key, slot in (
+            (QKeySequence.StandardKey.ZoomIn, self._zoom_in),
+            (QKeySequence.StandardKey.ZoomOut, self._zoom_out),
+            (QKeySequence("Ctrl+="), self._zoom_in),  # +/= without Shift
+            (QKeySequence("Ctrl+0"), self._zoom_reset),
+        ):
+            QShortcut(key, self, activated=slot)
+
+    # ── Zoom ─────────────────────────────────────────────────────────────
+
+    def _zoom_in(self) -> None:
+        self._set_font_px(self._font_px + _FONT_STEP_PX)
+
+    def _zoom_out(self) -> None:
+        self._set_font_px(self._font_px - _FONT_STEP_PX)
+
+    def _zoom_reset(self) -> None:
+        self._set_font_px(_BASE_FONT_PX)
+
+    def _set_font_px(self, px: int) -> None:
+        px = max(_MIN_FONT_PX, min(_MAX_FONT_PX, px))
+        if px == self._font_px:
+            return
+        self._font_px = px
+        self._apply_zoom()
+
+    def _apply_zoom(self) -> None:
+        """Push the current font size into the viewer and re-layout content."""
+        self._viewer.setStyleSheet(
+            documentation_viewer_stylesheet(self._font_px)
+        )
+        doc = self._viewer.document()
+        font = doc.defaultFont()
+        font.setPixelSize(self._font_px)
+        doc.setDefaultFont(font)
+        self._zoom_in_btn.setEnabled(self._font_px < _MAX_FONT_PX)
+        self._zoom_out_btn.setEnabled(self._font_px > _MIN_FONT_PX)
 
     # ── Display API (called by presenter) ────────────────────────────────────
 
@@ -101,11 +185,14 @@ class DocumentationWindow(QMainWindow):
 
     def display_page(self, title: str, markdown: str) -> None:
         self.setWindowTitle(f"Documentation — {title}")
+        doc = self._viewer.document()
         # Set the document CSS before each render so headings/links/tables
         # follow the dark theme (QTextBrowser converts Markdown → HTML).
-        self._viewer.document().setDefaultStyleSheet(
-            documentation_document_css()
-        )
+        doc.setDefaultStyleSheet(documentation_document_css())
+        # Re-apply the current zoom so it survives page navigation.
+        font = doc.defaultFont()
+        font.setPixelSize(self._font_px)
+        doc.setDefaultFont(font)
         self._viewer.setMarkdown(markdown)
         self._viewer.verticalScrollBar().setValue(0)
 

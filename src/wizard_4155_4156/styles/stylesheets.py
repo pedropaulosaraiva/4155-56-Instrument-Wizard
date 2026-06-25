@@ -1385,7 +1385,7 @@ def documentation_tree_stylesheet() -> str:
     """
 
 
-def documentation_viewer_stylesheet() -> str:
+def documentation_viewer_stylesheet(font_px: int = 13) -> str:
     return f"""
         QTextBrowser {{
             background-color: {P.BG_DEEP};
@@ -1393,7 +1393,42 @@ def documentation_viewer_stylesheet() -> str:
             border: none;
             padding: 12px 22px;
             font-family: {P.FONT_FAMILY_UI};
-            font-size: {P.FONT_SIZE_MD};
+            font-size: {font_px}px;
+        }}
+    """
+
+
+def documentation_zoom_bar_stylesheet() -> str:
+    """Top-right zoom controls strip above the Markdown viewer."""
+    return f"""
+        QWidget#doc_zoombar {{
+            background-color: {P.BG_DEEP};
+            border-bottom: 1px solid {P.BORDER};
+        }}
+        QWidget#doc_zoombar QToolButton {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            min-width: 26px;
+            min-height: 24px;
+            font-family: {P.FONT_FAMILY_UI};
+            font-size: 16px;
+            font-weight: bold;
+            padding: 0px;
+        }}
+        QWidget#doc_zoombar QToolButton:hover {{
+            background-color: {P.BG_ELEVATED};
+            color: {P.TEXT_WHITE};
+            border-color: {P.ACCENT};
+        }}
+        QWidget#doc_zoombar QToolButton:pressed {{
+            background-color: {P.ACCENT_MUTED};
+        }}
+        QWidget#doc_zoombar QToolButton:disabled {{
+            color: {P.TEXT_DISABLED};
+            border-color: {P.BORDER};
+            background-color: {P.BG_DEEP};
         }}
     """
 
