@@ -60,6 +60,7 @@ from wizard_4155_4156.presenters.measurements_presenter import (
     MeasurementsPresenter,
 )
 from wizard_4155_4156.presenters.runs_presenter import RunsPresenter
+from wizard_4155_4156.presenters.table_presenter import TablePresenter
 from wizard_4155_4156.styles.stylesheets import (
     application_stylesheet,
     status_bar_stylesheet,
@@ -184,9 +185,32 @@ class MainWindow(QMainWindow):
             connector_presenter=self._connector_presenter,
             parent=self,
         )
-        self._runs_presenter.execution_data_ready.connect(self.on_data_ready)
         self._runs_presenter.copy_to_config_requested.connect(
             self._on_copy_to_config
+        )
+
+        # ── TablePresenter ───────────────────────────────────────────────────
+        # Browses project setups/executions plus the live-data snapshot and
+        # renders the selected dataset as a table or exportable code snippet.
+        self._table_presenter = TablePresenter(
+            view=self._table_page,
+            project_manager=self._project_manager,
+            connector_presenter=self._connector_presenter,
+            parent=self,
+        )
+        self._table_presenter.navigation_requested.connect(
+            lambda: self._navigate_to(Page.TABLE)
+        )
+        self._table_presenter.status_message.connect(
+            lambda msg: self._status_bar.showMessage(msg, 5000)
+        )
+        # "View data" on the Runs page opens that execution in the Table page.
+        self._runs_presenter.view_execution_requested.connect(
+            self._table_presenter.show_execution
+        )
+        # A live fetch is cached and shown as the "Live" dataset.
+        self._connector_presenter.data_ready.connect(
+            self._table_presenter.show_live_data
         )
 
         # Trigger initial bus scan AFTER signal wiring so scan_results
@@ -418,6 +442,7 @@ class MainWindow(QMainWindow):
         )
         self._set_project_pages_enabled(True)
         self._runs_presenter.set_database(self._project_manager.current_db)
+        self._table_presenter.set_database(self._project_manager.current_db)
         self._navigate_to(landing_page)
         self._status_bar.showMessage(f"Project ready: {path}", 5000)
 
@@ -582,12 +607,12 @@ class MainWindow(QMainWindow):
     # =========================================================================
 
     def on_data_ready(self, data: dict) -> None:
+        # The TablePresenter (connected to the same signal) caches the dataset,
+        # renders it and navigates to the Table page; here we only surface a
+        # status-bar acknowledgement.
         self._status_bar.showMessage(
             f"Data received — {len(data)} record(s).", 5000
         )
-        # Surface fetched data first as a table, then switch to that page.
-        self._table_page.display_data(data)
-        self._navigate_to(Page.TABLE)
 
     def on_hardware_busy(self, busy: bool) -> None:
         self._status_indicator.setText(" ● Busy " if busy else " ● Ready ")

@@ -1120,6 +1120,28 @@ def table_empty_label_stylesheet() -> str:
     )
 
 
+def table_selector_label_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_MD}; "
+        f"font-weight: bold; background: transparent;"
+    )
+
+
+def table_code_view_stylesheet() -> str:
+    return f"""
+        QPlainTextEdit {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_PRIMARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+            padding: 10px;
+            font-family: {P.FONT_FAMILY_MONO};
+            font-size: {P.FONT_SIZE_SM};
+            selection-background-color: {P.ACCENT_MUTED};
+        }}
+    """
+
+
 # ── Settings Dialog ──────────────────────────────────────────────────────
 
 

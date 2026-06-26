@@ -71,6 +71,26 @@ class CommandWizardText(StrEnum):
     # ── Table View page ──────────────────────────────────────────────────────
     TABLE_PAGE_TITLE = "Table View"
     TABLE_EMPTY = "No measurement data yet. Run a measurement to populate."
+    TABLE_SETUP_LABEL = "Setup:"
+    TABLE_EXEC_LABEL = "Execution:"
+    TABLE_FORMAT_LABEL = "Format:"
+    TABLE_BTN_DOWNLOAD = "⬇  Download"
+    TABLE_BTN_COPY = "⧉  Copy"
+    TABLE_NO_SETUP = "No setups in this project yet."
+    TABLE_NO_EXEC = "No executions for this setup yet."
+    TABLE_LIVE_DATA = "Live Data"
+    TABLE_LIVE_EXEC = "Live"
+    TABLE_COPIED = "Code copied to clipboard."
+    TABLE_DOWNLOADED = "Saved {path}"
+    TABLE_SAVE_TITLE = "Download data"
+    TABLE_SAVE_ERROR = "Could not save file:\n{error}"
+    # Format display names (order mirrors data_export.FORMATS).
+    TABLE_FMT_CSV = "CSV"
+    TABLE_FMT_XLSX = "XLSX"
+    TABLE_FMT_PY_PURE = "Pure Python"
+    TABLE_FMT_PY_NUMPY = "Python (NumPy + Matplotlib)"
+    TABLE_FMT_C_ARRAY = "C/C++ array"
+    TABLE_FMT_MATLAB = "MATLAB vectors"
 
 
 def tr_ui(text_enum: CommandWizardText) -> str:

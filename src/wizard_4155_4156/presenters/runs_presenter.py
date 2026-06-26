@@ -20,7 +20,6 @@ from sqlalchemy.exc import IntegrityError
 
 from wizard_4155_4156.db.assembler import (
     config_dict_to_setup,
-    execution_to_data_dict,
     fetch_result_to_execution,
     setup_to_config_dict,
 )
@@ -52,9 +51,9 @@ _FETCH_BORDER = "NORM"
 class RunsPresenter(QObject):
     """Mediates RunsPageView ↔ the project database."""
 
-    #: Emitted with a ``{var: [values]}`` dict so
-    #: MainWindow can show the table.
-    execution_data_ready = Signal(dict)
+    #: Emitted with (setup_id, execution_id) so the Table page can load and
+    #: display that execution (the DB read happens in TablePresenter).
+    view_execution_requested = Signal(int, int)
     #: Emitted with (ChannelsConfig, config_dict) to open a copied config page.
     copy_to_config_requested = Signal(object, dict)
 
@@ -277,15 +276,12 @@ class RunsPresenter(QObject):
         self._refresh(select_setup_id=setup_id)
 
     def _on_view_data(self, execution_id: int) -> None:
-        db = self._projects.current_db
-        if db is None:
+        if self._current_setup_id is None:
             return
-        with db.session() as s:
-            execution = ExecutionRepository.get(s, execution_id)
-            if execution is None:
-                return
-            data = execution_to_data_dict(execution)
-        self.execution_data_ready.emit(data)
+        # Hand the ids to the Table page; it owns the single load/resolve path.
+        self.view_execution_requested.emit(
+            self._current_setup_id, execution_id
+        )
 
     # ── Hardware run (selected setup) ────────────────────────────────────────
 
