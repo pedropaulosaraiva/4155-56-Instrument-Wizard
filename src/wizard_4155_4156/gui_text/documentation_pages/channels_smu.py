@@ -4,158 +4,53 @@
 BODY = """
 # Source Monitor Units (SMU)
 
-An **SMU (Source Monitor Unit)** can force a constant voltage, constant current,
-pulse voltage, or pulse current, and can measure a DC current or DC voltage. Only
-**one** SMU can be set as the pulsed source.
+A **Source Monitor Unit (SMU)** is a channel that can **source** (force a voltage
+or current) and **measure** (read back the other quantity) at the same time. The
+instrument has four of them, configured as the **SMU1–SMU4** cards in the
+**Source Monitor Units (SMU)** group on the **Channels** page.
 
-An SMU has three operating modes:
+## Enabling a unit
 
-- **V source / I monitor** — sources voltage, measures current.
-- **I source / V monitor** — sources current, measures voltage.
-- **Source common** — the unit acts as the circuit common.
+Each card has a checkbox in its header. Tick it — or click anywhere on the card —
+to include that unit; clearing it marks the card **"(disabled)"** and leaves the
+unit out of the measurement.
 
-> *Figure 7-2 (Simplified SMU Circuit Diagram):* an output switch selects between
-> the **V Source Mode** branch (a voltage source in series with an ammeter) and
-> the **I Source Mode** branch (a current source with a voltmeter) toward the
-> **SMU FORCE** terminal, referenced to **COMMON**.
+## The card's settings
 
-## Compliance
+| Setting | What it does |
+|---------|--------------|
+| **Mode** | What the unit does electrically: **V** forces a voltage and measures current; **I** forces a current and measures voltage; **VPULSE** / **IPULSE** do the same with a pulsed output; **COMM** makes the unit the circuit **common** (a 0 V reference) that neither sources nor measures. |
+| **Function** | The role the unit plays in the measurement: **CONST** (a constant source) or one of the sweep roles **VAR1 / VAR2 / VAR1'**. The choices offered depend on the current measurement mode, and in **COMM** mode the function is fixed to **CONST**. |
+| **V-Name** | The name for this unit's **voltage** variable (up to 6 characters). |
+| **I-Name** | The name for this unit's **current** variable (up to 6 characters). |
 
-Each SMU has a **compliance** feature that limits the output voltage or current
-to protect your device:
+## What an SMU measures
 
-- When the SMU **forces voltage**, you specify a **current compliance**.
-- When the SMU **forces current**, you specify a **voltage compliance**.
+An SMU always measures the quantity it is **not** forcing — and that measured
+variable is the one that flows through to the rest of the app:
 
-For the compliance setting range and resolution, see *"Compliance"* in Chapter 7
-of the User's Guide.
+- In **V**, **VPULSE**, or **COMM** mode it measures **current** → its **I-Name**.
+- In **I** or **IPULSE** mode it measures **voltage** → its **V-Name**.
 
-## Types of SMU
+That measured variable is what you tick in **Display Variables** to record and
+plot, what a sampling **Stop Condition** can watch, and what makes the unit count
+as an active measurement unit in sampling mode.
 
-| Type | Where | Force / measure | Max. output power | Notes | Kelvin |
-|------|-------|-----------------|:-----------------:|-------|:------:|
-| **HRSMU** (high resolution) | 4156C only — four units | ±100 V or ±100 mA | 2 W | Minimum current measurement range **10 pA** with **1 fA** resolution | Yes |
-| **MPSMU** (medium power) | 4155C — four units; 41501A/B option 420/422 — two units | ±100 V or ±100 mA | 2 W | — | — |
-| **HPSMU** (high power) | 41501A/B option 410/412 — one unit | ±200 V or ±1 A | 20 W | — | Yes |
+## What is set elsewhere
 
----
+The SMU card defines only the unit's **role and names**. Its other properties are
+set on the measurement-configuration page, with the function the SMU performs:
 
-## HRSMU — High Resolution SMU
+- **Compliance** — the safety limit that caps the output to protect your device
+  (a current limit when forcing voltage, a voltage limit when forcing current) — is
+  set on the VAR1 / VAR2 / VAR1' cards, or with the constant source.
+- **Measurement range** is set in that page's ranges section.
 
-### Output voltage ranges (Table 7-1)
+How fine those ranges can go depends on the **instrument model** chosen at the top
+of the Channels page: a **4156** provides high-resolution SMUs (reaching the lowest
+current ranges, down into the picoamp region), while a **4155** provides
+medium-power SMUs (ranges starting higher). This is why the available ranges
+change when you switch model.
 
-| Range | Output value | Output resolution | Current compliance range |
-|-------|--------------|:-----------------:|:------------------------:|
-| 2 V | 0 ≤ \\|V\\| ≤ 2 V | 100 μV | ±100 mA |
-| 20 V | 0 ≤ \\|V\\| ≤ 20 V | 1 mV | ±100 mA |
-| 40 V | 0 ≤ \\|V\\| ≤ 40 V | 2 mV | ±50 mA |
-| 100 V | 0 ≤ \\|V\\| ≤ 100 V | 5 mV | ±20 mA |
-
-### Measurement voltage values and resolutions (Table 7-2)
-
-| Range | Measurement value | 1 PLC or longer | 640 μs – 1.92 ms | 80 – 560 μs | High-speed sampling |
-|-------|-------------------|:---------------:|:----------------:|:-----------:|:-------------------:|
-| 2 V | 0 ≤ \\|V\\| ≤ 2.2 V | 2 μV | 20 μV | 200 μV | 2 mV |
-| 20 V | 0 ≤ \\|V\\| ≤ 22 V | 20 μV | 200 μV | 2 mV | 20 mV |
-| 40 V | 0 ≤ \\|V\\| ≤ 44 V | 40 μV | 400 μV | 4 mV | 40 mV |
-| 100 V | 0 ≤ \\|V\\| ≤ 100 V | 100 μV | 1 mV | 10 mV | 100 mV |
-
-### Output current ranges (Table 7-3)
-
-| Range | Output value | Output resolution | Voltage compliance range |
-|-------|--------------|:-----------------:|:------------------------:|
-| 10 pA | 0 ≤ \\|I\\| ≤ 10 pA | 10 fA | ±100 V |
-| 100 pA | 0 ≤ \\|I\\| ≤ 100 pA | 10 fA | ±100 V |
-| 1 nA | 0 ≤ \\|I\\| ≤ 1 nA | 100 fA | ±100 V |
-| 10 nA | 0 ≤ \\|I\\| ≤ 10 nA | 1 pA | ±100 V |
-| 100 nA | 0 ≤ \\|I\\| ≤ 100 nA | 10 pA | ±100 V |
-| 1 μA | 0 ≤ \\|I\\| ≤ 1 μA | 100 pA | ±100 V |
-| 10 μA | 0 ≤ \\|I\\| ≤ 10 μA | 1 nA | ±100 V |
-| 100 μA | 0 ≤ \\|I\\| ≤ 100 μA | 10 nA | ±100 V |
-| 1 mA | 0 ≤ \\|I\\| ≤ 1 mA | 100 nA | ±100 V |
-| 10 mA | 0 ≤ \\|I\\| ≤ 10 mA | 1 μA | ±100 V |
-| 100 mA | 0 ≤ \\|I\\| ≤ 20 mA | 10 μA | ±100 V |
-| 100 mA | 20 mA < \\|I\\| ≤ 50 mA | 10 μA | ±40 V |
-| 100 mA | 50 mA < \\|I\\| ≤ 100 mA | 10 μA | ±20 V |
-
-### Measurement current values and resolutions (Table 7-4)
-
-| Range | Measurement value | 1 PLC or longer | 640 μs – 1.92 ms | 80 – 560 μs | High-speed sampling |
-|-------|-------------------|:---------------:|:----------------:|:-----------:|:-------------------:|
-| 10 pA | 0 ≤ \\|I\\| ≤ 10.5 pA | 1 fA | 1 fA | 1 fA | 10 fA |
-| 100 pA | 0 ≤ \\|I\\| ≤ 115 pA | 1 fA | 1 fA | 10 fA | 100 fA |
-| 1 nA | 0 ≤ \\|I\\| ≤ 1.15 nA | 10 fA | 10 fA | 100 fA | 1 pA |
-| 10 nA | 0 ≤ \\|I\\| ≤ 11.5 nA | 10 fA | 100 fA | 1 pA | 10 pA |
-| 100 nA | 0 ≤ \\|I\\| ≤ 115 nA | 100 fA | 1 pA | 10 pA | 100 pA |
-| 1 μA | 0 ≤ \\|I\\| ≤ 1.15 μA | 1 pA | 10 pA | 100 pA | 1 nA |
-| 10 μA | 0 ≤ \\|I\\| ≤ 11.5 μA | 10 pA | 100 pA | 1 nA | 10 nA |
-| 100 μA | 0 ≤ \\|I\\| ≤ 115 μA | 100 pA | 1 nA | 10 nA | 100 nA |
-| 1 mA | 0 ≤ \\|I\\| ≤ 1.15 mA | 1 nA | 10 nA | 100 nA | 1 μA |
-| 10 mA | 0 ≤ \\|I\\| ≤ 11.5 mA | 10 nA | 100 nA | 1 μA | 10 μA |
-| 100 mA | 0 ≤ \\|I\\| ≤ 100 mA | 100 nA | 1 μA | 10 μA | 100 μA |
-
----
-
-## MPSMU — Medium Power SMU
-
-### Output voltage ranges (Table 7-5)
-
-| Range | Output value | Output resolution | Current compliance range |
-|-------|--------------|:-----------------:|:------------------------:|
-| 2 V | 0 ≤ \\|V\\| ≤ 2 V | 100 μV | ±100 mA |
-| 20 V | 0 ≤ \\|V\\| ≤ 20 V | 1 mV | ±100 mA |
-| 40 V | 0 ≤ \\|V\\| ≤ 40 V | 2 mV | ±50 mA |
-| 100 V | 0 ≤ \\|V\\| ≤ 100 V | 5 mV | ±20 mA |
-
-### Measurement voltage values and resolutions (Table 7-6)
-
-| Range | Measurement value | 1 PLC or longer | 640 μs – 1.92 ms | 80 – 560 μs | High-speed sampling |
-|-------|-------------------|:---------------:|:----------------:|:-----------:|:-------------------:|
-| 2 V | 0 ≤ \\|V\\| ≤ 2.2 V | 2 μV | 20 μV | 200 μV | 2 mV |
-| 20 V | 0 ≤ \\|V\\| ≤ 22 V | 20 μV | 200 μV | 2 mV | 20 mV |
-| 40 V | 0 ≤ \\|V\\| ≤ 44 V | 40 μV | 400 μV | 4 mV | 40 mV |
-| 100 V | 0 ≤ \\|V\\| ≤ 100 V | 100 μV | 1 mV | 10 mV | 100 mV |
-
-### Output current ranges (Table 7-7)
-
-| Range | Output value | Output resolution | Voltage compliance range |
-|-------|--------------|:-----------------:|:------------------------:|
-| 1 nA | 0 ≤ \\|I\\| ≤ 1 nA | 100 fA | ±100 V |
-| 10 nA | 0 ≤ \\|I\\| ≤ 10 nA | 1 pA | ±100 V |
-| 100 nA | 0 ≤ \\|I\\| ≤ 100 nA | 10 pA | ±100 V |
-| 1 μA | 0 ≤ \\|I\\| ≤ 1 μA | 100 pA | ±100 V |
-| 10 μA | 0 ≤ \\|I\\| ≤ 10 μA | 1 nA | ±100 V |
-| 100 μA | 0 ≤ \\|I\\| ≤ 100 μA | 10 nA | ±100 V |
-| 1 mA | 0 ≤ \\|I\\| ≤ 1 mA | 100 nA | ±100 V |
-| 10 mA | 0 ≤ \\|I\\| ≤ 10 mA | 1 μA | ±100 V |
-| 100 mA | 0 ≤ \\|I\\| ≤ 20 mA | 10 μA | ±100 V |
-| 100 mA | 20 mA < \\|I\\| ≤ 50 mA | 10 μA | ±40 V |
-| 100 mA | 50 mA < \\|I\\| ≤ 100 mA | 10 μA | ±20 V |
-
-### Measurement current values and resolutions (Table 7-8)
-
-| Range | Measurement value | 1 PLC or longer | 640 μs – 1.92 ms | 80 – 560 μs | High-speed sampling |
-|-------|-------------------|:---------------:|:----------------:|:-----------:|:-------------------:|
-| 1 nA | 0 ≤ \\|I\\| ≤ 1.15 nA | 10 fA | 10 fA | 100 fA | 1 pA |
-| 10 nA | 0 ≤ \\|I\\| ≤ 11.5 nA | 10 fA | 100 fA | 1 pA | 10 pA |
-| 100 nA | 0 ≤ \\|I\\| ≤ 115 nA | 100 fA | 1 pA | 10 pA | 100 pA |
-| 1 μA | 0 ≤ \\|I\\| ≤ 1.15 μA | 1 pA | 10 pA | 100 pA | 1 nA |
-| 10 μA | 0 ≤ \\|I\\| ≤ 11.5 μA | 10 pA | 100 pA | 1 nA | 10 nA |
-| 100 μA | 0 ≤ \\|I\\| ≤ 115 μA | 100 pA | 1 nA | 10 nA | 100 nA |
-| 1 mA | 0 ≤ \\|I\\| ≤ 1.15 mA | 1 nA | 10 nA | 100 nA | 1 μA |
-| 10 mA | 0 ≤ \\|I\\| ≤ 11.5 mA | 10 nA | 100 nA | 1 μA | 10 μA |
-| 100 mA | 0 ≤ \\|I\\| ≤ 100 mA | 100 nA | 1 μA | 10 μA | 100 μA |
-
----
-
-> **Notes on the measurement tables**
->
-> - The **measurement value** column applies to **auto** or **limited auto** ranging. For **fixed** ranging, the maximum measurement value is the **Range** column value.
-> - Measurement resolution depends on the **integration time** setting. For Knob-sweep measurements, use the **80 – 560 μs** column.
-> - The **high-speed sampling** column applies to a sampling measurement whose initial interval is set to **480 μs or shorter**.
->
-> For the **HPSMU** output and measurement ranges, refer to *"HPSMU — High Power
-> SMU"* in Chapter 7 of the User's Guide.
-
-> Source: *Agilent 4155C/4156C User's Guide Vol.2*, Edition 6 — Measurement Units and Functions ▸ Measurement Units.
+> Source: *Agilent 4155C/4156C User's Guide Vol.2* — Measurement Units and Functions ▸ Measurement Units.
 """.strip()
