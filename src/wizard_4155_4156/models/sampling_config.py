@@ -52,6 +52,7 @@ from wizard_4155_4156.models.sweep_config import (
     WAIT_MULT_MIN,
     IntegrationMode,
     MeasurementSetup,
+    count_measured_units,
     measured_variable,
     validate_constant_sources,
     validate_display_vars,
@@ -242,14 +243,15 @@ class SamplingConstraints:
         """
         Number of units that will actually measure: enabled SMUs/VMUs whose
         measured variable is selected for display.
+
+        Drives the data-buffer split (``points_max``), so a dvol pair counts
+        as one stored value.  For the per-sample *time* estimate, which scales
+        with integration count, use ``count_measured_units`` with
+        ``dvol_weight=2`` (see :meth:`_timing_warnings`).
         """
-        selected = set(display_vars)
-        count = 0
-        for ch in active_channels or []:
-            measured = SamplingConstraints.measured_variable(ch)
-            if measured is not None and measured in selected:
-                count += 1
-        return count
+        return count_measured_units(
+            active_channels, display_vars, dvol_weight=1
+        )
 
     @staticmethod
     def integration_time_estimate(ms: MeasurementSetup) -> float:
@@ -422,13 +424,23 @@ class SamplingConstraints:
         return errors
 
     @staticmethod
-    def _timing_warnings(cfg: SamplingConfig, n_units: int) -> List[str]:
-        """Non-blocking feasibility warnings on the sampling interval."""
+    def _timing_warnings(
+        cfg: SamplingConfig, active_channels: List[dict]
+    ) -> List[str]:
+        """Non-blocking feasibility warnings on the sampling interval.
+
+        The per-sample time scales with integration count, so a dvol VMU
+        counts as two measurement units here (it integrates both VMUs in
+        turn) — unlike the data-buffer count used for ``points_max``.
+        """
         iint = cfg.initial_interval
-        if n_units <= 0 or iint <= 0:
+        time_units = count_measured_units(
+            active_channels, cfg.display_vars, dvol_weight=2
+        )
+        if time_units <= 0 or iint <= 0:
             return []
         est = SamplingConstraints.estimated_sample_time(
-            cfg.measurement_setup, n_units
+            cfg.measurement_setup, time_units
         )
         if est >= SAMPLE_TIME_EXCEED_RATIO * iint:
             return [
@@ -519,5 +531,5 @@ class SamplingConstraints:
             )
         )
 
-        warnings = sampling_constraints._timing_warnings(cfg, n_units)
+        warnings = sampling_constraints._timing_warnings(cfg, active_channels)
         return errors, warnings

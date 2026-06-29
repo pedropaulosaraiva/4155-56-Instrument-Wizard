@@ -176,7 +176,9 @@ class ChannelsPresenter(QObject):
 
     def _on_vmu_enabled(self, index: int, enabled: bool) -> None:
         self._config.vmu[index].enabled = enabled
-        self._update_validation()
+        # Toggling one VMU can form/break a dvol pair, which changes the other
+        # card's name-lock state — refresh both cards.
+        self._push_full_state()
 
     def _on_vmu_mode(self, index: int, value: str) -> None:
         try:
@@ -184,7 +186,9 @@ class ChannelsPresenter(QObject):
         except ValueError:
             return
         self._config.vmu[index].mode = new_mode
-        self._update_validation()
+        # A dvol mode change can form/break a dvol pair — refresh both cards so
+        # the secondary's name field locks/unlocks accordingly.
+        self._push_full_state()
 
     def _on_vmu_vname(self, index: int, name: str) -> None:
         self._config.vmu[index].voltage_name = name
@@ -269,12 +273,16 @@ class ChannelsPresenter(QObject):
             for index, smu in config.smu.items()
         }
 
-        # Build VMU state dicts
+        # Build VMU state dicts. The dvol secondary's name is auto-nulled by
+        # the instrument, so lock (disable + clear) its V-Name field.
         vmu_states = {
             index: {
                 "enabled": vmu.enabled,
                 "mode": vmu.mode.value,
                 "voltage_name": vmu.voltage_name,
+                "vname_locked": ChannelsConstraints.is_dvol_secondary(
+                    config, index
+                ),
             }
             for index, vmu in config.vmu.items()
         }

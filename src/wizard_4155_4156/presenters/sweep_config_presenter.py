@@ -31,6 +31,10 @@ from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QObject
 
+from wizard_4155_4156.models.channels import (
+    VMU_MODE_SCPI_MAP,
+    ChannelsConstraints,
+)
 from wizard_4155_4156.models.config_loader import sweep_config_from_setup
 from wizard_4155_4156.models.sweep_config import (
     DISPLAY_VARS_MAX,
@@ -253,6 +257,10 @@ class SweepConfigPresenter(QObject):
         # ── VMUs ──────────────────────────────────────────────────────
         for idx, vmu in ch_cfg.vmu.items():
             if not vmu.enabled:
+                continue
+            # The dvol secondary is auto-coupled by VMU1 and nameless — it has
+            # no measured variable and must not appear anywhere.
+            if ChannelsConstraints.is_dvol_secondary(ch_cfg, idx):
                 continue
             ch_id = f"VMU{idx}"
             active.append({
@@ -685,10 +693,14 @@ class SweepConfigPresenter(QObject):
         for idx in range(1, 3):
             ch_id = f"VMU{idx}"
             vmu = ch_cfg.vmu.get(idx)
+            # The dvol secondary is auto-coupled by VMU1's DVOLT command —
+            # omit it entirely (no key) rather than disabling it.
+            if vmu and ChannelsConstraints.is_dvol_secondary(ch_cfg, idx):
+                continue
             if vmu and vmu.enabled:
                 channels_json[ch_id] = {
                     "v_name": vmu.voltage_name,
-                    "vmu_mode": vmu.mode.value,
+                    "vmu_mode": VMU_MODE_SCPI_MAP[vmu.mode],
                 }
             else:
                 channels_json[ch_id] = {"disable": 1}

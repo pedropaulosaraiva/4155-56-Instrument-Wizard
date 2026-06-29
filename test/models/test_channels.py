@@ -16,6 +16,7 @@ from wizard_4155_4156.models.channels import (
     MeasurementMode,
     SMUMode,
     UnitFunction,
+    VMUMode,
 )
 
 # ── ChannelsConstraints: mode / function tables ──────────────────────────────
@@ -345,3 +346,77 @@ def test_to_measure_dict_mode_mapping_sampling():
     cfg = ChannelsConfig()
     cfg.measurement_mode = MeasurementMode.SAMPLING
     assert cfg.to_measure_dict()["mode"] == "SAMP"
+
+
+# ── VMU differential (dvol) mode ─────────────────────────────────────────────
+
+DVOL_ERROR = (
+    "Differential (DVOLT) mode requires both VMUs in DVOLT, or neither"
+)
+BLANK_NAME_ERROR = "One or more enabled units have a blank variable name"
+
+
+def _enable_vmu(cfg, index, mode=VMUMode.DVOLT):
+    cfg.vmu[index].enabled = True
+    cfg.vmu[index].mode = mode
+
+
+def test_dvol_pair_active_and_secondary():
+    cfg = ChannelsConfig()
+    _enable_vmu(cfg, 1)
+    _enable_vmu(cfg, 2)
+    assert ChannelsConstraints.dvol_pair_active(cfg) is True
+    assert ChannelsConstraints.is_dvol_secondary(cfg, 2) is True
+    assert ChannelsConstraints.is_dvol_secondary(cfg, 1) is False
+
+
+def test_dvol_pair_inactive_when_only_one_dvol():
+    cfg = ChannelsConfig()
+    _enable_vmu(cfg, 1)  # VMU2 stays disabled
+    assert ChannelsConstraints.dvol_pair_active(cfg) is False
+    assert ChannelsConstraints.is_dvol_secondary(cfg, 2) is False
+
+
+def test_single_vmu_dvol_blocks():
+    cfg = ChannelsConfig()
+    _enable_vmu(cfg, 1)  # VMU1 DVOLT, VMU2 disabled
+    assert DVOL_ERROR in ChannelsConstraints.validate_config(cfg)
+
+
+def test_one_dvol_one_v_blocks():
+    cfg = ChannelsConfig()
+    _enable_vmu(cfg, 1)
+    _enable_vmu(cfg, 2, mode=VMUMode.V)
+    assert DVOL_ERROR in ChannelsConstraints.validate_config(cfg)
+
+
+def test_dvol_pair_is_valid():
+    cfg = ChannelsConfig()
+    _enable_vmu(cfg, 1)
+    _enable_vmu(cfg, 2)
+    errors = ChannelsConstraints.validate_config(cfg)
+    assert errors == []
+
+
+def test_both_vmus_v_mode_no_dvol_error():
+    cfg = ChannelsConfig()
+    _enable_vmu(cfg, 1, mode=VMUMode.V)
+    _enable_vmu(cfg, 2, mode=VMUMode.V)
+    assert DVOL_ERROR not in ChannelsConstraints.validate_config(cfg)
+
+
+def test_dvol_secondary_blank_name_allowed():
+    cfg = ChannelsConfig()
+    _enable_vmu(cfg, 1)
+    _enable_vmu(cfg, 2)
+    cfg.vmu[2].voltage_name = ""  # secondary auto-nulled — not required
+    assert BLANK_NAME_ERROR not in ChannelsConstraints.validate_config(cfg)
+
+
+def test_to_measure_dict_dvol_pair_omits_secondary():
+    cfg = ChannelsConfig()
+    _enable_vmu(cfg, 1)
+    _enable_vmu(cfg, 2)
+    channels = cfg.to_measure_dict()["channels"]
+    assert channels["VMU1"] == {"v_name": "VMU1", "vmu_mode": "DVOL"}
+    assert "VMU2" not in channels

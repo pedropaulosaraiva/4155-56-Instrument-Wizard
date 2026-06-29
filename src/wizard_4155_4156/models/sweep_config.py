@@ -294,6 +294,34 @@ def measured_variable(channel: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def count_measured_units(
+    active_channels: List[dict],
+    display_vars: List[str],
+    *,
+    dvol_weight: int = 1,
+) -> int:
+    """
+    Number of measuring units whose measured variable is selected for display.
+
+    A VMU in differential (DVOLT) mode contributes ``dvol_weight``: use 2 for
+    time estimation (the differential measures both VMUs, doubling integration
+    time) and 1 for the data buffer / validation (it stores a single value).
+    The dvol secondary is absent from ``active_channels`` (see the config
+    presenters), so only the primary is ever weighted.
+    """
+    selected = set(display_vars)
+    count = 0
+    for ch in active_channels or []:
+        measured = measured_variable(ch)
+        if measured is None or measured not in selected:
+            continue
+        if ch.get("unit_type") == "VMU" and ch.get("mode") == "DVOLT":
+            count += dvol_weight
+        else:
+            count += 1
+    return count
+
+
 def _is_4156(instrument_model: str) -> bool:
     """HRSMU (4156) vs MPSMU (4155); mirrors the RangeRow convention."""
     return "56" in (instrument_model or "")

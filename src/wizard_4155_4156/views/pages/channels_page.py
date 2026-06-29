@@ -356,12 +356,20 @@ class VMUCard(_BaseUnitCard):
         enabled: bool,
         mode: str,
         voltage_name: str,
+        vname_locked: bool = False,
     ) -> None:
         self._enabled = enabled
         _set_checkbox_signal_free(self._enable_cb, enabled)
         self._content.setEnabled(enabled)
         _set_combo_signal_free(self._mode_combo, mode)
-        _set_linetxt_signal_free(self._vname_edit, voltage_name)
+        # In a dvol pair, the secondary VMU's name is auto-nulled by the
+        # instrument — disable and clear the field to communicate that.
+        if vname_locked:
+            _set_linetxt_signal_free(self._vname_edit, "")
+            self._vname_edit.setEnabled(False)
+        else:
+            _set_linetxt_signal_free(self._vname_edit, voltage_name)
+            self._vname_edit.setEnabled(True)
         self._refresh_card_style(enabled)
         self._update_enable_label(enabled)
 

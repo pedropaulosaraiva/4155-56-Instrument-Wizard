@@ -18,7 +18,10 @@ from wizard_4155_4156.models.sampling_config import (
     SamplingMode,
     StopCondition,
 )
-from wizard_4155_4156.models.sweep_config import IntegrationMode
+from wizard_4155_4156.models.sweep_config import (
+    IntegrationMode,
+    count_measured_units,
+)
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -209,6 +212,25 @@ def test_count_measurement_units_mixed():
         channels, ["@TIME", "I1", "V2", "VMU1"]
     )
     assert count == EXPECTED_MIXED_UNIT_COUNT
+
+
+def test_count_measured_units_dvol_weighting():
+    channels = [vmu(1, mode="DVOLT")]
+    display = ["VMU1"]
+    # Data buffer / validation: a dvol pair stores one differential value.
+    assert count_measured_units(channels, display, dvol_weight=1) == 1
+    # Time estimate: the differential integrates both VMUs in turn.
+    expected_dvol_time_units = 2
+    assert (
+        count_measured_units(channels, display, dvol_weight=2)
+        == expected_dvol_time_units
+    )
+
+
+def test_count_measurement_units_dvol_counts_one_for_buffer():
+    # SamplingConstraints.count_measurement_units drives points_max → weight 1.
+    channels = [vmu(1, mode="DVOLT")]
+    assert SamplingConstraints.count_measurement_units(channels, ["VMU1"]) == 1
 
 
 # ── validate_config: errors ──────────────────────────────────────────────────
@@ -499,3 +521,47 @@ def test_estimated_sample_time():
     )
     # 2.0 × 1 ms wait reference + 3 × 0.4 ms integration
     assert est == pytest.approx(2e-3 + 3 * 4e-4)
+
+
+def _dvol_config(initial_interval):
+    cfg = SamplingConfig()
+    cfg.display_vars = ["@TIME", "VMU1"]
+    cfg.measurement_setup.ranges = {"VMU1": {"mode": "AUTO"}}
+    cfg.constants = {}
+    cfg.initial_interval = initial_interval
+    return cfg
+
+
+def test_timing_warning_counts_dvol_as_two_units():
+    # MED integration (20 ms) + 1 ms wait. At 40 ms interval one ordinary unit
+    # (~21 ms) raises no warning, but a dvol VMU integrates twice (~41 ms) and
+    # crosses the "close to interval" threshold.
+    single = make_valid_config(initial_interval=0.04)
+    _, warnings_single = validate(single)
+    assert warnings_single == []
+
+    cfg = _dvol_config(0.04)
+    channels = [vmu(1, mode="DVOLT")]
+    errors, warnings = validate(cfg, channels, ["VMU1"])
+    assert errors == []
+    assert len(warnings) == 1
+    assert "close to the Initial Interval" in warnings[0]
+
+
+def test_dvol_counts_as_single_display_variable():
+    # dvol VMU1 + @TIME = two selected variables → satisfies the ≥2 rule,
+    # even though it consumes two measurement units for timing.
+    cfg = _dvol_config(1.0)  # slow interval → isolate the display-var rule
+    channels = [vmu(1, mode="DVOLT")]
+    errors, _ = validate(cfg, channels, ["VMU1"])
+    assert not any(e.startswith("Select at least") for e in errors)
+
+
+def test_dvol_alone_fails_min_display_vars():
+    cfg = _dvol_config(1.0)
+    cfg.display_vars = ["VMU1"]  # a dvol pair is a single selectable variable
+    channels = [vmu(1, mode="DVOLT")]
+    errors, _ = validate(cfg, channels, ["VMU1"])
+    assert any(
+        e.startswith("Select at least 2 display variables") for e in errors
+    )

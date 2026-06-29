@@ -199,6 +199,12 @@ class ChannelsConfig:
                 channels[f"SMU{index}"] = {"disable": 1}
 
         for index, vmu in self.vmu.items():
+            # In a dvol pair, VMU1's DVOLT command auto-couples VMU2 and nulls
+            # its name — emit nothing for the secondary.
+            if vmu_active and ChannelsConstraints.is_dvol_secondary(
+                self, index
+            ):
+                continue
             if vmu_active and vmu.enabled:
                 channels[f"VMU{index}"] = {
                     "v_name": vmu.voltage_name,
@@ -254,6 +260,38 @@ class ChannelsConstraints:
         greyed-out in the UI.
         """
         return mode in {MeasurementMode.SWEEP, MeasurementMode.SAMPLING}
+
+    @staticmethod
+    def dvol_pair_active(cfg: ChannelsConfig) -> bool:
+        """
+        True when the two VMUs form a valid differential pair: both enabled
+        and both in DVOLT mode.  In a dvol pair the differential voltage is
+        reported under VMU1's name; VMU2 is auto-coupled and nameless.
+        """
+        return len(cfg.vmu) == VMU_COUNT and all(
+            vmu.enabled and vmu.mode == VMUMode.DVOLT
+            for vmu in cfg.vmu.values()
+        )
+
+    @staticmethod
+    def is_dvol_secondary(cfg: ChannelsConfig, index: int) -> bool:
+        """
+        True for the secondary VMU (VMU2) of an active dvol pair.  The
+        secondary is nameless and must not be emitted as its own command —
+        VMU1's DVOLT command auto-couples it on the instrument.
+        """
+        return (
+            ChannelsConstraints.dvol_pair_active(cfg) and index == VMU_COUNT
+        )
+
+    @staticmethod
+    def _enabled_dvol_count(cfg: ChannelsConfig) -> int:
+        """Number of enabled VMUs currently in DVOLT mode."""
+        return sum(
+            1
+            for vmu in cfg.vmu.values()
+            if vmu.enabled and vmu.mode == VMUMode.DVOLT
+        )
 
     @staticmethod
     def smu_functions(mode: MeasurementMode) -> list[UnitFunction]:
@@ -320,8 +358,12 @@ class ChannelsConstraints:
                 names.append(smu.voltage_name)
                 names.append(smu.current_name)
         if ChannelsConstraints.vmu_usable_in_mode(cfg.measurement_mode):
-            for vmu in cfg.vmu.values():
-                if vmu.enabled:
+            for idx, vmu in cfg.vmu.items():
+                # The dvol secondary is intentionally nameless — skip it so it
+                # is neither required (blank-name) nor deduped (uniqueness).
+                if vmu.enabled and not ChannelsConstraints.is_dvol_secondary(
+                    cfg, idx
+                ):
                     names.append(vmu.voltage_name)
         for vsu in cfg.vsu.values():
             if vsu.enabled:
@@ -449,6 +491,17 @@ class ChannelsConstraints:
                 errors.append(
                     "Primary sweep and VARD must have the same V/I mode type"
                 )
+
+        # 1.1.8) Differential (DVOLT) mode needs both VMUs — a single VMU in
+        # DVOLT cannot form a differential pair.
+        if (
+            ChannelsConstraints.vmu_usable_in_mode(cfg.measurement_mode)
+            and ChannelsConstraints._enabled_dvol_count(cfg) == 1
+        ):
+            errors.append(
+                "Differential (DVOLT) mode requires both VMUs in DVOLT, "
+                "or neither"
+            )
 
         return errors
 
