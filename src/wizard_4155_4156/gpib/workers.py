@@ -76,6 +76,18 @@ class BaseWorkerTask(QRunnable):
 
 class ScanTask(BaseWorkerTask):
     def _execute(self) -> None:
+        # Lazily bring up the VISA driver on the first scan only.
+        if not self.controller.is_visa_ready:
+            self.signals.log_msg.emit(LogMsg.VISA_INIT_START)
+            try:
+                self.controller.initialize_visa()
+            except Exception as e:
+                self.signals.log_msg.emit(
+                    LogMsg.VISA_INIT_FAILED.format(error=str(e))
+                )
+                raise
+            self.signals.log_msg.emit(LogMsg.VISA_INIT_OK)
+
         self.signals.log_msg.emit(LogMsg.SCAN_START)
         self.signals.progress_update.emit(0, 1, StatusMsg.SCAN_BUS)
 

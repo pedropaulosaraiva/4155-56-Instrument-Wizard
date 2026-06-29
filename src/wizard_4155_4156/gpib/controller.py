@@ -43,7 +43,9 @@ class GPIB41xxController:
     CONN_TIMEOUT_MS: Final[int] = 10_000
 
     def __init__(self) -> None:
-        self.rm = ResourceManager()
+        # Created lazily on the first scan via initialize_visa() so a missing
+        # VISA backend cannot crash application startup.
+        self.rm: Optional[ResourceManager] = None
         self._instrument: Optional[MessageBasedResource] = None
         self._is_connected: bool = False
 
@@ -51,13 +53,36 @@ class GPIB41xxController:
     def is_connected(self) -> bool:
         return self._is_connected
 
+    @property
+    def is_visa_ready(self) -> bool:
+        """Whether the PyVISA ResourceManager has been successfully created."""
+        return self.rm is not None
+
+    # ── VISA driver lifecycle ────────────────────────────────────────────────
+
+    def initialize_visa(self) -> None:
+        """
+        Create the PyVISA ResourceManager on first use.  Idempotent — a no-op
+        once ready.  Raises if no VISA backend is available; the assignment
+        only completes on success, so a failure leaves self.rm as None and the
+        next call retries.
+        """
+        if self.rm is None:
+            self.rm = ResourceManager()
+
+    def _require_visa(self) -> ResourceManager:
+        if self.rm is None:
+            raise ConnectionError("VISA driver not initialized.")
+        return self.rm
+
     # ── Lifecycle ────────────────────────────────────────────────────────────
 
     def connect(self, resource_name: str) -> None:
+        rm = self._require_visa()
         if self._is_connected:
             self.disconnect()
         self._instrument = cast(
-            MessageBasedResource, self.rm.open_resource(resource_name)
+            MessageBasedResource, rm.open_resource(resource_name)
         )
         self._instrument.read_termination = "\n"
         self._instrument.write_termination = "\n"
@@ -82,19 +107,20 @@ class GPIB41xxController:
         for instruments whose *IDN? response contains a known model number.
         Unresponsive resources are silently skipped.
         """
+        rm = self._require_visa()
         found: dict[str, str] = {}
         cmd_builder = CommonCommandBuilder()
         cmd_builder.identify()
         idn_query = cmd_builder.build()
 
         gpib_resources = (
-            r for r in self.rm.list_resources()
+            r for r in rm.list_resources()
             if self.GPIB_ADDRESS_ID in r
         )
 
         for resource in gpib_resources:
             try:
-                with self.rm.open_resource(resource) as conn:
+                with rm.open_resource(resource) as conn:
                     temp = cast(MessageBasedResource, conn)
                     temp.timeout = self.TEMPORARY_CONN_TIMEOUT_MS
                     idn = temp.query(idn_query)

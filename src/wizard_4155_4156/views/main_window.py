@@ -213,9 +213,8 @@ class MainWindow(QMainWindow):
             self._table_presenter.show_live_data
         )
 
-        # Trigger initial bus scan AFTER signal wiring so scan_results
-        # reaches the modal's combo box via the connected Slot.
-        self._connector_presenter.start()
+        # No bus scan runs at startup — the VISA driver is brought up lazily on
+        # the user's first Scan so a missing backend cannot crash startup.
 
         # ── Global stylesheet ────────────────────────────────────────────────
         self.setStyleSheet(application_stylesheet())

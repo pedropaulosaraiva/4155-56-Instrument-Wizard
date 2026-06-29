@@ -37,8 +37,11 @@ trigger_full_sequence(setup_cmds, run_cmds, fetch_cmds)
 
 Lifecycle
 ---------
-  start()   — trigger initial auto-scan after signal wiring is complete.
   cleanup() — drain and clear the pool; called from MainWindow.closeEvent().
+
+The VISA driver is created lazily on the user's first scan (see
+GPIB41xxController.initialize_visa, invoked from ScanTask), so no auto-scan
+runs at startup.
 """
 from typing import List
 
@@ -97,15 +100,6 @@ class ConnectorPresenter(QObject):
         self._connect_view_signals()
 
     # ── Lifecycle ────────────────────────────────────────────────────────────
-
-    def start(self) -> None:
-        """
-        Initiate the initial bus scan.  Call this after constructing the
-        presenter and connecting its output signals (data_ready, hardware_busy)
-        to MainWindow slots — scanning before wiring would silently drop
-        scan_results if nothing is connected yet.
-        """
-        self._scan_bus()
 
     def cleanup(self) -> None:
         """

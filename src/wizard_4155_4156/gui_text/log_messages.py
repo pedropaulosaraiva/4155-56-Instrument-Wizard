@@ -2,6 +2,15 @@ from enum import StrEnum
 
 
 class LogMsg(StrEnum):
+    # VISA driver
+    VISA_INIT_START = (
+        "<span style='color:blue;'>Initializing VISA driver...</span>"
+    )
+    VISA_INIT_OK = "<span style='color:green;'>VISA driver initialized.</span>"
+    VISA_INIT_FAILED = (
+        "<span style='color:red;'>VISA driver not found: {error}</span>"
+    )
+
     # Scan + Connect
     SCAN_START = "<span style='color:blue;'>Scanning GPIB bus...</span>"
     SCAN_FOUND = (
