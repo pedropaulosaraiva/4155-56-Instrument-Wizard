@@ -10,6 +10,8 @@ the application (same fonts / widgets as the settings dialog).
 """
 from __future__ import annotations
 
+from typing import Callable, Optional
+
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -21,11 +23,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from wizard_4155_4156.styles.stylesheets import settings_dialog_stylesheet
+from wizard_4155_4156.styles.stylesheets import (
+    error_bar_stylesheet,
+    settings_dialog_stylesheet,
+)
 
 
 class SetupMetadataDialog(QDialog):
-    """Collects a setup ``name`` (required) and ``description`` (optional)."""
+    """Collects a setup ``name`` (required) and ``description`` (optional).
+
+    When an ``on_submit`` callback is supplied it is invoked on Save with
+    ``(name, description)``; returning an error string keeps the modal open and
+    shows the message in red, returning ``None`` accepts/closes the dialog.
+    Without a callback, Save accepts unconditionally (legacy behaviour).
+    """
 
     def __init__(
         self,
@@ -33,8 +44,10 @@ class SetupMetadataDialog(QDialog):
         name: str = "",
         description: str = "",
         parent: QWidget | None = None,
+        on_submit: Optional[Callable[[str, str], Optional[str]]] = None,
     ) -> None:
         super().__init__(parent)
+        self._on_submit = on_submit
         self.setWindowTitle(title)
         self.setModal(True)
         self.setMinimumWidth(440)
@@ -67,7 +80,8 @@ class SetupMetadataDialog(QDialog):
         self._name = QLineEdit()
         self._name.setPlaceholderText("Unique setup name")
         self._name.textChanged.connect(self._update_save_enabled)
-        self._name.returnPressed.connect(self._maybe_accept)
+        self._name.textChanged.connect(self._clear_error)
+        self._name.returnPressed.connect(self._handle_submit)
         root.addWidget(self._name)
 
         root.addWidget(QLabel("Description (optional)"))
@@ -78,6 +92,12 @@ class SetupMetadataDialog(QDialog):
         self._description.setFixedHeight(90)
         root.addWidget(self._description)
 
+        self._error = QLabel("")
+        self._error.setWordWrap(True)
+        self._error.setStyleSheet(error_bar_stylesheet())
+        self._error.setVisible(False)
+        root.addWidget(self._error)
+
         buttons = QHBoxLayout()
         buttons.addStretch()
         self._btn_cancel = QPushButton("Cancel")
@@ -85,7 +105,7 @@ class SetupMetadataDialog(QDialog):
         self._btn_save = QPushButton("Save")
         self._btn_save.setObjectName("primary")
         self._btn_save.setDefault(True)
-        self._btn_save.clicked.connect(self.accept)
+        self._btn_save.clicked.connect(self._handle_submit)
         buttons.addWidget(self._btn_cancel)
         buttons.addWidget(self._btn_save)
         root.addLayout(buttons)
@@ -95,6 +115,24 @@ class SetupMetadataDialog(QDialog):
     def _update_save_enabled(self) -> None:
         self._btn_save.setEnabled(bool(self._name.text().strip()))
 
-    def _maybe_accept(self) -> None:
-        if self._name.text().strip():
+    def _handle_submit(self) -> None:
+        name = self.get_name()
+        if not name:
+            return
+        self._clear_error()
+        if self._on_submit is None:
             self.accept()
+            return
+        error = self._on_submit(name, self.get_description())
+        if error:
+            self._show_error(error)
+            return
+        self.accept()
+
+    def _show_error(self, message: str) -> None:
+        self._error.setText(message)
+        self._error.setVisible(True)
+
+    def _clear_error(self) -> None:
+        self._error.clear()
+        self._error.setVisible(False)

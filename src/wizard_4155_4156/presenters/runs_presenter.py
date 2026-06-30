@@ -85,6 +85,10 @@ class RunsPresenter(QObject):
         self._pending_run_setup_id: Optional[int] = None
         self._pending_run_name: Optional[str] = None
         self._pending_run_desc: Optional[str] = None
+        # Session-scoped: once the user opts out, stop warning about running a
+        # setup on an instrument other than the one it was created for. Resets
+        # on restart (the presenter is rebuilt per program run).
+        self._suppress_instrument_mismatch = False
         self._connect()
         self._push_hardware_state()
 
@@ -104,7 +108,7 @@ class RunsPresenter(QObject):
         v.setup_selected.connect(self._on_setup_selected)
         v.execution_selected.connect(self._on_execution_selected)
         v.create_setup_requested.connect(self._on_create_setup)
-        v.edit_setup_metadata_requested.connect(self._on_edit_metadata)
+        v.edit_setup_metadata_requested.connect(self._on_edit_setup)
         v.delete_setup_requested.connect(self._on_delete_setup)
         v.delete_execution_requested.connect(self._on_delete_execution)
         v.insert_sample_execution_requested.connect(self._on_insert_sample)
@@ -168,10 +172,15 @@ class RunsPresenter(QObject):
 
     # ── Mutations ────────────────────────────────────────────────────────────
 
-    def _on_create_setup(self, name: str, description: str) -> None:
-        error = self.create_setup_from_current(name, description)
-        if error:
-            self._view.display_error(error)
+    def _on_create_setup(self) -> None:
+        # The dialog drives the save via on_submit so a duplicate-name error is
+        # shown red inside the still-open modal (never the page error bar).
+        dlg = SetupMetadataDialog(
+            title="Save setup",
+            parent=self._view,
+            on_submit=self.create_setup_from_current,
+        )
+        dlg.exec()
 
     def create_setup_from_current(
         self, name: str, description: str
@@ -215,23 +224,41 @@ class RunsPresenter(QObject):
         self._refresh(select_setup_id=new_id)
         return None
 
-    def _on_edit_metadata(
-        self, setup_id: int, name: str, description: str
-    ) -> None:
+    def _on_edit_setup(self, setup_id: int) -> None:
         db = self._projects.current_db
         if db is None:
             return
+        with db.session() as s:
+            setup = SetupRepository.get(s, setup_id)
+            if setup is None:
+                return
+            name, description = setup.name, setup.description or ""
+        # As with create, the modal stays open and shows a duplicate-name error
+        # in red rather than flashing it in the page error bar.
+        dlg = SetupMetadataDialog(
+            title="Edit setup",
+            name=name,
+            description=description,
+            parent=self._view,
+            on_submit=lambda n, d: self._update_metadata(setup_id, n, d),
+        )
+        dlg.exec()
+
+    def _update_metadata(
+        self, setup_id: int, name: str, description: str
+    ) -> Optional[str]:
+        db = self._projects.current_db
+        if db is None:
+            return "Open or create a project first."
         try:
             with db.session() as s:
                 SetupRepository.update_metadata(
                     s, setup_id, name, description or None
                 )
         except IntegrityError:
-            self._view.display_error(
-                f"A setup named '{name}' already exists."
-            )
-            return
+            return f"A setup named '{name}' already exists."
         self._refresh(select_setup_id=setup_id)
+        return None
 
     def _on_delete_setup(self, setup_id: int) -> None:
         db = self._projects.current_db
@@ -287,6 +314,8 @@ class RunsPresenter(QObject):
 
     def _on_apply_setup(self, setup_id: int) -> None:
         """Send the selected setup to the instrument only — no DB write."""
+        if not self._confirm_instrument_match(setup_id):
+            return
         config = self._config_for(setup_id)
         if config is None:
             return
@@ -295,6 +324,8 @@ class RunsPresenter(QObject):
 
     def _on_apply_run_fetch(self, setup_id: int) -> None:
         """Prompt for the execution name/description, then run the sequence."""
+        if not self._confirm_instrument_match(setup_id):
+            return
         default_name = self._default_run_name(setup_id)
         if default_name is None:
             return
@@ -415,6 +446,33 @@ class RunsPresenter(QObject):
             if setup is None:
                 return None
             return setup_to_config_dict(setup)
+
+    def _setup_model(self, setup_id: int) -> Optional[str]:
+        db = self._projects.current_db
+        if db is None:
+            return None
+        with db.session() as s:
+            setup = SetupRepository.get(s, setup_id)
+            return setup.instrument_model if setup else None
+
+    def _confirm_instrument_match(self, setup_id: int) -> bool:
+        """Warn (once per session) before running a setup on a foreign model.
+
+        Returns True to proceed. No prompt when suppressed, when disconnected,
+        or when the connected model matches the setup's instrument.
+        """
+        if self._suppress_instrument_mismatch:
+            return True
+        connected = self._connected_model
+        setup_model = self._setup_model(setup_id)
+        if not connected or not setup_model or setup_model == connected:
+            return True
+        proceed, dont_ask = self._view.confirm_instrument_mismatch(
+            setup_model, connected
+        )
+        if proceed and dont_ask:
+            self._suppress_instrument_mismatch = True
+        return proceed
 
     def _push_hardware_state(self) -> None:
         ready = self._connected and not self._busy

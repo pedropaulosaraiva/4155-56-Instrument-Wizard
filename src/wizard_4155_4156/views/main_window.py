@@ -470,14 +470,15 @@ class MainWindow(QMainWindow):
         except ValueError as exc:
             self._status_bar.showMessage(f"Cannot save setup: {exc}", 6000)
             return
-        dlg = SetupMetadataDialog(title="Save setup", parent=self)
-        if not dlg.exec():
-            return
-        error = self._runs_presenter.create_setup_from_current(
-            dlg.get_name(), dlg.get_description()
+        # The dialog drives the save via on_submit: a duplicate-name (or other)
+        # error is shown red inside the still-open modal — never in the status
+        # bar — and the modal only closes (exec → True) on success.
+        dlg = SetupMetadataDialog(
+            title="Save setup",
+            parent=self,
+            on_submit=self._runs_presenter.create_setup_from_current,
         )
-        if error:
-            self._status_bar.showMessage(error, 6000)
+        if not dlg.exec():
             return
         self._navigate_to(Page.RUNS)
         self._status_bar.showMessage("Setup saved to project.", 4000)

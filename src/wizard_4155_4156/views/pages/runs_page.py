@@ -16,6 +16,7 @@ from typing import Any, Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -31,9 +32,6 @@ from PySide6.QtWidgets import (
 )
 
 from wizard_4155_4156.db.repository import ExecRow, SetupRow
-from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
-    SetupMetadataDialog,
-)
 from wizard_4155_4156.styles.stylesheets import (
     config_preview_tree_stylesheet,
     error_bar_stylesheet,
@@ -57,8 +55,8 @@ class RunsPageView(BasePage):
     page_activated = Signal()
     setup_selected = Signal(int)
     execution_selected = Signal(int)
-    create_setup_requested = Signal(str, str)             # name, description
-    edit_setup_metadata_requested = Signal(int, str, str)  # id, name, desc
+    create_setup_requested = Signal()                     # presenter prompts
+    edit_setup_metadata_requested = Signal(int)            # setup id
     delete_setup_requested = Signal(int)
     delete_execution_requested = Signal(int)
     insert_sample_execution_requested = Signal(int)       # setup id
@@ -407,27 +405,15 @@ class RunsPageView(BasePage):
             self.execution_selected.emit(exec_id)
 
     def _on_create_clicked(self) -> None:
-        dlg = SetupMetadataDialog(title="Save setup", parent=self)
-        if dlg.exec():
-            self.create_setup_requested.emit(
-                dlg.get_name(), dlg.get_description()
-            )
+        # The presenter owns the dialog so a duplicate-name error can be shown
+        # in the still-open modal (never the error bar).
+        self.create_setup_requested.emit()
 
     def _on_edit_clicked(self) -> None:
         setup_id = self._current_setup_id()
         if setup_id is None:
             return
-        row = self._setup_rows.get(setup_id)
-        dlg = SetupMetadataDialog(
-            title="Edit setup",
-            name=row.name if row else "",
-            description=row.description if row else "",
-            parent=self,
-        )
-        if dlg.exec():
-            self.edit_setup_metadata_requested.emit(
-                setup_id, dlg.get_name(), dlg.get_description()
-            )
+        self.edit_setup_metadata_requested.emit(setup_id)
 
     def _on_delete_setup_clicked(self) -> None:
         setup_id = self._current_setup_id()
@@ -483,6 +469,31 @@ class RunsPageView(BasePage):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         return reply == QMessageBox.StandardButton.Yes
+
+    def confirm_instrument_mismatch(
+        self, setup_model: str, connected_model: str
+    ) -> tuple[bool, bool]:
+        """Warn that the setup targets a different instrument than connected.
+
+        Returns ``(proceed, dont_ask_again)``; the presenter owns the
+        session-scoped suppression decision.
+        """
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("Instrument mismatch")
+        box.setText(
+            f"This setup was created for {setup_model}, but "
+            f"{connected_model} is currently connected.\n\n"
+            "Execute this setup anyway?"
+        )
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        box.setDefaultButton(QMessageBox.StandardButton.No)
+        dont_ask = QCheckBox("Don't ask again for this session")
+        box.setCheckBox(dont_ask)
+        proceed = box.exec() == QMessageBox.StandardButton.Yes
+        return proceed, dont_ask.isChecked()
 
     def _populate_tree(
         self, parent: Any, data: Any, key: Optional[str] = None
