@@ -1268,8 +1268,9 @@ def setup_summary_value_stylesheet() -> str:
 
 
 def setup_summary_chip_stylesheet(measured: bool = False) -> str:
-    """Display-variable pill; measured variables are highlighted in accent."""
-    bg = P.ACCENT_MUTED if measured else P.BG_ELEVATED
+    """Display-variable pill; measured variables are highlighted in accent,
+    others stay transparent so they recede into the card."""
+    bg = P.ACCENT_MUTED if measured else "transparent"
     fg = P.TEXT_WHITE if measured else P.TEXT_SECONDARY
     border = P.ACCENT if measured else P.BORDER
     return f"""

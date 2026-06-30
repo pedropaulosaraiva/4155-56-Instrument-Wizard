@@ -258,7 +258,11 @@ class SetupDetailPanel(QWidget):
             self._add_var_card(
                 P.FUNC_VAR1, "VAR1", channels, q["var1"], "VAR1"
             )
-        self._add_display_vars_card(channels, cfg.get("display_vars", []))
+        # Capacitance and leakage current are the measured variables in QSCV.
+        measured = {q.get("cap_name"), q.get("leak_name")} - {None, ""}
+        self._add_display_vars_card(
+            channels, cfg.get("display_vars", []), measured
+        )
         self._add_units_card(channels)
 
         self._add_card(P.ACCENT, tr_ui(_T.RUNS_SUM_TIMING), [
@@ -342,14 +346,20 @@ class SetupDetailPanel(QWidget):
 
         self._add_card(accent, title, rows)
 
-    def _add_display_vars_card(self, channels: dict, names: list) -> None:
+    def _add_display_vars_card(
+        self,
+        channels: dict,
+        names: list,
+        extra_measured: set[str] = frozenset(),
+    ) -> None:
         if not names:
             return
-        measured = _measured_var_names(channels)
+        measured = _measured_var_names(channels) | set(extra_measured)
         card = SectionFrame(
             tr_ui(_T.RUNS_SUM_DISPLAY_VARS), accent=P.STATUS_OK
         )
         host = flow_host(h_spacing=6, v_spacing=6)
+        host.setStyleSheet("background: transparent;")
         for name in names:
             chip = QLabel(str(name))
             chip.setStyleSheet(
