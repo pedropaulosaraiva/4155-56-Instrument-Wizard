@@ -1244,6 +1244,54 @@ def runs_page_stylesheet() -> str:
     return f"background-color: {P.BG_DEEP};"
 
 
+def setup_summary_scroll_stylesheet() -> str:
+    """Transparent scroll area wrapping the curated setup-summary cards."""
+    return (
+        "QScrollArea { background: transparent; border: none; } "
+        "QScrollArea > QWidget > QWidget { background: transparent; }"
+    )
+
+
+def setup_summary_key_stylesheet() -> str:
+    # Same tone as the setup-list card text (a touch lighter than muted).
+    return (
+        f"color: {P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_SM}; "
+        f"background: transparent;"
+    )
+
+
+def setup_summary_value_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_PRIMARY}; font-size: {P.FONT_SIZE_SM}; "
+        f"font-weight: bold; background: transparent;"
+    )
+
+
+def setup_summary_chip_stylesheet(measured: bool = False) -> str:
+    """Display-variable pill; measured variables are highlighted in accent."""
+    bg = P.ACCENT_MUTED if measured else P.BG_ELEVATED
+    fg = P.TEXT_WHITE if measured else P.TEXT_SECONDARY
+    border = P.ACCENT if measured else P.BORDER
+    return f"""
+        QLabel {{
+            background-color: {bg};
+            color: {fg};
+            border: 1px solid {border};
+            border-radius: {P.RADIUS_SM};
+            padding: 3px 11px;
+            font-size: {P.FONT_SIZE_XS};
+            font-weight: bold;
+        }}
+    """
+
+
+def setup_summary_empty_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_MD}; "
+        f"background: transparent; padding: 28px;"
+    )
+
+
 def runs_panel_title_stylesheet() -> str:
     return (
         f"color: {P.TEXT_PRIMARY}; font-size: 14px; font-weight: bold; "

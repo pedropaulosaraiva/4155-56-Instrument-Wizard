@@ -98,6 +98,15 @@ class CommandWizardText(StrEnum):
     RUNS_SETUPS_TITLE = "Setups ({count})"
     RUNS_RUNS_TITLE = "Runs ({count})"
     RUNS_DETAIL_TITLE = "Setup detail"
+    # Setup-detail panel: Summary / Raw toggle + curated section titles.
+    RUNS_DETAIL_SUMMARY = "Summary"
+    RUNS_DETAIL_RAW = "Raw"
+    RUNS_DETAIL_EMPTY = "Select a setup to see its details."
+    RUNS_SUM_TIMING = "Integration & Timing"
+    RUNS_SUM_SAMPLING = "Sampling"
+    RUNS_SUM_MEASUREMENT = "Measurement"
+    RUNS_SUM_DISPLAY_VARS = "Display variables"
+    RUNS_SUM_UNITS = "Active units"
     RUNS_SETUPS_EMPTY = (
         "No setups yet.\nSave the current configuration to create one."
     )

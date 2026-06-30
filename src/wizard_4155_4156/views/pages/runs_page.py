@@ -16,7 +16,7 @@ Per-element actions live in a three-dot (⋮) ellipsis menu in each panel header
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -30,8 +30,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSplitter,
     QToolButton,
-    QTreeWidget,
-    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -40,9 +38,7 @@ from wizard_4155_4156.db.repository import ExecRow, SetupRow
 from wizard_4155_4156.extra_widgets.description_dialog import DescriptionDialog
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.stylesheets import (
-    config_preview_tree_stylesheet,
     error_bar_stylesheet,
-    meas_status_label_stylesheet,
     runs_list_stylesheet,
     runs_menu_button_stylesheet,
     runs_page_stylesheet,
@@ -52,6 +48,7 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 from wizard_4155_4156.views.pages import BasePage
 from wizard_4155_4156.views.widgets.action_menu import ActionMenu
+from wizard_4155_4156.views.widgets.setup_detail_panel import SetupDetailPanel
 
 _ID_ROLE = Qt.ItemDataRole.UserRole
 _T = CommandWizardText
@@ -127,12 +124,7 @@ class RunsPageView(BasePage):
     def display_setup_detail(
         self, config: Optional[dict], summary: str
     ) -> None:
-        self._detail.clear()
-        self._summary.setText(summary)
-        self._summary.setVisible(bool(summary))
-        if config:
-            self._populate_tree(self._detail, config)
-            self._detail.expandToDepth(0)
+        self._detail.display(config, summary)
 
     def set_hardware_ready(self, ready: bool) -> None:
         """Connected + idle: run buttons may be used.
@@ -258,21 +250,7 @@ class RunsPageView(BasePage):
         col = QVBoxLayout(pane)
         col.setContentsMargins(14, 12, 14, 14)
         col.setSpacing(8)
-
-        title = QLabel(tr_ui(_T.RUNS_DETAIL_TITLE))
-        title.setStyleSheet(runs_panel_title_stylesheet())
-        col.addWidget(title)
-        self._summary = QLabel("")
-        self._summary.setStyleSheet(meas_status_label_stylesheet())
-        self._summary.setWordWrap(True)
-        self._summary.setVisible(False)
-        col.addWidget(self._summary)
-        self._detail = QTreeWidget()
-        self._detail.setStyleSheet(config_preview_tree_stylesheet())
-        self._detail.setColumnCount(2)
-        self._detail.setHeaderLabels(["Field", "Value"])
-        self._detail.setAlternatingRowColors(True)
-        self._detail.setRootIsDecorated(True)
+        self._detail = SetupDetailPanel()
         col.addWidget(self._detail, stretch=1)
         return pane
 
@@ -549,22 +527,3 @@ class RunsPageView(BasePage):
         box.setCheckBox(dont_ask)
         proceed = box.exec() == QMessageBox.StandardButton.Yes
         return proceed, dont_ask.isChecked()
-
-    def _populate_tree(
-        self, parent: Any, data: Any, key: Optional[str] = None
-    ) -> None:
-        """Recursively render a config dict/list/scalar into the tree."""
-        if isinstance(data, dict):
-            # Top-level dict (key is None) attaches its keys straight to the
-            # tree instead of an empty wrapper row.
-            container = parent if key is None else QTreeWidgetItem(
-                parent, [key, ""]
-            )
-            for k, v in data.items():
-                self._populate_tree(container, v, str(k))
-        elif isinstance(data, (list, tuple)):
-            node = QTreeWidgetItem(parent, [key or "", f"[{len(data)}]"])
-            for i, v in enumerate(data):
-                self._populate_tree(node, v, str(i))
-        else:
-            QTreeWidgetItem(parent, [key or "", str(data)])
