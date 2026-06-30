@@ -92,6 +92,39 @@ class CommandWizardText(StrEnum):
     TABLE_FMT_C_ARRAY = "C/C++ array"
     TABLE_FMT_MATLAB = "MATLAB vectors"
 
+    # ── Measurement Runs (CRUD) page ─────────────────────────────────────────
+    RUNS_BTN_CREATE = "Save current config as setup"
+    RUNS_BTN_APPLY_RUN = "Apply Setup and Run"
+    RUNS_SETUPS_TITLE = "Setups ({count})"
+    RUNS_RUNS_TITLE = "Runs ({count})"
+    RUNS_DETAIL_TITLE = "Setup detail"
+    RUNS_SETUPS_EMPTY = (
+        "No setups yet.\nSave the current configuration to create one."
+    )
+    RUNS_RUNS_EMPTY = "No runs yet.\nUse “Insert mock data” to add one."
+    # Setups ⋮ menu
+    RUNS_MENU_EDIT_META = "Edit name/description"
+    RUNS_MENU_EDIT_AS_NEW = "Edit as new setup"
+    RUNS_MENU_SEE_DESC = "See description"
+    RUNS_MENU_DELETE_SETUP = "Delete setup"
+    # Runs ⋮ menu
+    RUNS_MENU_VIEW_TABLE = "View as table"
+    RUNS_MENU_VIEW_GRAPH = "View as graph"
+    RUNS_MENU_INSERT_MOCK = "Insert mock data"
+    RUNS_MENU_DELETE_RUN = "Delete run"
+    # Reasons shown when a ⋮ menu entry is unavailable.
+    RUNS_NEED_SETUP = "Select a setup first."
+    RUNS_NEED_RUN = "Select a run first."
+    RUNS_GRAPH_SOON_TOOLTIP = "Graph view is coming soon."
+    RUNS_DESC_TITLE = "Description"
+    RUNS_NO_DESC = "No description provided."
+    RUNS_DELETE_SETUP_TITLE = "Delete setup"
+    RUNS_DELETE_SETUP_MSG = (
+        "Delete this setup and all its runs? This cannot be undone."
+    )
+    RUNS_DELETE_RUN_TITLE = "Delete run"
+    RUNS_DELETE_RUN_MSG = "Delete this run and its data?"
+
 
 def tr_ui(text_enum: CommandWizardText) -> str:
     return QCoreApplication.translate("UIText", text_enum.value)

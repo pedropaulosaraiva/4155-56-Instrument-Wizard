@@ -9,6 +9,10 @@ View layer: it emits ``*_requested`` signals and renders state pushed in via
 ``display_*`` methods.  It imports only the Qt-free row DTOs
 (``SetupRow``/``ExecRow``) — never the ORM — mirroring how the home page
 imports ``ProjectData``.
+
+Layout: a top toolbar (Save current config as setup · Apply Setup · Apply
+Setup and Run) over a three-pane splitter (setups | runs | setup detail).
+Per-element actions live in a three-dot (⋮) ellipsis menu in each panel header.
 """
 from __future__ import annotations
 
@@ -25,6 +29,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSplitter,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -32,25 +37,28 @@ from PySide6.QtWidgets import (
 )
 
 from wizard_4155_4156.db.repository import ExecRow, SetupRow
+from wizard_4155_4156.extra_widgets.description_dialog import DescriptionDialog
+from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.stylesheets import (
     config_preview_tree_stylesheet,
     error_bar_stylesheet,
     meas_status_label_stylesheet,
-    recent_panel_header_stylesheet,
     runs_list_stylesheet,
+    runs_menu_button_stylesheet,
     runs_page_stylesheet,
     runs_panel_stylesheet,
     runs_panel_title_stylesheet,
     runs_primary_button_stylesheet,
-    runs_secondary_button_stylesheet,
 )
 from wizard_4155_4156.views.pages import BasePage
+from wizard_4155_4156.views.widgets.action_menu import ActionMenu
 
 _ID_ROLE = Qt.ItemDataRole.UserRole
+_T = CommandWizardText
 
 
 class RunsPageView(BasePage):
-    """Three-pane browser: setups | executions | detail."""
+    """Three-pane browser: setups | runs | detail."""
 
     page_activated = Signal()
     setup_selected = Signal(int)
@@ -69,6 +77,7 @@ class RunsPageView(BasePage):
         super().__init__(parent)
         self.setStyleSheet(runs_page_stylesheet())
         self._setup_rows: dict[int, SetupRow] = {}
+        self._exec_rows: dict[int, ExecRow] = {}
         self._hardware_ready = False
         self._setup_ui()
         self._update_button_state()
@@ -83,13 +92,11 @@ class RunsPageView(BasePage):
     def display_setups(self, rows: list[SetupRow]) -> None:
         self._setup_rows = {row.id: row for row in rows}
         self._setups.clear()
-        self._setups_title.setText(f"Setups ({len(rows)})")
+        self._setups_title.setText(
+            tr_ui(_T.RUNS_SETUPS_TITLE).format(count=len(rows))
+        )
         if not rows:
-            self._add_placeholder(
-                self._setups,
-                "No setups yet.\nSave the current "
-                "configuration to create one.",
-            )
+            self._add_placeholder(self._setups, tr_ui(_T.RUNS_SETUPS_EMPTY))
         for row in rows:
             self._setups.addItem(self._make_setup_item(row))
         # Selection cleared by clear(); dependent panes reset.
@@ -106,13 +113,13 @@ class RunsPageView(BasePage):
                 return
 
     def display_executions(self, rows: list[ExecRow]) -> None:
+        self._exec_rows = {row.id: row for row in rows}
         self._executions.clear()
-        self._exec_title.setText(f"Executions ({len(rows)})")
+        self._exec_title.setText(
+            tr_ui(_T.RUNS_RUNS_TITLE).format(count=len(rows))
+        )
         if not rows:
-            self._add_placeholder(
-                self._executions,
-                "No executions.\nUse “Insert sample” to add one.",
-            )
+            self._add_placeholder(self._executions, tr_ui(_T.RUNS_RUNS_EMPTY))
         for row in rows:
             self._executions.addItem(self._make_exec_item(row))
         self._update_button_state()
@@ -135,25 +142,9 @@ class RunsPageView(BasePage):
         self._hardware_ready = ready
         self._update_button_state()
 
-    def display_hardware_status(self, text: str) -> None:
-        self._hw_status.setText(text)
-
     def display_error(self, text: str) -> None:
         self._error.setText(text)
         self._error.setVisible(bool(text))
-
-    def display_status(self, text: str) -> None:
-        self._status.setText(text)
-
-    def display_empty(self, message: str) -> None:
-        self._setup_rows = {}
-        self._setups.clear()
-        self._setups_title.setText("Setups (0)")
-        self._add_placeholder(self._setups, message)
-        self.display_executions([])
-        self.display_setup_detail(None, "")
-        self._status.setText(message)
-        self._update_button_state()
 
     # ── Build ────────────────────────────────────────────────────────────────
 
@@ -162,8 +153,7 @@ class RunsPageView(BasePage):
         root.setContentsMargins(22, 18, 22, 16)
         root.setSpacing(14)
 
-        root.addLayout(self._build_header())
-        root.addLayout(self._build_hardware_bar())
+        root.addLayout(self._build_toolbar())
 
         self._error = QLabel("")
         self._error.setStyleSheet(error_bar_stylesheet())
@@ -182,48 +172,25 @@ class RunsPageView(BasePage):
         splitter.setSizes([320, 320, 460])
         root.addWidget(splitter, stretch=1)
 
-        self._status = QLabel("No project open.")
-        self._status.setStyleSheet(meas_status_label_stylesheet())
-        root.addWidget(self._status)
-
-    def _build_header(self) -> QHBoxLayout:
+    def _build_toolbar(self) -> QHBoxLayout:
+        """Save-as-setup (left) · Apply Setup / Apply Setup and Run (right)."""
         row = QHBoxLayout()
-        row.setSpacing(12)
-        title = QLabel("🗄️  Measurement Runs")
-        title.setStyleSheet(recent_panel_header_stylesheet())
-        row.addWidget(title)
-        row.addStretch()
-        self._btn_copy = QPushButton("📄  Copy to measurement configuration")
-        self._btn_copy.setStyleSheet(runs_secondary_button_stylesheet())
-        self._btn_copy.clicked.connect(self._on_copy_clicked)
-        row.addWidget(self._btn_copy)
-        self._btn_create = QPushButton("➕  Save current config as setup")
+        row.setSpacing(8)
+
+        self._btn_create = QPushButton("➕  " + tr_ui(_T.RUNS_BTN_CREATE))
         self._btn_create.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_create.clicked.connect(self._on_create_clicked)
         row.addWidget(self._btn_create)
-        return row
+        row.addStretch()
 
-    def _build_hardware_bar(self) -> QHBoxLayout:
-        """Run the *selected* setup on the connected instrument."""
-        row = QHBoxLayout()
-        row.setSpacing(8)
-        caption = QLabel("Run selected setup on hardware:")
-        caption.setStyleSheet(meas_status_label_stylesheet())
-        row.addWidget(caption)
-
-        self._btn_apply = QPushButton("🛠️  Apply setup")
+        self._btn_apply = QPushButton("🛠️  " + tr_ui(_T.MEAS_BTN_APPLY_SETUP))
         self._btn_apply.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_apply.clicked.connect(self._on_apply_clicked)
-        self._btn_run = QPushButton("▶️  Apply setup, Run & Fetch")
+        self._btn_run = QPushButton("▶️  " + tr_ui(_T.RUNS_BTN_APPLY_RUN))
         self._btn_run.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_run.clicked.connect(self._on_run_clicked)
         row.addWidget(self._btn_apply)
         row.addWidget(self._btn_run)
-        row.addStretch()
-
-        self._hw_status = QLabel("Disconnected")
-        self._hw_status.setStyleSheet(meas_status_label_stylesheet())
-        row.addWidget(self._hw_status)
         return row
 
     def _build_setups_pane(self) -> QWidget:
@@ -235,16 +202,14 @@ class RunsPageView(BasePage):
         col.setSpacing(8)
 
         head = QHBoxLayout()
-        self._setups_title = QLabel("Setups (0)")
+        self._setups_title = QLabel(
+            tr_ui(_T.RUNS_SETUPS_TITLE).format(count=0)
+        )
         self._setups_title.setStyleSheet(runs_panel_title_stylesheet())
         head.addWidget(self._setups_title)
         head.addStretch()
-        self._btn_edit = self._mini_button("✏️ Edit", self._on_edit_clicked)
-        self._btn_delete_setup = self._mini_button(
-            "🗑️ Delete", self._on_delete_setup_clicked
-        )
-        head.addWidget(self._btn_edit)
-        head.addWidget(self._btn_delete_setup)
+        self._setups_menu_btn = self._make_menu_button(self._show_setups_menu)
+        head.addWidget(self._setups_menu_btn)
         col.addLayout(head)
 
         self._setups = QListWidget()
@@ -266,22 +231,12 @@ class RunsPageView(BasePage):
         col.setSpacing(8)
 
         head = QHBoxLayout()
-        self._exec_title = QLabel("Executions (0)")
+        self._exec_title = QLabel(tr_ui(_T.RUNS_RUNS_TITLE).format(count=0))
         self._exec_title.setStyleSheet(runs_panel_title_stylesheet())
         head.addWidget(self._exec_title)
         head.addStretch()
-        self._btn_sample = self._mini_button(
-            "⚡ Insert sample", self._on_sample_clicked
-        )
-        self._btn_view = self._mini_button(
-            "📈 View data", self._on_view_clicked
-        )
-        self._btn_delete_exec = self._mini_button(
-            "🗑️ Delete", self._on_delete_exec_clicked
-        )
-        head.addWidget(self._btn_sample)
-        head.addWidget(self._btn_view)
-        head.addWidget(self._btn_delete_exec)
+        self._runs_menu_btn = self._make_menu_button(self._show_runs_menu)
+        head.addWidget(self._runs_menu_btn)
         col.addLayout(head)
 
         self._executions = QListWidget()
@@ -304,7 +259,7 @@ class RunsPageView(BasePage):
         col.setContentsMargins(14, 12, 14, 14)
         col.setSpacing(8)
 
-        title = QLabel("Setup detail")
+        title = QLabel(tr_ui(_T.RUNS_DETAIL_TITLE))
         title.setStyleSheet(runs_panel_title_stylesheet())
         col.addWidget(title)
         self._summary = QLabel("")
@@ -320,6 +275,97 @@ class RunsPageView(BasePage):
         self._detail.setRootIsDecorated(True)
         col.addWidget(self._detail, stretch=1)
         return pane
+
+    # ── Ellipsis (⋮) menus ───────────────────────────────────────────────────
+
+    def _make_menu_button(self, slot) -> QToolButton:
+        btn = QToolButton()
+        btn.setText("⋮")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        btn.setStyleSheet(runs_menu_button_stylesheet())
+        btn.clicked.connect(slot)
+        return btn
+
+    def _show_setups_menu(self) -> None:
+        """Built fresh on each open so availability reflects the selection."""
+        has_setup = self._current_setup_id() is not None
+        reason = "" if has_setup else tr_ui(_T.RUNS_NEED_SETUP)
+        menu = ActionMenu(self)
+        menu.add_item(
+            tr_ui(_T.RUNS_MENU_EDIT_META),
+            icon="✏️",
+            callback=self._on_edit_clicked,
+            available=has_setup,
+            unavailable_reason=reason,
+        )
+        menu.add_item(
+            tr_ui(_T.RUNS_MENU_EDIT_AS_NEW),
+            icon="📄",
+            callback=self._on_copy_clicked,
+            available=has_setup,
+            unavailable_reason=reason,
+        )
+        menu.add_item(
+            tr_ui(_T.RUNS_MENU_SEE_DESC),
+            icon="ℹ️",
+            callback=self._on_see_setup_description,
+            available=has_setup,
+            unavailable_reason=reason,
+        )
+        menu.add_separator()
+        menu.add_item(
+            tr_ui(_T.RUNS_MENU_DELETE_SETUP),
+            icon="🗑️",
+            callback=self._on_delete_setup_clicked,
+            available=has_setup,
+            unavailable_reason=reason,
+        )
+        menu.popup_under(self._setups_menu_btn)
+
+    def _show_runs_menu(self) -> None:
+        has_setup = self._current_setup_id() is not None
+        has_exec = self._current_execution_id() is not None
+        need_setup = tr_ui(_T.RUNS_NEED_SETUP)
+        need_run = tr_ui(_T.RUNS_NEED_RUN)
+        menu = ActionMenu(self)
+        menu.add_item(
+            tr_ui(_T.RUNS_MENU_VIEW_TABLE),
+            icon="📊",
+            callback=self._on_view_clicked,
+            available=has_exec,
+            unavailable_reason=need_run,
+        )
+        menu.add_item(
+            tr_ui(_T.RUNS_MENU_VIEW_GRAPH),
+            icon="📈",
+            available=False,  # Graph page not built yet.
+            unavailable_reason=tr_ui(_T.RUNS_GRAPH_SOON_TOOLTIP),
+        )
+        menu.add_item(
+            tr_ui(_T.RUNS_MENU_INSERT_MOCK),
+            icon="⚡",
+            callback=self._on_sample_clicked,
+            available=has_setup,
+            unavailable_reason=need_setup,
+        )
+        menu.add_item(
+            tr_ui(_T.RUNS_MENU_SEE_DESC),
+            icon="ℹ️",
+            callback=self._on_see_run_description,
+            available=has_exec,
+            unavailable_reason=need_run,
+        )
+        menu.add_separator()
+        menu.add_item(
+            tr_ui(_T.RUNS_MENU_DELETE_RUN),
+            icon="🗑️",
+            callback=self._on_delete_exec_clicked,
+            available=has_exec,
+            unavailable_reason=need_run,
+        )
+        menu.popup_under(self._runs_menu_btn)
 
     # ── Item factories ───────────────────────────────────────────────────────
 
@@ -355,12 +401,6 @@ class RunsPageView(BasePage):
         item.setForeground(Qt.GlobalColor.gray)
         listw.addItem(item)
 
-    def _mini_button(self, text: str, slot) -> QPushButton:
-        btn = QPushButton(text)
-        btn.setStyleSheet(runs_secondary_button_stylesheet())
-        btn.clicked.connect(slot)
-        return btn
-
     # ── Internal selection helpers ───────────────────────────────────────────
 
     def _current_setup_id(self) -> Optional[int]:
@@ -378,15 +418,11 @@ class RunsPageView(BasePage):
         return None if data is None else int(data)
 
     def _update_button_state(self) -> None:
-        has_setup = self._current_setup_id() is not None
-        has_exec = self._current_execution_id() is not None
-        self._btn_edit.setEnabled(has_setup)
-        self._btn_delete_setup.setEnabled(has_setup)
-        self._btn_copy.setEnabled(has_setup)
-        self._btn_sample.setEnabled(has_setup)
-        self._btn_view.setEnabled(has_exec)
-        self._btn_delete_exec.setEnabled(has_exec)
-        can_run = has_setup and self._hardware_ready
+        # The ⋮ menus stay clickable at all times — per-entry availability (and
+        # the "why disabled" tooltips) is resolved when each menu is opened.
+        can_run = (
+            self._current_setup_id() is not None and self._hardware_ready
+        )
         self._btn_apply.setEnabled(can_run)
         self._btn_run.setEnabled(can_run)
 
@@ -420,8 +456,8 @@ class RunsPageView(BasePage):
         if setup_id is None:
             return
         if self._confirm(
-            "Delete setup",
-            "Delete this setup and all its executions? This cannot be undone.",
+            tr_ui(_T.RUNS_DELETE_SETUP_TITLE),
+            tr_ui(_T.RUNS_DELETE_SETUP_MSG),
         ):
             self.delete_setup_requested.emit(setup_id)
 
@@ -455,11 +491,30 @@ class RunsPageView(BasePage):
         if exec_id is None:
             return
         if self._confirm(
-            "Delete execution", "Delete this execution and its data?"
+            tr_ui(_T.RUNS_DELETE_RUN_TITLE), tr_ui(_T.RUNS_DELETE_RUN_MSG)
         ):
             self.delete_execution_requested.emit(exec_id)
 
+    def _on_see_setup_description(self) -> None:
+        setup_id = self._current_setup_id()
+        if setup_id is None:
+            return
+        row = self._setup_rows.get(setup_id)
+        if row is not None:
+            self._show_description(row.name, row.description)
+
+    def _on_see_run_description(self) -> None:
+        exec_id = self._current_execution_id()
+        if exec_id is None:
+            return
+        row = self._exec_rows.get(exec_id)
+        if row is not None:
+            self._show_description(row.name, row.description)
+
     # ── Small helpers ────────────────────────────────────────────────────────
+
+    def _show_description(self, name: str, description: str) -> None:
+        DescriptionDialog(name, description, parent=self).exec()
 
     def _confirm(self, title: str, text: str) -> bool:
         reply = QMessageBox.question(

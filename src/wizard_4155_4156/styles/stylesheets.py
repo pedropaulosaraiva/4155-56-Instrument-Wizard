@@ -1343,6 +1343,69 @@ def runs_empty_label_stylesheet() -> str:
     )
 
 
+def runs_menu_button_stylesheet() -> str:
+    """Three-dot (⋮) 'more actions' button in each Runs-page panel header."""
+    return f"""
+        QToolButton {{
+            background-color: transparent;
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid transparent;
+            border-radius: {P.RADIUS_SM};
+            padding: 0px 9px 5px 9px;
+            font-size: {P.FONT_SIZE_XL};
+            font-weight: bold;
+        }}
+        QToolButton:hover {{
+            background-color: {P.BG_ELEVATED};
+            border-color: {P.ACCENT};
+            color: {P.TEXT_WHITE};
+        }}
+        QToolButton:pressed {{ background-color: {P.ACCENT_MUTED}; }}
+    """
+
+
+def action_menu_stylesheet() -> str:
+    """Popup frame for the custom ellipsis menu (ActionMenu)."""
+    return f"""
+        QFrame#action_menu {{
+            background-color: {P.BG_PANEL};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+        }}
+    """
+
+
+def action_menu_item_stylesheet(available: bool = True) -> str:
+    """One ActionMenu row.
+
+    Available rows highlight in accent blue; unavailable rows stay hoverable
+    (so their 'why disabled' tooltip can appear) but highlight in muted grey.
+    """
+    text = P.TEXT_SECONDARY if available else P.TEXT_DISABLED
+    hover_bg = P.ACCENT_MUTED if available else P.BG_ELEVATED
+    hover_text = P.TEXT_WHITE if available else P.TEXT_MUTED
+    return f"""
+        QPushButton {{
+            background-color: transparent;
+            color: {text};
+            border: none;
+            border-radius: {P.RADIUS_SM};
+            padding: 7px 16px 7px 10px;
+            text-align: left;
+            font-size: {P.FONT_SIZE_MD};
+            font-weight: normal;
+        }}
+        QPushButton:hover {{
+            background-color: {hover_bg};
+            color: {hover_text};
+        }}
+    """
+
+
+def action_menu_separator_stylesheet() -> str:
+    return f"background-color: {P.BORDER}; border: none; max-height: 1px;"
+
+
 # ── Documentation (tooltip icon, window, tree, viewer) ───────────────────────
 
 

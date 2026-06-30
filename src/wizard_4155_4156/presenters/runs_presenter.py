@@ -126,9 +126,8 @@ class RunsPresenter(QObject):
     def _refresh(self, select_setup_id: Optional[int] = None) -> None:
         db = self._projects.current_db
         if db is None:
-            self._view.display_empty(
-                "No project open. Create or open a project from the Home page."
-            )
+            # Unreachable in normal flow — the Runs page is only navigable once
+            # a project is open. Guard defensively without UI noise.
             return
         with db.session() as s:
             rows = SetupRepository.list_rows(s)
@@ -137,10 +136,6 @@ class RunsPresenter(QObject):
         )
         self._view.display_error("")
         self._view.display_setups(rows)
-        self._view.display_status(
-            f"Project '{self._projects.current_name}' — "
-            f"{len(rows)} setup(s)."
-        )
         if exists:
             self._view.select_setup(select_setup_id)
         else:
@@ -475,15 +470,9 @@ class RunsPresenter(QObject):
         return proceed
 
     def _push_hardware_state(self) -> None:
-        ready = self._connected and not self._busy
-        self._view.set_hardware_ready(ready)
-        if self._busy:
-            status = "Running…"
-        elif self._connected:
-            status = "Connected — ready"
-        else:
-            status = "Disconnected — connect an instrument to run"
-        self._view.display_hardware_status(status)
+        # Connection/run state is surfaced by the global connector widget, so
+        # this page only gates its Apply buttons on hardware readiness.
+        self._view.set_hardware_ready(self._connected and not self._busy)
 
     @staticmethod
     def _fetch_config(config: dict) -> dict:
