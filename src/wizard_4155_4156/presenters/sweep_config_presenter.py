@@ -36,6 +36,10 @@ from wizard_4155_4156.models.channels import (
     ChannelsConstraints,
 )
 from wizard_4155_4156.models.config_loader import sweep_config_from_setup
+from wizard_4155_4156.models.execution_time import (
+    format_execution_time,
+    sweep_execution_time_range,
+)
 from wizard_4155_4156.models.sweep_config import (
     DISPLAY_VARS_MAX,
     IntegrationMode,
@@ -84,10 +88,12 @@ class SweepConfigPresenter(QObject):
         channels_snapshot,  # ChannelsConfig — static deep-copied snapshot
         parent: QObject | None = None,
         initial_setup: dict | None = None,  # preload from a saved setup (copy)
+        line_frequency_hz: int = 50,  # user preference; scales PLC estimate
     ) -> None:
         super().__init__(parent)
         self._view = view
         self._channels_config = channels_snapshot
+        self._line_frequency_hz = line_frequency_hz or 50
         # When copying an existing setup, preload its
         # parameters; otherwise a fresh default config is
         # built and populated from the channel snapshot.
@@ -629,7 +635,7 @@ class SweepConfigPresenter(QObject):
     def _update_validation(self) -> None:
         errors = self._run_validation()
         if not errors:
-            msg = "Configuration is valid"
+            parts: List[str] = []
             if self._ctx.get("has_var1"):
                 v1 = self._config.var1
                 step_val = (
@@ -641,13 +647,23 @@ class SweepConfigPresenter(QObject):
                 if v1_count is not None:
                     if self._ctx.get("has_var2"):
                         total = v1_count * self._config.var2.n_of_steps
-                        msg += (
-                            f" ({v1_count} x "
+                        parts.append(
+                            f"{v1_count} x "
                             f"{self._config.var2.n_of_steps}"
-                            f" = {total} points)"
+                            f" = {total} points"
                         )
                     else:
-                        msg += f" ({v1_count} points)"
+                        parts.append(f"{v1_count} points")
+            exec_range = sweep_execution_time_range(
+                self._config,
+                self._ctx["active_channels"],
+                self._ctx["instrument_model"],
+                self._line_frequency_hz,
+            )
+            parts.append(format_execution_time(exec_range))
+            msg = "Configuration is valid"
+            if parts:
+                msg += " (" + " · ".join(parts) + ")"
             self._view.display_validation_status(True, msg)
         else:
             first_err = list(errors.values())[0]

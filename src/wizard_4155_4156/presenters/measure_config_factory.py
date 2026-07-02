@@ -130,7 +130,10 @@ class MeasureConfigFactory(QObject):
         if mode == MeasurementMode.SWEEP:
             page = SweepConfigPageView()
             self._presenter = SweepConfigPresenter(
-                view=page, channels_snapshot=snapshot, parent=self
+                view=page,
+                channels_snapshot=snapshot,
+                line_frequency_hz=self._line_frequency(),
+                parent=self,
             )
         elif mode == MeasurementMode.SAMPLING:
             page = SamplingConfigPageView()
@@ -179,6 +182,7 @@ class MeasureConfigFactory(QObject):
             self._presenter = SweepConfigPresenter(
                 view=page,
                 channels_snapshot=channels_config,
+                line_frequency_hz=self._line_frequency(),
                 parent=self,
                 initial_setup=setup_dict,
             )

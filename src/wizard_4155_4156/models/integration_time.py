@@ -270,7 +270,7 @@ def possible_current_ranges(
     return all_ranges
 
 
-def _measures_current(channel: Dict[str, Any]) -> bool:
+def measures_current(channel: Dict[str, Any]) -> bool:
     """An SMU forcing V/VPULSE (or a COMM return) measures current."""
     return channel.get("unit_type") == "SMU" and channel.get("mode") in (
         "V",
@@ -295,25 +295,42 @@ def _output_voltage_range(
     return v_range
 
 
-def estimated_sample_time_range(
+def voltage_ranges_spanned(
+    min_magnitude: float, max_magnitude: float
+) -> List[float]:
+    """Standard SMU output voltage ranges traversed between two magnitudes.
+
+    Used for sweeps where a current-measuring SMU sources a swept voltage: the
+    output range at each point is the smallest standard range covering that
+    magnitude, so the set spanned runs from the range covering
+    ``min_magnitude`` up to the one covering ``max_magnitude`` (each clamped to
+    the largest standard range).
+    """
+    ranges = RANGE_VALUES_SMU_VOLTAGE
+    top = ranges[-1][1]
+    lo = smallest_range_at_least(min_magnitude, ranges) or top
+    hi = smallest_range_at_least(max_magnitude, ranges) or top
+    return [v for _label, v in ranges if lo <= v <= hi]
+
+
+def estimated_measurement_time_range(
     ms,  # MeasurementSetup
     active_channels: List[dict],
     display_vars: List[str],
-    constants: Dict[str, Dict[str, float]],
-    instrument_model: str,
+    voltage_ranges_by_unit: Dict[str, List[float]],
+    is_4156: bool,
     line_frequency_hz: int,
 ) -> Tuple[float, float]:
-    """Per-sample measurement-time interval ``(min, max)`` in seconds.
+    """Per-measurement time interval ``(min, max)`` in seconds.
 
     Each enabled measure-capable unit whose measured variable is displayed
-    contributes its effective integration time.  Current measurements under
-    AUTO / limited-auto ranging span an interval because the run-time range is
-    unknown; voltage measurements (and fixed current ranges) collapse to a
-    single value, so ``min == max``.  A VMU in DVOLT mode counts twice (it
+    contributes its effective integration time.  A current measurement spans an
+    interval over ``{possible current ranges} × {output voltage ranges used}``
+    (``voltage_ranges_by_unit[id]``); voltage measurements (and single fixed
+    ranges) collapse to a single value.  A VMU in DVOLT mode counts twice (it
     integrates both VMUs in turn).  The instrument wait time is excluded — it
     is DUT-dependent and does not deterministically lengthen the interval.
     """
-    is_4156 = "56" in (instrument_model or "")
     selected = set(display_vars or [])
     t_min = 0.0
     t_max = 0.0
@@ -328,9 +345,11 @@ def estimated_sample_time_range(
             else 1
         )
 
-        if _measures_current(ch):
-            v_range = _output_voltage_range(ch, constants)
-            ranges = possible_current_ranges(
+        if measures_current(ch):
+            v_ranges = voltage_ranges_by_unit.get(ch["id"]) or [
+                RANGE_VALUES_SMU_VOLTAGE[0][1]
+            ]
+            c_ranges = possible_current_ranges(
                 ms.ranges.get(ch["id"], {}), is_4156
             )
             times = [
@@ -340,11 +359,12 @@ def estimated_sample_time_range(
                     long_cycles=ms.long_time_cycles,
                     line_frequency_hz=line_frequency_hz,
                     measures_current=True,
-                    current_range=r,
-                    voltage_range=v_range,
+                    current_range=c,
+                    voltage_range=v,
                     is_4156=is_4156,
                 )
-                for r in ranges
+                for v in v_ranges
+                for c in c_ranges
             ]
             lo, hi = min(times), max(times)
         else:
@@ -361,3 +381,32 @@ def estimated_sample_time_range(
         t_max += weight * hi
 
     return t_min, t_max
+
+
+def estimated_sample_time_range(
+    ms,  # MeasurementSetup
+    active_channels: List[dict],
+    display_vars: List[str],
+    constants: Dict[str, Dict[str, float]],
+    instrument_model: str,
+    line_frequency_hz: int,
+) -> Tuple[float, float]:
+    """Sampling per-sample time interval ``(min, max)`` in seconds.
+
+    Sources are constant, so each current-measuring SMU has a single output
+    voltage range derived from its constant source magnitude.
+    """
+    is_4156 = "56" in (instrument_model or "")
+    voltage_ranges_by_unit = {
+        ch["id"]: [_output_voltage_range(ch, constants)]
+        for ch in (active_channels or [])
+        if measures_current(ch)
+    }
+    return estimated_measurement_time_range(
+        ms,
+        active_channels,
+        display_vars,
+        voltage_ranges_by_unit,
+        is_4156,
+        line_frequency_hz,
+    )

@@ -26,6 +26,10 @@ from typing import Any, Dict, List, Optional
 from PySide6.QtCore import QObject
 
 from wizard_4155_4156.models.config_loader import qscv_config_from_setup
+from wizard_4155_4156.models.execution_time import (
+    format_execution_time,
+    qscv_execution_time_range,
+)
 from wizard_4155_4156.models.qscv_config import (
     QscvConfig,
     QscvConstraints,
@@ -455,11 +459,15 @@ class QscvConfigPresenter(QObject):
     def _update_validation(self) -> None:
         errors = self._run_validation()
         if not errors:
-            msg = "Configuration is valid"
+            parts: List[str] = []
             v1 = self._config.var1
             count = QscvConstraints.no_of_step(v1.start, v1.stop, v1.step)
             if count is not None:
-                msg += f" ({count} steps)"
+                parts.append(f"{count} steps")
+            parts.append(
+                format_execution_time(qscv_execution_time_range(self._config))
+            )
+            msg = "Configuration is valid (" + " · ".join(parts) + ")"
             self._view.display_validation_status(True, msg)
         else:
             first_err = list(errors.values())[0]

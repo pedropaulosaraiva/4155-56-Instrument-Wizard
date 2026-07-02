@@ -9,8 +9,10 @@ import pytest
 from wizard_4155_4156.models.integration_time import (
     SHORT_TABLE_MIN,
     effective_integration_time,
+    estimated_measurement_time_range,
     estimated_sample_time_range,
     possible_current_ranges,
+    voltage_ranges_spanned,
 )
 from wizard_4155_4156.models.sweep_config import (
     RANGE_VALUES_HRSMU_CURRENT,
@@ -304,3 +306,54 @@ def test_unselected_variable_is_ignored():
         ms, [_smu(mode="V")], ["@TIME"], {"SMU1": {"source": 0.0}}, "4155C", 50
     )
     assert result == (0.0, 0.0)
+
+
+# ── voltage_ranges_spanned ───────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("min_mag", "max_mag", "expected"),
+    [
+        (0.0, 1.0, [2.0]),  # inside the 2 V range
+        (0.0, 5.0, [2.0, 20.0]),  # spans up to 20 V
+        (0.0, 30.0, [2.0, 20.0, 40.0]),  # up to 40 V
+        (0.0, 100.0, [2.0, 20.0, 40.0, 100.0]),  # full set
+        (3.0, 3.0, [20.0]),  # single point in the 20 V range
+        (150.0, 200.0, [100.0]),  # above all ranges → clamp to 100 V
+    ],
+)
+def test_voltage_ranges_spanned(min_mag, max_mag, expected):
+    assert voltage_ranges_spanned(min_mag, max_mag) == expected
+
+
+# ── estimated_measurement_time_range (voltage-range set) ─────────────────────
+
+
+def test_measurement_range_spans_multiple_voltage_ranges():
+    # HRSMU 100 nA SHORT: ×2 at 20 V, ×4 at 40 V. A sweep touching both ranges
+    # widens the interval; a single voltage range collapses it.
+    ms = _ms(
+        mode=IntegrationMode.SHORT,
+        short_time=ST,
+        ranges={"SMU1": {"mode": "FIX", "value": 100e-9}},
+    )
+    channels = [_smu(mode="V")]
+    lo2, hi2 = estimated_measurement_time_range(
+        ms, channels, ["I1"], {"SMU1": [20.0]}, True, 50
+    )
+    assert lo2 == hi2 == pytest.approx(2 * ST)
+
+    lo, hi = estimated_measurement_time_range(
+        ms, channels, ["I1"], {"SMU1": [20.0, 40.0]}, True, 50
+    )
+    assert lo == pytest.approx(2 * ST)
+    assert hi == pytest.approx(4 * ST)
+
+
+def test_measurement_voltage_unit_ignores_voltage_ranges():
+    # An I-mode SMU measures voltage → no dependence on the voltage-range set.
+    ms = _ms(ranges={"SMU1": {"mode": "AUTO"}})
+    lo, hi = estimated_measurement_time_range(
+        ms, [_smu(mode="I")], ["V1"], {}, True, 50
+    )
+    assert lo == hi == pytest.approx(2 * PLC50)  # MED voltage

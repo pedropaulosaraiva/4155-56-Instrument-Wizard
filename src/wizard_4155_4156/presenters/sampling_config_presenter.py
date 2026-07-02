@@ -36,6 +36,10 @@ from wizard_4155_4156.models.channels import (
     ChannelsConstraints,
 )
 from wizard_4155_4156.models.config_loader import sampling_config_from_setup
+from wizard_4155_4156.models.execution_time import (
+    format_execution_time,
+    sampling_execution_time_range,
+)
 from wizard_4155_4156.models.sampling_config import (
     BUILTIN_DISPLAY_VARS,
     DISPLAY_VARS_MAX,
@@ -509,16 +513,26 @@ class SamplingConfigPresenter(QObject):
             if len(errors) > 1:
                 first_err += f" +{len(errors) - 1}"
             self._view.display_validation_status(False, first_err)
-        elif warnings:
+            return
+
+        exec_text = format_execution_time(
+            sampling_execution_time_range(
+                self._config,
+                self._ctx["active_channels"],
+                self._ctx["instrument_model"],
+                self._line_frequency_hz,
+            )
+        )
+        if warnings:
             first_warn = warnings[0]
             if len(warnings) > 1:
                 first_warn += f" +{len(warnings) - 1}"
             self._view.display_validation_status(
-                True, first_warn, has_warnings=True
+                True, f"{first_warn} · {exec_text}", has_warnings=True
             )
         else:
             self._view.display_validation_status(
-                True, "Configuration is valid"
+                True, f"Configuration is valid ({exec_text})"
             )
 
     # ── JSON builder ───────────────────────────────────────────────────────
