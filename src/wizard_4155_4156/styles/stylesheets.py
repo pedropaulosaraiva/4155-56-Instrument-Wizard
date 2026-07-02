@@ -1600,3 +1600,68 @@ def documentation_document_css() -> str:
             padding: 6px 10px;
         }}
     """
+
+
+# ── Measurement-config top bar & status widget ───────────────────────────────
+
+_STATUS_COLORS = {
+    "critical": P.STATUS_ERROR,
+    "warning": P.STATUS_WARN,
+    "info": P.STATUS_INFO,
+    "ok": P.STATUS_OK,
+    "muted": P.TEXT_MUTED,
+}
+
+
+def measurement_topbar_stylesheet() -> str:
+    return (
+        f"background-color: {P.BG_PANEL}; "
+        f"border-bottom: 1px solid {P.BORDER};"
+    )
+
+
+def measurement_topbar_title_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_PRIMARY}; font-size: {P.FONT_SIZE_XL}; "
+        "font-weight: bold; background: transparent;"
+    )
+
+
+def measurement_status_card_stylesheet() -> str:
+    """Clickable compact status card in the centre of the top bar."""
+    return f"""
+        QFrame#status_card {{
+            background-color: {P.BG_INPUT};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+        }}
+        QFrame#status_card:hover {{ border-color: {P.BORDER_FOCUS}; }}
+        QFrame#status_card QLabel {{ background: transparent; }}
+    """
+
+
+def status_chip_stylesheet(kind: str) -> str:
+    """Compact status chip text (critical/warning/info/ok/muted)."""
+    color = _STATUS_COLORS.get(kind, P.TEXT_SECONDARY)
+    return (
+        f"QLabel {{ color: {color}; font-size: {P.FONT_SIZE_MD}; "
+        "font-weight: bold; background: transparent; }"
+    )
+
+
+def status_column_title_stylesheet(kind: str) -> str:
+    """Column heading in the status modal (critical/warning/info)."""
+    color = _STATUS_COLORS.get(kind, P.TEXT_PRIMARY)
+    return (
+        f"QLabel {{ color: {color}; font-size: {P.FONT_SIZE_LG}; "
+        "font-weight: bold; background: transparent; }"
+    )
+
+
+def status_modal_item_stylesheet(kind: str = "muted") -> str:
+    """A single message/stat row inside the status modal."""
+    color = _STATUS_COLORS.get(kind, P.TEXT_SECONDARY)
+    return (
+        f"QLabel {{ color: {color}; font-size: {P.FONT_SIZE_SM}; "
+        "background: transparent; }"
+    )

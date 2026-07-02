@@ -27,8 +27,8 @@ from PySide6.QtCore import QObject
 
 from wizard_4155_4156.models.config_loader import qscv_config_from_setup
 from wizard_4155_4156.models.execution_time import (
-    format_execution_time,
-    qscv_execution_time_range,
+    measurement_stat_values,
+    qscv_measurement_stats,
 )
 from wizard_4155_4156.models.qscv_config import (
     QscvConfig,
@@ -457,23 +457,14 @@ class QscvConfigPresenter(QObject):
         return errors
 
     def _update_validation(self) -> None:
-        errors = self._run_validation()
-        if not errors:
-            parts: List[str] = []
-            v1 = self._config.var1
-            count = QscvConstraints.no_of_step(v1.start, v1.stop, v1.step)
-            if count is not None:
-                parts.append(f"{count} steps")
-            parts.append(
-                format_execution_time(qscv_execution_time_range(self._config))
-            )
-            msg = "Configuration is valid (" + " · ".join(parts) + ")"
-            self._view.display_validation_status(True, msg)
-        else:
-            first_err = list(errors.values())[0]
-            if len(errors) > 1:
-                first_err += f" +{len(errors) - 1}"
-            self._view.display_validation_status(False, first_err)
+        criticals = list(self._run_validation().values())
+        indexes, points, min_time = measurement_stat_values(
+            qscv_measurement_stats(self._config)
+        )
+        # QSCV has no non-blocking warnings yet (reserved for future rules).
+        self._view.display_measurement_status(
+            criticals, [], indexes, points, min_time
+        )
 
     # ── JSON builder ───────────────────────────────────────────────────
 

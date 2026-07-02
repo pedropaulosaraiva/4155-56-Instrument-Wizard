@@ -13,6 +13,7 @@ from wizard_4155_4156.models.sweep_config import (
     SweepConfig,
     SweepConstraints,
     SweepUnitFlags,
+    VAR1Mode,
     current_compliance_bounds,
     measured_variable,
     smallest_range_at_least,
@@ -314,3 +315,47 @@ def test_range_auto_is_not_constrained():
     cfg.var1.compliance = 0.005
     cfg.measurement_setup.ranges = {"SMU1": {"mode": "AUTO"}}
     assert not any(e.startswith("SMU1 Range") for e in validate(cfg))
+
+
+# ── Total measurement indexes / points (15 200 limit) ────────────────────────
+
+
+def test_total_indexes():
+    points = 11  # var1 0 → 1 V, step 0.1
+    cfg = make_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 0.0, 1.0, 0.1
+    assert SweepConstraints.total_indexes(cfg, has_var2=False) == points
+    cfg.var1.mode = VAR1Mode.DOUBLE
+    assert SweepConstraints.total_indexes(cfg, has_var2=False) == 2 * points
+    cfg.var1.mode = VAR1Mode.SINGLE
+    cfg.var2.n_of_steps = 3
+    assert SweepConstraints.total_indexes(cfg, has_var2=True) == points * 3
+
+
+def _full_flags():
+    return SweepUnitFlags(
+        has_var1=True,
+        has_var2=True,
+        var1_is_voltage=True,
+        var2_is_voltage=True,
+    )
+
+
+def test_total_points_over_limit_blocks():
+    # 1001 pts × 2 (double) × 8 steps = 16 016 indexes × 1 measurable var.
+    cfg = make_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 0.0, 100.0, 0.1
+    cfg.var1.mode = VAR1Mode.DOUBLE
+    cfg.var2.n_of_steps = 8
+    errors = validate(cfg, flags=_full_flags())
+    assert any(e.startswith("Total points") for e in errors)
+
+
+def test_total_points_under_limit_ok():
+    # 1001 × 2 × 7 = 14 014 ≤ 15 200.
+    cfg = make_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 0.0, 100.0, 0.1
+    cfg.var1.mode = VAR1Mode.DOUBLE
+    cfg.var2.n_of_steps = 7
+    errors = validate(cfg, flags=_full_flags())
+    assert not any(e.startswith("Total points") for e in errors)

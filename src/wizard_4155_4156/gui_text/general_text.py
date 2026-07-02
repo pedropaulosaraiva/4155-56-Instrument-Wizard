@@ -68,6 +68,27 @@ class CommandWizardText(StrEnum):
     CHAN_OPT_COMMON_TO_GROUND = "Common circuit is connected to ground"
     CHAN_OPT_INTERLOCK_OPEN = "Interlock terminal is open"
 
+    # ── Measurement-config top bar & status widget ───────────────────────────
+    CFG_MODE_SWEEP = "Sweep"
+    CFG_MODE_SAMPLING = "Sampling"
+    CFG_MODE_QSCV = "QSCV"
+    CFG_BTN_SAVE_SETUP = "Save Setup"
+    CFG_MENU_SAVE_JSON = "Save JSON…"
+    CFG_MENU_GENERATE_JSON = "Generate JSON"
+    CFG_STATUS_READY = "Ready to Save"
+    CFG_STATUS_NOT_READY = "Not Ready"
+    CFG_INFO_INDEXES = "Measurement indexes"
+    CFG_INFO_POINTS = "Measurement points"
+    CFG_INFO_MIN_TIME = "Min. execution time"
+    CFG_INFO_STATUS = "Setup status"
+    CFG_MODAL_TITLE = "Measurement status"
+    CFG_COL_CRITICAL = "Critical"
+    CFG_COL_WARNINGS = "Warnings"
+    CFG_COL_INFO = "Information"
+    CFG_NO_CRITICAL = "No blocking errors."
+    CFG_NO_WARNINGS = "No warnings."
+    CFG_SAVED_TOAST = "💾 Saved to {name}"
+
     # ── Table View page ──────────────────────────────────────────────────────
     TABLE_PAGE_TITLE = "Table View"
     TABLE_EMPTY = "No measurement data yet. Run a measurement to populate."

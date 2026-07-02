@@ -10,9 +10,13 @@ from wizard_4155_4156.models.execution_time import (
     _sweep_total_indexes,
     _sweep_voltage_ranges_by_unit,
     format_execution_time,
+    format_min_execution_time,
     qscv_execution_time_range,
+    qscv_measurement_stats,
     sampling_execution_time_range,
+    sampling_measurement_stats,
     sweep_execution_time_range,
+    sweep_measurement_stats,
 )
 from wizard_4155_4156.models.qscv_config import QscvConfig, QscvVar1Config
 from wizard_4155_4156.models.sampling_config import (
@@ -290,6 +294,40 @@ def test_sampling_auto_uses_adjusted_interval():
 def test_adjusted_interval(measurement_time, iint, expected):
     result = _adjusted_interval(measurement_time, iint)
     assert result == pytest.approx(expected)
+
+
+# ── Measurement stats ────────────────────────────────────────────────────────
+
+
+def test_sweep_measurement_stats():
+    cfg = _sweep_cfg()  # 11 indexes, 1 measurable var (I1)
+    stats = sweep_measurement_stats(cfg, [_smu(function="VAR1")], "4155C", 50)
+    assert stats.indexes == _VAR1_POINTS
+    assert stats.points == _VAR1_POINTS
+    assert stats.min_exec_time == pytest.approx(0.5 + 0.04 * _VAR1_POINTS)
+
+
+def test_qscv_measurement_stats():
+    steps, n_vars = 9, 2  # no_of_step(0, 10, 1) × {C, IL}
+    cfg = _qscv_cfg(display_vars=["C", "IL"])
+    stats = qscv_measurement_stats(cfg)
+    assert stats.indexes == steps
+    assert stats.points == steps * n_vars
+    assert stats.min_exec_time == pytest.approx(0.5 + (0.1 + 0.05) * steps)
+
+
+def test_sampling_measurement_stats():
+    samples = 11  # one measurable var (I1)
+    cfg = _samp_cfg(period_mode=PeriodMode.AUTO)
+    stats = sampling_measurement_stats(cfg, _SAMP_CHANNELS, "4155C", 50)
+    assert stats.indexes == samples
+    assert stats.points == samples
+    assert stats.min_exec_time == pytest.approx(0.04 * samples)
+
+
+def test_format_min_execution_time():
+    assert format_min_execution_time(None) == "indeterminate"
+    assert format_min_execution_time(1.5) == "1.5 s"
 
 
 def test_format_execution_time_interval():

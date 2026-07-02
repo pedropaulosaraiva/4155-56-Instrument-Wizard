@@ -30,7 +30,7 @@ Interlock open         : SMU voltage ±40 V | step ±80 V | compliance (V) ≤ 4
 Power compliance       : 1 mW – 20 W
 VAR2 number of steps   : 1 – 128
 VAR1 points            : 1 – 1001  (cross-rule)
-Total points           : VAR1 × VAR2 ≤ 10 001  (cross-rule)
+Total points           : measurable vars × indexes ≤ 15 200  (cross-rule)
 VARD ratio             : ±1000
 """
 
@@ -145,7 +145,7 @@ VAR1_POINTS_MIN: int = 1
 VAR1_POINTS_MAX: int = 1001
 VAR2_N_OF_STEPS_MIN: int = 1
 VAR2_N_OF_STEPS_MAX: int = 128  # strictly defined in measure_sweep.py
-TOTAL_POINTS_MAX: int = 10_001  # VAR1 × VAR2 cross-rule
+TOTAL_POINTS_MAX: int = 15_200  # measurable vars × total indexes (data buffer)
 DISPLAY_VARS_MAX: int = 8
 # Range values for SMU and VMU measurement modes
 # 4155 (MPSMU) Current ranges (Current mode)
@@ -652,6 +652,25 @@ class SweepConstraints:
             return math.floor(decades * n_per_decade) + 1
 
     @staticmethod
+    def total_indexes(cfg: SweepConfig, has_var2: bool) -> Optional[int]:
+        """Total measurement indexes: VAR1 points × (2 if double) × VAR2 steps.
+
+        A measurement *index* is one swept point (one stored value per
+        measured variable).  VAR2 contributes ``n_of_steps`` when a VAR2 unit
+        is present, otherwise 1.  Returns None when the VAR1 sweep is invalid.
+        """
+        v1 = cfg.var1
+        step = v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
+        points = SweepConstraints.var1_step_count(
+            v1.start, v1.stop, step, v1.spacing
+        )
+        if points is None:
+            return None
+        double = 2 if v1.mode == VAR1Mode.DOUBLE else 1
+        var2_steps = cfg.var2.n_of_steps if has_var2 else 1
+        return points * double * var2_steps
+
+    @staticmethod
     def _validate_measurement_setup(
         ms: MeasurementSetup,
     ) -> List[str]:
@@ -851,8 +870,14 @@ class SweepConstraints:
     def _validate_point_counts(
         cfg: SweepConfig,
         flags: SweepUnitFlags,
+        active_channels: List[dict],
     ) -> List[str]:
-        """Check VAR1 point count and VAR1 x VAR2 total."""
+        """Check the VAR1 point count and the total measurement points.
+
+        Total points = (measurable display variables) × total indexes and must
+        not exceed the instrument data buffer (``TOTAL_POINTS_MAX``).  A DVOL
+        VMU counts as one measurable variable (one stored value).
+        """
         v1 = cfg.var1
         step_val = (
             v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
@@ -869,13 +894,16 @@ class SweepConstraints:
                 f" points (must be "
                 f"{VAR1_POINTS_MIN}-{VAR1_POINTS_MAX})"
             ]
-        if flags.has_var2:
-            total = v1_count * cfg.var2.n_of_steps
+        indexes = SweepConstraints.total_indexes(cfg, flags.has_var2)
+        n_vars = count_measured_units(
+            active_channels or [], cfg.display_vars, dvol_weight=1
+        )
+        if indexes is not None and n_vars > 0:
+            total = n_vars * indexes
             if total > TOTAL_POINTS_MAX:
                 return [
-                    f"Total points: {v1_count} x "
-                    f"{cfg.var2.n_of_steps} = {total:,} "
-                    f"(max {TOTAL_POINTS_MAX:,})"
+                    f"Total points: {n_vars} vars x {indexes} indexes "
+                    f"= {total:,} (max {TOTAL_POINTS_MAX:,})"
                 ]
         return []
 
@@ -1075,7 +1103,7 @@ class SweepConstraints:
             if not any(e.startswith("VAR1") for e in errors):
                 errors.extend(
                     SweepConstraints._validate_point_counts(
-                        cfg, flags,
+                        cfg, flags, active_channels or [],
                     )
                 )
 

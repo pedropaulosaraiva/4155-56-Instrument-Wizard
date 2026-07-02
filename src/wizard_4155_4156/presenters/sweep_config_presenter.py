@@ -37,8 +37,8 @@ from wizard_4155_4156.models.channels import (
 )
 from wizard_4155_4156.models.config_loader import sweep_config_from_setup
 from wizard_4155_4156.models.execution_time import (
-    format_execution_time,
-    sweep_execution_time_range,
+    measurement_stat_values,
+    sweep_measurement_stats,
 )
 from wizard_4155_4156.models.sweep_config import (
     DISPLAY_VARS_MAX,
@@ -633,43 +633,18 @@ class SweepConfigPresenter(QObject):
         return errors
 
     def _update_validation(self) -> None:
-        errors = self._run_validation()
-        if not errors:
-            parts: List[str] = []
-            if self._ctx.get("has_var1"):
-                v1 = self._config.var1
-                step_val = (
-                    v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
-                )
-                v1_count = SweepConstraints.var1_step_count(
-                    v1.start, v1.stop, step_val, v1.spacing
-                )
-                if v1_count is not None:
-                    if self._ctx.get("has_var2"):
-                        total = v1_count * self._config.var2.n_of_steps
-                        parts.append(
-                            f"{v1_count} x "
-                            f"{self._config.var2.n_of_steps}"
-                            f" = {total} points"
-                        )
-                    else:
-                        parts.append(f"{v1_count} points")
-            exec_range = sweep_execution_time_range(
-                self._config,
-                self._ctx["active_channels"],
-                self._ctx["instrument_model"],
-                self._line_frequency_hz,
-            )
-            parts.append(format_execution_time(exec_range))
-            msg = "Configuration is valid"
-            if parts:
-                msg += " (" + " · ".join(parts) + ")"
-            self._view.display_validation_status(True, msg)
-        else:
-            first_err = list(errors.values())[0]
-            if len(errors) > 1:
-                first_err += f" +{len(errors) - 1}"
-            self._view.display_validation_status(False, first_err)
+        criticals = list(self._run_validation().values())
+        stats = sweep_measurement_stats(
+            self._config,
+            self._ctx["active_channels"],
+            self._ctx["instrument_model"],
+            self._line_frequency_hz,
+        )
+        indexes, points, min_time = measurement_stat_values(stats)
+        # Sweep has no non-blocking warnings yet (reserved for future rules).
+        self._view.display_measurement_status(
+            criticals, [], indexes, points, min_time
+        )
 
     # ── JSON builder ───────────────────────────────────────────────────
 

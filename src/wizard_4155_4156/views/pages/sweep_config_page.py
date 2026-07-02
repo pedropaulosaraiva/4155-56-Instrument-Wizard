@@ -25,20 +25,20 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
 from wizard_4155_4156.gui_text.documentation import DocTopic
+from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.models.sweep_config import (
     COMP_I_MAX,
     COMP_I_MIN,
@@ -66,9 +66,7 @@ from wizard_4155_4156.models.sweep_config import (
 )
 from wizard_4155_4156.styles.stylesheets import (
     config_page_stylesheet,
-    export_btn_stylesheet,
     unit_enable_checkbox_stylesheet,
-    validation_status_stylesheet,
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
@@ -105,6 +103,7 @@ from wizard_4155_4156.views.widgets.config_sections import (
 from wizard_4155_4156.views.widgets.config_sections import (
     spinbox as _spinbox,
 )
+from wizard_4155_4156.views.widgets.measurement_status import MeasurementTopBar
 
 
 class _PCompWidget(QWidget):
@@ -772,23 +771,18 @@ class SweepConfigPageView(BasePage):
     ) -> None:
         self._display_vars_sec.display_available(var_names, selected)
 
-    def display_validation_status(self, is_valid: bool, message: str) -> None:
-        """Update the validation status label in the header."""
-        # A fresh validation state supersedes any lingering "Saved" toast.
-        self._save_msg_timer.stop()
-        self._export_btn.setEnabled(is_valid)
-        self._save_btn.setEnabled(is_valid)
-        self._save_db_btn.setEnabled(is_valid)
-        if is_valid:
-            self._validation_lbl.setText(f"✅ {message}")
-            self._validation_lbl.setStyleSheet(
-                validation_status_stylesheet("valid")
-            )
-        else:
-            self._validation_lbl.setText(f"⚠️ {message}")
-            self._validation_lbl.setStyleSheet(
-                validation_status_stylesheet("warning")
-            )
+    def display_measurement_status(
+        self,
+        criticals: List[str],
+        warnings: List[str],
+        indexes: str,
+        points: str,
+        min_time: str,
+    ) -> None:
+        """Push the setup's critical/warning/info state to the top bar."""
+        self._top_bar.display_status(
+            criticals, warnings, indexes, points, min_time
+        )
 
     def display_json(self, json_str: str) -> None:
         dlg = _JsonPreviewDialog(json_str, self)
@@ -805,10 +799,8 @@ class SweepConfigPageView(BasePage):
             self.save_requested.emit(path)
 
     def display_save_success(self, filename: str) -> None:
-        """Flash a transient confirmation in the header validation label."""
-        self._validation_lbl.setText(f"💾 Saved to {filename}")
-        self._validation_lbl.setStyleSheet(validation_status_stylesheet("valid"))
-        self._save_msg_timer.start()
+        """Flash a transient save confirmation in the status widget."""
+        self._top_bar.flash_saved(filename)
 
     def display_constants_setup(
         self,
@@ -844,45 +836,17 @@ class SweepConfigPageView(BasePage):
         root.setSpacing(0)
         self.setStyleSheet(config_page_stylesheet())
 
-        # Header
-        header = QWidget()
-        header.setStyleSheet(
-            f"background-color: {P.BG_PANEL}; "
-            f"border-bottom: 1px solid {P.BORDER};"
+        # Top bar: mode + doc, status widget, save/JSON actions
+        self._top_bar = MeasurementTopBar(
+            tr_ui(CommandWizardText.CFG_MODE_SWEEP), DocTopic.SWEEP_OVERVIEW
         )
-        hh = QHBoxLayout(header)
-        hh.setContentsMargins(24, 14, 24, 14)
-        hh.setSpacing(16)
-        title = QLabel("Sweep Configuration")
-        title.setStyleSheet(
-            f"color: {P.TEXT_PRIMARY}; font-size: 18px; "
-            "font-weight: bold; background: transparent;"
+        self._top_bar.save_setup_requested.connect(self.save_to_db_requested)
+        self._top_bar.save_json_requested.connect(self._on_save_clicked)
+        self._top_bar.export_requested.connect(self.export_requested)
+        self._top_bar.documentation_requested.connect(
+            self.documentation_requested
         )
-        hh.addWidget(title)
-
-        # Validation status label (also hosts the transient "Saved" toast)
-        self._validation_lbl = QLabel()
-        hh.addWidget(self._validation_lbl)
-
-        self._save_msg_timer = QTimer(self)
-        self._save_msg_timer.setSingleShot(True)
-        self._save_msg_timer.setInterval(3000)
-        self._save_msg_timer.timeout.connect(self.save_message_expired)
-
-        hh.addStretch()
-        self._save_db_btn = QPushButton("Save Setup")
-        self._save_db_btn.setStyleSheet(export_btn_stylesheet())
-        self._save_db_btn.clicked.connect(self.save_to_db_requested)
-        hh.addWidget(self._save_db_btn)
-        self._save_btn = QPushButton("Save JSON")
-        self._save_btn.setStyleSheet(export_btn_stylesheet())
-        self._save_btn.clicked.connect(self._on_save_clicked)
-        hh.addWidget(self._save_btn)
-        self._export_btn = QPushButton("Generate JSON")
-        self._export_btn.setStyleSheet(export_btn_stylesheet())
-        self._export_btn.clicked.connect(self.export_requested)
-        hh.addWidget(self._export_btn)
-        root.addWidget(header)
+        root.addWidget(self._top_bar)
 
         # Scrollable body
         scroll = QScrollArea()

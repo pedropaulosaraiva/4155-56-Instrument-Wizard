@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -33,13 +33,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
 from wizard_4155_4156.gui_text.documentation import DocTopic
+from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.models.qscv_config import (
     CSTEP_MAX,
     cap_integration_bounds,
@@ -60,10 +60,8 @@ from wizard_4155_4156.models.sweep_config import (
 )
 from wizard_4155_4156.styles.stylesheets import (
     config_page_stylesheet,
-    export_btn_stylesheet,
     unit_card_combo_stylesheet,
     unit_card_line_edit_stylesheet,
-    validation_status_stylesheet,
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
@@ -91,6 +89,7 @@ from wizard_4155_4156.views.widgets.config_sections import (
 from wizard_4155_4156.views.widgets.config_sections import (
     form_row as _form_row,
 )
+from wizard_4155_4156.views.widgets.measurement_status import MeasurementTopBar
 
 
 class _QscvNamesSection(_SectionFrame):
@@ -552,21 +551,18 @@ class QscvConfigPageView(BasePage):
             active_channels, constants_config, interlock_open
         )
 
-    def display_validation_status(self, is_valid: bool, message: str) -> None:
-        self._save_msg_timer.stop()
-        self._export_btn.setEnabled(is_valid)
-        self._save_btn.setEnabled(is_valid)
-        self._save_db_btn.setEnabled(is_valid)
-        if is_valid:
-            self._validation_lbl.setText(f"✅ {message}")
-            self._validation_lbl.setStyleSheet(
-                validation_status_stylesheet("valid")
-            )
-        else:
-            self._validation_lbl.setText(f"⚠️ {message}")
-            self._validation_lbl.setStyleSheet(
-                validation_status_stylesheet("warning")
-            )
+    def display_measurement_status(
+        self,
+        criticals: List[str],
+        warnings: List[str],
+        indexes: str,
+        points: str,
+        min_time: str,
+    ) -> None:
+        """Push the setup's critical/warning/info state to the top bar."""
+        self._top_bar.display_status(
+            criticals, warnings, indexes, points, min_time
+        )
 
     def display_json(self, json_str: str) -> None:
         dlg = _JsonPreviewDialog(
@@ -575,11 +571,7 @@ class QscvConfigPageView(BasePage):
         dlg.exec()
 
     def display_save_success(self, filename: str) -> None:
-        self._validation_lbl.setText(f"💾 Saved to {filename}")
-        self._validation_lbl.setStyleSheet(
-            validation_status_stylesheet("valid")
-        )
-        self._save_msg_timer.start()
+        self._top_bar.flash_saved(filename)
 
     def get_input_errors(self) -> Dict[str, str]:
         errors: Dict[str, str] = {}
@@ -608,43 +600,17 @@ class QscvConfigPageView(BasePage):
         root.setSpacing(0)
         self.setStyleSheet(config_page_stylesheet())
 
-        header = QWidget()
-        header.setStyleSheet(
-            f"background-color: {P.BG_PANEL}; "
-            f"border-bottom: 1px solid {P.BORDER};"
+        # Top bar: mode + doc, status widget, save/JSON actions
+        self._top_bar = MeasurementTopBar(
+            tr_ui(CommandWizardText.CFG_MODE_QSCV), DocTopic.QSCV_OVERVIEW
         )
-        hh = QHBoxLayout(header)
-        hh.setContentsMargins(24, 14, 24, 14)
-        hh.setSpacing(16)
-        title = QLabel("QSCV Configuration")
-        title.setStyleSheet(
-            f"color: {P.TEXT_PRIMARY}; font-size: 18px; "
-            "font-weight: bold; background: transparent;"
+        self._top_bar.save_setup_requested.connect(self.save_to_db_requested)
+        self._top_bar.save_json_requested.connect(self._on_save_clicked)
+        self._top_bar.export_requested.connect(self.export_requested)
+        self._top_bar.documentation_requested.connect(
+            self.documentation_requested
         )
-        hh.addWidget(title)
-
-        self._validation_lbl = QLabel()
-        hh.addWidget(self._validation_lbl)
-
-        self._save_msg_timer = QTimer(self)
-        self._save_msg_timer.setSingleShot(True)
-        self._save_msg_timer.setInterval(3000)
-        self._save_msg_timer.timeout.connect(self.save_message_expired)
-
-        hh.addStretch()
-        self._save_db_btn = QPushButton("Save Setup")
-        self._save_db_btn.setStyleSheet(export_btn_stylesheet())
-        self._save_db_btn.clicked.connect(self.save_to_db_requested)
-        hh.addWidget(self._save_db_btn)
-        self._save_btn = QPushButton("Save JSON")
-        self._save_btn.setStyleSheet(export_btn_stylesheet())
-        self._save_btn.clicked.connect(self._on_save_clicked)
-        hh.addWidget(self._save_btn)
-        self._export_btn = QPushButton("Generate JSON")
-        self._export_btn.setStyleSheet(export_btn_stylesheet())
-        self._export_btn.clicked.connect(self.export_requested)
-        hh.addWidget(self._export_btn)
-        root.addWidget(header)
+        root.addWidget(self._top_bar)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)

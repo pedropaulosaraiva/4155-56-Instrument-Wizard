@@ -206,6 +206,18 @@ class QscvConfig:
     constants: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
 
+def total_indexes(cfg: "QscvConfig") -> Optional[int]:
+    """Total measurement indexes: NO. OF STEP × (2 if Double Sweep else 1).
+
+    QSCV has no VAR2 (VAR2 steps ≡ 1).  Returns None when the sweep is invalid.
+    """
+    points = no_of_step(cfg.var1.start, cfg.var1.stop, cfg.var1.step)
+    if points is None:
+        return None
+    double = 2 if cfg.var1.mode == VAR1Mode.DOUBLE else 1
+    return points * double
+
+
 # ── Constraint rule-set (cross-parameter) ───────────
 
 

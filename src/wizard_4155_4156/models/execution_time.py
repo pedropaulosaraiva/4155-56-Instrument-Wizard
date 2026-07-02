@@ -41,6 +41,7 @@ sample before the current measurement finishes).
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from wizard_4155_4156.models.integration_time import (
@@ -49,13 +50,13 @@ from wizard_4155_4156.models.integration_time import (
     measures_current,
     voltage_ranges_spanned,
 )
-from wizard_4155_4156.models.qscv_config import QscvConfig, no_of_step
+from wizard_4155_4156.models.qscv_config import QscvConfig
+from wizard_4155_4156.models.qscv_config import total_indexes as qscv_indexes
 from wizard_4155_4156.models.sampling_config import PeriodMode, SamplingConfig
 from wizard_4155_4156.models.sweep_config import (
     SweepConfig,
     SweepConstraints,
-    SweepSpacing,
-    VAR1Mode,
+    count_measured_units,
 )
 
 # ── Sweep ────────────────────────────────────────────────────────────────────
@@ -108,22 +109,14 @@ def _sweep_voltage_ranges_by_unit(
     return result
 
 
+def _has_var2(active_channels: List[dict]) -> bool:
+    return any(ch.get("function") == "VAR2" for ch in active_channels or [])
+
+
 def _sweep_total_indexes(
     cfg: SweepConfig, active_channels: List[dict]
 ) -> Optional[int]:
-    v1 = cfg.var1
-    step = v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
-    points = SweepConstraints.var1_step_count(
-        v1.start, v1.stop, step, v1.spacing
-    )
-    if points is None:
-        return None
-    double = 2 if v1.mode == VAR1Mode.DOUBLE else 1
-    has_var2 = any(
-        ch.get("function") == "VAR2" for ch in active_channels or []
-    )
-    var2_steps = cfg.var2.n_of_steps if has_var2 else 1
-    return points * double * var2_steps
+    return SweepConstraints.total_indexes(cfg, _has_var2(active_channels))
 
 
 def sweep_execution_time_range(
@@ -166,19 +159,11 @@ def _qscv_measurement_interval(cfg: QscvConfig) -> float:
     return interval
 
 
-def _qscv_total_indexes(cfg: QscvConfig) -> Optional[int]:
-    points = no_of_step(cfg.var1.start, cfg.var1.stop, cfg.var1.step)
-    if points is None:
-        return None
-    double = 2 if cfg.var1.mode == VAR1Mode.DOUBLE else 1
-    return points * double  # no VAR2 ⇒ VAR2Steps = 1
-
-
 def qscv_execution_time_range(
     cfg: QscvConfig,
 ) -> Optional[Tuple[float, float]]:
     """QSCV execution-time interval (s); deterministic (min == max)."""
-    indexes = _qscv_total_indexes(cfg)
+    indexes = qscv_indexes(cfg)
     if indexes is None:
         return None
     interval = _qscv_measurement_interval(cfg)
@@ -249,3 +234,100 @@ def format_execution_time(result: Optional[Tuple[float, float]]) -> str:
     if math.isclose(lo, hi, rel_tol=1e-9):
         return f"est. {_fmt_seconds(hi)} s"
     return f"est. {_fmt_seconds(lo)}–{_fmt_seconds(hi)} s"
+
+
+def format_min_execution_time(seconds: Optional[float]) -> str:
+    """Minimum execution time for the widget ('indeterminate' when None)."""
+    if seconds is None:
+        return "indeterminate"
+    return f"{_fmt_seconds(seconds)} s"
+
+
+# ── Measurement statistics (status widget) ───────────────────────────────────
+
+
+@dataclass(frozen=True)
+class MeasurementStats:
+    """Counts shown in the status widget's Information section.
+
+    ``points`` = ``indexes`` × number of measurable display variables (a DVOL
+    VMU counts as one).  ``min_exec_time`` is the lower bound of the
+    execution-time interval in seconds, or None when indeterminate.
+    """
+
+    indexes: Optional[int]
+    points: Optional[int]
+    min_exec_time: Optional[float]
+
+
+def _min_time(result: Optional[Tuple[float, float]]) -> Optional[float]:
+    return None if result is None else result[0]
+
+
+def _points(indexes: Optional[int], n_vars: int) -> Optional[int]:
+    return None if indexes is None else indexes * n_vars
+
+
+def sweep_measurement_stats(
+    cfg: SweepConfig,
+    active_channels: List[dict],
+    instrument_model: str,
+    line_frequency_hz: int,
+) -> MeasurementStats:
+    indexes = SweepConstraints.total_indexes(cfg, _has_var2(active_channels))
+    n_vars = count_measured_units(
+        active_channels or [], cfg.display_vars, dvol_weight=1
+    )
+    exec_range = sweep_execution_time_range(
+        cfg, active_channels, instrument_model, line_frequency_hz
+    )
+    return MeasurementStats(
+        indexes, _points(indexes, n_vars), _min_time(exec_range)
+    )
+
+
+def _qscv_measurable_count(cfg: QscvConfig) -> int:
+    selected = set(cfg.display_vars or [])
+    names = (cfg.cap_name, cfg.leak_name)
+    return sum(1 for name in names if name and name in selected)
+
+
+def qscv_measurement_stats(cfg: QscvConfig) -> MeasurementStats:
+    indexes = qscv_indexes(cfg)
+    n_vars = _qscv_measurable_count(cfg)
+    return MeasurementStats(
+        indexes,
+        _points(indexes, n_vars),
+        _min_time(qscv_execution_time_range(cfg)),
+    )
+
+
+def sampling_measurement_stats(
+    cfg: SamplingConfig,
+    active_channels: List[dict],
+    instrument_model: str,
+    line_frequency_hz: int,
+) -> MeasurementStats:
+    indexes = cfg.points
+    n_vars = count_measured_units(
+        active_channels or [], cfg.display_vars, dvol_weight=1
+    )
+    exec_range = sampling_execution_time_range(
+        cfg, active_channels, instrument_model, line_frequency_hz
+    )
+    return MeasurementStats(
+        indexes, _points(indexes, n_vars), _min_time(exec_range)
+    )
+
+
+def measurement_stat_values(stats: MeasurementStats) -> Tuple[str, str, str]:
+    """(indexes, points, min-time) as display strings for the status widget."""
+
+    def _count(value: Optional[int]) -> str:
+        return f"{value:,}" if isinstance(value, int) else "—"
+
+    return (
+        _count(stats.indexes),
+        _count(stats.points),
+        format_min_execution_time(stats.min_exec_time),
+    )
