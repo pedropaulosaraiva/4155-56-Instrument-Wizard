@@ -135,7 +135,10 @@ class MeasureConfigFactory(QObject):
         elif mode == MeasurementMode.SAMPLING:
             page = SamplingConfigPageView()
             self._presenter = SamplingConfigPresenter(
-                view=page, channels_snapshot=snapshot, parent=self
+                view=page,
+                channels_snapshot=snapshot,
+                line_frequency_hz=self._line_frequency(),
+                parent=self,
             )
         elif mode == MeasurementMode.QSCV:
             page = QscvConfigPageView()
@@ -184,6 +187,7 @@ class MeasureConfigFactory(QObject):
             self._presenter = SamplingConfigPresenter(
                 view=page,
                 channels_snapshot=channels_config,
+                line_frequency_hz=self._line_frequency(),
                 parent=self,
                 initial_setup=setup_dict,
             )

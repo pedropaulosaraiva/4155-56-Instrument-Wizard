@@ -231,12 +231,12 @@ class _SamplingSetupSection(_SectionFrame):
         )
 
     def display_points_bounds(self, max_points: int) -> None:
-        self._points_sb.blockSignals(True)
-        self._points_sb.setMaximum(max_points)
-        self._points_sb.blockSignals(False)
-        self._points_sb.setToolTip(
-            f"Range: {SAMPLES_MIN} – {max_points}"
-        )
+        # The spinbox keeps its static maximum (SAMPLES_MAX); the mode/unit-
+        # dependent limit is enforced by the model validator, not by clamping
+        # the widget.  Clamping while signals are blocked silently desynced the
+        # widget value from the model when a newly displayed variable lowered
+        # the limit below the stored value.
+        self._points_sb.setToolTip(f"Range: {SAMPLES_MIN} – {max_points}")
 
     def display_hold_bounds(self, min_v: float, max_v: float) -> None:
         self._hold_edit.update_bounds(min_v, max_v)

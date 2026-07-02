@@ -476,7 +476,7 @@ def test_range_vs_compliance_blocks_oversized_fixed_range():
 
 
 def test_timing_warning_close():
-    # MED integration (20 ms) × 1 unit + 1 ms wait ≈ 21 ms busy time.
+    # MED integration (20 ms at 50 Hz) × 1 unit ≈ 20 ms measurement time.
     # IINT chosen so estimate sits between CLOSE and EXCEED ratios.
     cfg = make_valid_config(initial_interval=0.025)
     errors, warnings = validate(cfg)
@@ -486,12 +486,12 @@ def test_timing_warning_close():
 
 
 def test_timing_warning_exceed():
-    # Estimate (~21 ms) ≥ 2 × IINT (10 ms) → strong warning
+    # Estimate (~20 ms) ≥ 2 × IINT (10 ms) → strong warning
     cfg = make_valid_config(initial_interval=0.01)
     errors, warnings = validate(cfg)
     assert errors == []
     assert len(warnings) == 1
-    assert "much bigger than the Initial Interval" in warnings[0]
+    assert "exceeds the Initial Interval" in warnings[0]
 
 
 def test_timing_warning_none_when_slow():
@@ -515,12 +515,24 @@ def test_estimated_sample_time():
     cfg = SamplingConfig()
     cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
     cfg.measurement_setup.short_time = 4e-4
-    cfg.measurement_setup.wait_multiplier = 2.0
+    cfg.measurement_setup.wait_multiplier = 2.0  # excluded from the estimate
     est = SamplingConstraints.estimated_sample_time(
         cfg.measurement_setup, 3
     )
-    # 2.0 × 1 ms wait reference + 3 × 0.4 ms integration
-    assert est == pytest.approx(2e-3 + 3 * 4e-4)
+    # Integration only: 3 × 0.4 ms.  The wait time is DUT-dependent and is
+    # deliberately not part of the estimate.
+    assert est == pytest.approx(3 * 4e-4)
+
+
+def test_integration_time_estimate_scales_with_line_frequency():
+    # MED integration is 1 PLC; PLC duration = 1 / line frequency.
+    ms = SamplingConfig().measurement_setup
+    assert SamplingConstraints.integration_time_estimate(
+        ms, 50
+    ) == pytest.approx(0.02)
+    assert SamplingConstraints.integration_time_estimate(
+        ms, 60
+    ) == pytest.approx(1.0 / 60)
 
 
 def _dvol_config(initial_interval):
@@ -533,8 +545,8 @@ def _dvol_config(initial_interval):
 
 
 def test_timing_warning_counts_dvol_as_two_units():
-    # MED integration (20 ms) + 1 ms wait. At 40 ms interval one ordinary unit
-    # (~21 ms) raises no warning, but a dvol VMU integrates twice (~41 ms) and
+    # MED integration (20 ms at 50 Hz). At a 40 ms interval one ordinary unit
+    # (~20 ms) raises no warning, but a dvol VMU integrates twice (~40 ms) and
     # crosses the "close to interval" threshold.
     single = make_valid_config(initial_interval=0.04)
     _, warnings_single = validate(single)

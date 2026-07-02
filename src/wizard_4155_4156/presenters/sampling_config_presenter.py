@@ -75,10 +75,12 @@ class SamplingConfigPresenter(QObject):
         channels_snapshot,  # ChannelsConfig — static deep-copied snapshot
         parent: QObject | None = None,
         initial_setup: dict | None = None,  # preload from a saved setup (copy)
+        line_frequency_hz: int = 50,  # user preference; scales PLC estimate
     ) -> None:
         super().__init__(parent)
         self._view = view
         self._channels_config = channels_snapshot
+        self._line_frequency_hz = line_frequency_hz or 50
         self._config = (
             sampling_config_from_setup(initial_setup)
             if initial_setup is not None
@@ -494,6 +496,7 @@ class SamplingConfigPresenter(QObject):
             self._ctx["measured_vars"],
             interlock_open=bool(self._channels_config.interlock_open),
             instrument_model=self._ctx["instrument_model"],
+            line_frequency_hz=self._line_frequency_hz,
         )
         for i, err in enumerate(model_errors):
             errors[f"model_err_{i}"] = err

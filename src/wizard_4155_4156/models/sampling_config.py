@@ -125,13 +125,13 @@ EVENT_COUNT_MIN: int = 1
 EVENT_COUNT_MAX: int = 200
 
 # ── Timing-warning heuristics (non-blocking) ─────────────────────────────────
-# Per-sample busy-time estimate: wait + integration_time × n_meas_units.
-# MED integration is 1 PLC; we assume 50 Hz mains (20 ms) as the worst case.
-NOMINAL_PLC: float = 0.02  # s
-# The instrument wait time is wait_multiplier × an instrument-determined
-# initial wait (range/compliance dependent, not queryable in advance).
-# WAIT_TIME_REFERENCE is a documented approximation of that initial wait.
-WAIT_TIME_REFERENCE: float = 1e-3  # s per multiplier unit
+# Per-sample measurement-time estimate: integration_time × n_meas_units.
+# MED integration is 1 PLC; the PLC duration is derived from the user's
+# configured AC line frequency (1 / f), not assumed to be 50 Hz.
+# The instrument wait time is deliberately excluded: it is DUT-dependent
+# (can be an arbitrarily long settling interval) and does not deterministically
+# lengthen the achievable sampling interval.
+DEFAULT_LINE_FREQUENCY_HZ: int = 50  # fallback when no preference is supplied
 SAMPLE_TIME_CLOSE_RATIO: float = 0.75  # estimate ≥ 75 % of IINT → warn
 SAMPLE_TIME_EXCEED_RATIO: float = 2.0  # estimate ≥ 2 × IINT → strong warn
 
@@ -254,24 +254,34 @@ class SamplingConstraints:
         )
 
     @staticmethod
-    def integration_time_estimate(ms: MeasurementSetup) -> float:
+    def integration_time_estimate(
+        ms: MeasurementSetup,
+        line_frequency_hz: int = DEFAULT_LINE_FREQUENCY_HZ,
+    ) -> float:
+        plc = 1.0 / (line_frequency_hz or DEFAULT_LINE_FREQUENCY_HZ)
         if ms.integration_mode == IntegrationMode.SHORT:
             return ms.short_time
         if ms.integration_mode == IntegrationMode.LONG:
-            return ms.long_time_cycles * NOMINAL_PLC
-        return NOMINAL_PLC
+            return ms.long_time_cycles * plc
+        return plc
 
     @staticmethod
     def estimated_sample_time(
-        ms: MeasurementSetup, n_meas_units: int
+        ms: MeasurementSetup,
+        n_meas_units: int,
+        line_frequency_hz: int = DEFAULT_LINE_FREQUENCY_HZ,
     ) -> float:
         """
-        Estimated per-sample busy time:
-        wait delay + integration_time × number of measurement units.
+        Estimated per-sample measurement time:
+        integration_time × number of measurement units.
+
+        The instrument wait time is excluded — it is DUT-dependent and does
+        not deterministically extend the achievable sampling interval.
         """
-        delay = ms.wait_multiplier * WAIT_TIME_REFERENCE
-        integration = SamplingConstraints.integration_time_estimate(ms)
-        return delay + integration * max(0, n_meas_units)
+        integration = SamplingConstraints.integration_time_estimate(
+            ms, line_frequency_hz
+        )
+        return integration * max(0, n_meas_units)
 
     # ── Authoritative validation ─────────────────────────────────────────
 
@@ -425,7 +435,9 @@ class SamplingConstraints:
 
     @staticmethod
     def _timing_warnings(
-        cfg: SamplingConfig, active_channels: List[dict]
+        cfg: SamplingConfig,
+        active_channels: List[dict],
+        line_frequency_hz: int = DEFAULT_LINE_FREQUENCY_HZ,
     ) -> List[str]:
         """Non-blocking feasibility warnings on the sampling interval.
 
@@ -440,20 +452,17 @@ class SamplingConstraints:
         if time_units <= 0 or iint <= 0:
             return []
         est = SamplingConstraints.estimated_sample_time(
-            cfg.measurement_setup, time_units
+            cfg.measurement_setup, time_units, line_frequency_hz
         )
         if est >= SAMPLE_TIME_EXCEED_RATIO * iint:
             return [
-                f"Estimated measurement time per sample (~{est:.3g} s) "
-                f"is much bigger than the Initial Interval ({iint:.3g} s)"
-                ": the actual sampling interval will be longer than "
-                "configured"
+                f"Est. time/sample (~{est:.3g} s) exceeds the "
+                f"Initial Interval ({iint:.3g} s)"
             ]
         if est >= SAMPLE_TIME_CLOSE_RATIO * iint:
             return [
-                f"Estimated measurement time per sample (~{est:.3g} s) "
-                f"is close to the Initial Interval ({iint:.3g} s): the "
-                "instrument may not maintain the sampling interval"
+                f"Est. time/sample (~{est:.3g} s) is close to the "
+                f"Initial Interval ({iint:.3g} s)"
             ]
         return []
 
@@ -464,6 +473,7 @@ class SamplingConstraints:
         available_vars: List[str],
         interlock_open: bool = False,
         instrument_model: str = "4155C",
+        line_frequency_hz: int = DEFAULT_LINE_FREQUENCY_HZ,
     ) -> Tuple[List[str], List[str]]:
         """
         Validate the full sampling configuration.
@@ -531,5 +541,7 @@ class SamplingConstraints:
             )
         )
 
-        warnings = sampling_constraints._timing_warnings(cfg, active_channels)
+        warnings = sampling_constraints._timing_warnings(
+            cfg, active_channels, line_frequency_hz
+        )
         return errors, warnings
