@@ -38,10 +38,14 @@ a VMU measures its v_name.  VSUs never count (source only).
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Tuple
 
+from wizard_4155_4156.models.integration_time import (
+    estimated_sample_time_range,
+)
 from wizard_4155_4156.models.sweep_config import (
     DISPLAY_VARS_MAX,
     LONG_CYCLES_MAX,
@@ -137,6 +141,14 @@ SAMPLE_TIME_EXCEED_RATIO: float = 2.0  # estimate ≥ 2 × IINT → strong warn
 
 # Built-in display variables always offered by the sampling page
 BUILTIN_DISPLAY_VARS: Tuple[str, ...] = ("@TIME", "@INDEX")
+
+
+def _format_time_interval(lo: float, hi: float) -> str:
+    """Render a per-sample time estimate: a single value when the bounds
+    coincide, otherwise a ``~lo–hi s`` interval."""
+    if math.isclose(lo, hi, rel_tol=1e-9):
+        return f"~{hi:.3g} s"
+    return f"~{lo:.3g}–{hi:.3g} s"
 
 
 # ── Per-section dataclasses ──────────────────────────────────────────────────
@@ -252,36 +264,6 @@ class SamplingConstraints:
         return count_measured_units(
             active_channels, display_vars, dvol_weight=1
         )
-
-    @staticmethod
-    def integration_time_estimate(
-        ms: MeasurementSetup,
-        line_frequency_hz: int = DEFAULT_LINE_FREQUENCY_HZ,
-    ) -> float:
-        plc = 1.0 / (line_frequency_hz or DEFAULT_LINE_FREQUENCY_HZ)
-        if ms.integration_mode == IntegrationMode.SHORT:
-            return ms.short_time
-        if ms.integration_mode == IntegrationMode.LONG:
-            return ms.long_time_cycles * plc
-        return plc
-
-    @staticmethod
-    def estimated_sample_time(
-        ms: MeasurementSetup,
-        n_meas_units: int,
-        line_frequency_hz: int = DEFAULT_LINE_FREQUENCY_HZ,
-    ) -> float:
-        """
-        Estimated per-sample measurement time:
-        integration_time × number of measurement units.
-
-        The instrument wait time is excluded — it is DUT-dependent and does
-        not deterministically extend the achievable sampling interval.
-        """
-        integration = SamplingConstraints.integration_time_estimate(
-            ms, line_frequency_hz
-        )
-        return integration * max(0, n_meas_units)
 
     # ── Authoritative validation ─────────────────────────────────────────
 
@@ -437,31 +419,36 @@ class SamplingConstraints:
     def _timing_warnings(
         cfg: SamplingConfig,
         active_channels: List[dict],
+        instrument_model: str = "4155C",
         line_frequency_hz: int = DEFAULT_LINE_FREQUENCY_HZ,
     ) -> List[str]:
         """Non-blocking feasibility warnings on the sampling interval.
 
-        The per-sample time scales with integration count, so a dvol VMU
-        counts as two measurement units here (it integrates both VMUs in
-        turn) — unlike the data-buffer count used for ``points_max``.
+        The estimate is a ``(min, max)`` interval: current measurements under
+        AUTO / limited-auto ranging span a range of effective integration
+        times, while voltage measurements (and fixed current ranges) collapse
+        to a single value.  The warning triggers on the worst case (max).
         """
         iint = cfg.initial_interval
-        time_units = count_measured_units(
-            active_channels, cfg.display_vars, dvol_weight=2
+        t_min, t_max = estimated_sample_time_range(
+            cfg.measurement_setup,
+            active_channels,
+            cfg.display_vars,
+            cfg.constants,
+            instrument_model,
+            line_frequency_hz,
         )
-        if time_units <= 0 or iint <= 0:
+        if t_max <= 0 or iint <= 0:
             return []
-        est = SamplingConstraints.estimated_sample_time(
-            cfg.measurement_setup, time_units, line_frequency_hz
-        )
-        if est >= SAMPLE_TIME_EXCEED_RATIO * iint:
+        interval = _format_time_interval(t_min, t_max)
+        if t_max >= SAMPLE_TIME_EXCEED_RATIO * iint:
             return [
-                f"Est. time/sample (~{est:.3g} s) exceeds the "
+                f"Est. time/sample ({interval}) exceeds the "
                 f"Initial Interval ({iint:.3g} s)"
             ]
-        if est >= SAMPLE_TIME_CLOSE_RATIO * iint:
+        if t_max >= SAMPLE_TIME_CLOSE_RATIO * iint:
             return [
-                f"Est. time/sample (~{est:.3g} s) is close to the "
+                f"Est. time/sample ({interval}) is close to the "
                 f"Initial Interval ({iint:.3g} s)"
             ]
         return []
@@ -542,6 +529,6 @@ class SamplingConstraints:
         )
 
         warnings = sampling_constraints._timing_warnings(
-            cfg, active_channels, line_frequency_hz
+            cfg, active_channels, instrument_model, line_frequency_hz
         )
         return errors, warnings

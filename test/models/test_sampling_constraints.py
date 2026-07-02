@@ -237,7 +237,8 @@ def test_count_measurement_units_dvol_counts_one_for_buffer():
 
 
 def test_valid_config_no_errors_no_warnings():
-    cfg = make_valid_config()
+    # Slow interval so the AUTO-range timing estimate stays well below it.
+    cfg = make_valid_config(initial_interval=1.0)
     errors, warnings = validate(cfg)
     assert errors == []
     assert warnings == []
@@ -476,9 +477,9 @@ def test_range_vs_compliance_blocks_oversized_fixed_range():
 
 
 def test_timing_warning_close():
-    # MED integration (20 ms at 50 Hz) × 1 unit ≈ 20 ms measurement time.
-    # IINT chosen so estimate sits between CLOSE and EXCEED ratios.
-    cfg = make_valid_config(initial_interval=0.025)
+    # MPSMU AUTO-range current in MED spans ~0.04–0.12 s (worst case 0.12 s).
+    # IINT chosen so the worst case sits between the CLOSE and EXCEED ratios.
+    cfg = make_valid_config(initial_interval=0.1)
     errors, warnings = validate(cfg)
     assert errors == []
     assert len(warnings) == 1
@@ -486,12 +487,21 @@ def test_timing_warning_close():
 
 
 def test_timing_warning_exceed():
-    # Estimate (~20 ms) ≥ 2 × IINT (10 ms) → strong warning
-    cfg = make_valid_config(initial_interval=0.01)
+    # Worst-case estimate (~0.12 s) ≥ 2 × IINT (0.05 s) → strong warning.
+    cfg = make_valid_config(initial_interval=0.05)
     errors, warnings = validate(cfg)
     assert errors == []
     assert len(warnings) == 1
     assert "exceeds the Initial Interval" in warnings[0]
+
+
+def test_timing_warning_shows_interval_for_auto_current():
+    # An AUTO-range current measurement spans several effective integration
+    # times, so the estimate is rendered as a min–max interval.
+    cfg = make_valid_config(initial_interval=0.05)
+    _, warnings = validate(cfg)
+    assert len(warnings) == 1
+    assert "–" in warnings[0]
 
 
 def test_timing_warning_none_when_slow():
@@ -511,30 +521,6 @@ def test_warning_ratios_are_ordered():
     assert SAMPLE_TIME_CLOSE_RATIO < SAMPLE_TIME_EXCEED_RATIO
 
 
-def test_estimated_sample_time():
-    cfg = SamplingConfig()
-    cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
-    cfg.measurement_setup.short_time = 4e-4
-    cfg.measurement_setup.wait_multiplier = 2.0  # excluded from the estimate
-    est = SamplingConstraints.estimated_sample_time(
-        cfg.measurement_setup, 3
-    )
-    # Integration only: 3 × 0.4 ms.  The wait time is DUT-dependent and is
-    # deliberately not part of the estimate.
-    assert est == pytest.approx(3 * 4e-4)
-
-
-def test_integration_time_estimate_scales_with_line_frequency():
-    # MED integration is 1 PLC; PLC duration = 1 / line frequency.
-    ms = SamplingConfig().measurement_setup
-    assert SamplingConstraints.integration_time_estimate(
-        ms, 50
-    ) == pytest.approx(0.02)
-    assert SamplingConstraints.integration_time_estimate(
-        ms, 60
-    ) == pytest.approx(1.0 / 60)
-
-
 def _dvol_config(initial_interval):
     cfg = SamplingConfig()
     cfg.display_vars = ["@TIME", "VMU1"]
@@ -545,14 +531,14 @@ def _dvol_config(initial_interval):
 
 
 def test_timing_warning_counts_dvol_as_two_units():
-    # MED integration (20 ms at 50 Hz). At a 40 ms interval one ordinary unit
-    # (~20 ms) raises no warning, but a dvol VMU integrates twice (~40 ms) and
-    # crosses the "close to interval" threshold.
-    single = make_valid_config(initial_interval=0.04)
-    _, warnings_single = validate(single)
+    # VMU voltage integration in MED = 2·plc = 40 ms at 50 Hz. At an 80 ms
+    # interval a single V-mode VMU (~40 ms) raises no warning, but a dvol VMU
+    # integrates twice (~80 ms) and crosses the "close to interval" threshold.
+    single = _dvol_config(0.08)
+    _, warnings_single = validate(single, [vmu(1, mode="V")], ["VMU1"])
     assert warnings_single == []
 
-    cfg = _dvol_config(0.04)
+    cfg = _dvol_config(0.08)
     channels = [vmu(1, mode="DVOLT")]
     errors, warnings = validate(cfg, channels, ["VMU1"])
     assert errors == []
