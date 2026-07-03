@@ -439,6 +439,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(
             f"Wizard 4155/4156 — Semiconductor Analyzer  ·  {name}"
         )
+        self._top_bar.set_project_status(name)
         self._set_project_pages_enabled(True)
         self._runs_presenter.set_database(self._project_manager.current_db)
         self._table_presenter.set_database(self._project_manager.current_db)
@@ -615,13 +616,14 @@ class MainWindow(QMainWindow):
         )
 
     def on_hardware_busy(self, busy: bool) -> None:
+        # Live hardware busy/ready is surfaced by the bottom status bar; the
+        # top-bar pill is reserved for the open-project state.
         self._status_indicator.setText(" ● Busy " if busy else " ● Ready ")
         self._status_indicator.setStyleSheet(
             status_indicator_busy_stylesheet()
             if busy
             else status_indicator_ready_stylesheet()
         )
-        self._top_bar.set_system_status(not busy)
 
     def closeEvent(self, event) -> None:  # noqa: N802
         """

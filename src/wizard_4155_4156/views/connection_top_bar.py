@@ -3,11 +3,12 @@ views/connection_top_bar.py
 ---------------------------
 Thin horizontal status bar rendered at the top of the window.
 Hosts the CompactConnectorWidget (or its demo surrogate) as the
-centred focal element, with branding on the left and a system-status
+centred focal element, with branding on the left and a project-status
 pill on the right.
 
-No business logic lives here — the presenter updates the status pill
-via set_system_status().
+No business logic lives here — the owner updates the pill via
+set_project_status() to reflect whether a project is open.  (Live
+hardware busy/ready is surfaced by the bottom QStatusBar instead.)
 """
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -37,6 +38,9 @@ class ConnectionTopBar(QFrame):
         The bar centres it horizontally regardless of its fixed size.
     """
 
+    #: Longest project name shown in the pill before it is elided.
+    MAX_PROJECT_NAME_CHARS = 15
+
     def __init__(
         self,
         connector_widget: QWidget,
@@ -46,19 +50,41 @@ class ConnectionTopBar(QFrame):
         self._connector = connector_widget
         self._setup_ui()
         self._apply_styles()
+        # Start with no project open.
+        self.set_project_status(None)
 
     # ── Public API ───────────────────────────────────────────────────────────
 
-    def set_system_status(self, ready: bool) -> None:
-        if ready:
-            self._lbl_status.setText("🟢  System Ready")
-            self._lbl_status.setStyleSheet(top_bar_sys_status_stylesheet())
-        else:
-            self._lbl_status.setText("🟡  Hardware Busy")
+    def set_project_status(self, project_name: str | None) -> None:
+        """Reflect the open-project state in the top-bar pill.
+
+        Pass the project name when one is open, or ``None`` when no project
+        is loaded (application start / project closed).  Long names are
+        elided to ``MAX_PROJECT_NAME_CHARS``; the full name is kept as the
+        tooltip.
+        """
+        if not project_name:
+            self._lbl_status.setText("📁  No Project Open")
+            self._lbl_status.setToolTip("")
             self._lbl_status.setStyleSheet(
                 top_bar_sys_status_stylesheet()
                 .replace(P.STATUS_OK, P.STATUS_WARN)
             )
+            return
+
+        name = self._elide(project_name, self.MAX_PROJECT_NAME_CHARS)
+        self._lbl_status.setText(f"📂  {name}")
+        self._lbl_status.setToolTip(project_name)
+        self._lbl_status.setStyleSheet(top_bar_sys_status_stylesheet())
+
+    # ── Helpers ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _elide(text: str, max_chars: int) -> str:
+        text = text.strip()
+        if len(text) <= max_chars:
+            return text
+        return text[: max_chars - 1].rstrip() + "…"
 
     # ── Private ──────────────────────────────────────────────────────────────
 
@@ -104,8 +130,8 @@ class ConnectionTopBar(QFrame):
 
         layout.addStretch()
 
-        # Right — system status pill
-        self._lbl_status = QLabel("🟢  System Ready")
+        # Right — project status pill (text set by set_project_status())
+        self._lbl_status = QLabel()
         layout.addWidget(self._lbl_status)
 
     def _apply_styles(self) -> None:
