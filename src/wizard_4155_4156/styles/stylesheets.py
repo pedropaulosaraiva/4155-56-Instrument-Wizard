@@ -1614,9 +1614,17 @@ _STATUS_COLORS = {
 
 
 def measurement_topbar_stylesheet() -> str:
+    """Top bar of the setup pages.
+
+    Scoped to ``QWidget#measurement_topbar`` (rather than a bare declaration)
+    so the ``border-bottom`` stays on the bar itself and does not leak onto the
+    child text labels as an underline.  Requires the widget to set
+    ``WA_StyledBackground`` for the background to paint.
+    """
     return (
-        f"background-color: {P.BG_PANEL}; "
-        f"border-bottom: 1px solid {P.BORDER};"
+        f"QWidget#measurement_topbar {{ "
+        f"background-color: {P.BG_TOPBAR}; "
+        f"border-bottom: 1px solid {P.BORDER}; }}"
     )
 
 
@@ -1664,4 +1672,49 @@ def status_modal_item_stylesheet(kind: str = "muted") -> str:
     return (
         f"QLabel {{ color: {color}; font-size: {P.FONT_SIZE_SM}; "
         "background: transparent; }"
+    )
+
+
+def status_modal_card_stylesheet(kind: str) -> str:
+    """Status-modal column card with a colored accent stripe on the top edge.
+
+    Mirrors ``section_card_stylesheet`` (the VAR1/VAR2 card look) but places
+    the 3px stripe on the top instead of the left; the top corners are squared
+    so the stripe ends flat instead of curling around the corner radius.  The
+    stripe color follows the column identity (critical/warning/info).
+    """
+    accent = _STATUS_COLORS.get(kind, P.ACCENT)
+    return f"""
+        QFrame#status_modal_card {{
+            background-color: {P.BG_ELEVATED};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_LG};
+            border-top: 3px solid {accent};
+            border-top-left-radius: 0px;
+            border-top-right-radius: 0px;
+        }}
+    """
+
+
+def status_modal_empty_stylesheet() -> str:
+    """Muted, italic empty-state line inside a status-modal column."""
+    return (
+        f"QLabel {{ color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_SM}; "
+        "font-style: italic; background: transparent; }"
+    )
+
+
+def status_modal_info_label_stylesheet() -> str:
+    """Left-hand label of an Information row in the status modal."""
+    return (
+        f"QLabel {{ color: {P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_SM}; "
+        "background: transparent; }"
+    )
+
+
+def status_modal_info_value_stylesheet() -> str:
+    """Right-hand bold value of an Information row in the status modal."""
+    return (
+        f"QLabel {{ color: {P.TEXT_PRIMARY}; font-size: {P.FONT_SIZE_SM}; "
+        "font-weight: bold; background: transparent; }"
     )

@@ -86,6 +86,10 @@ class MeasurementTopBar(QWidget):
     # ── Construction ─────────────────────────────────────────────────────────
 
     def _build(self, mode_name: str, doc_topic: DocTopic) -> None:
+        # Object name + styled background so the scoped stylesheet paints the
+        # bar and keeps its border-bottom off the child text labels.
+        self.setObjectName("measurement_topbar")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(measurement_topbar_stylesheet())
         row = QHBoxLayout(self)
         row.setContentsMargins(24, 10, 24, 10)

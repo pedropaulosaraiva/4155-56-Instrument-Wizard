@@ -20,6 +20,7 @@ class _Palette:
     BG_ELEVATED: str = "#2d2d30"  # Hover states, elevated surfaces
     BG_NAVBAR: str = "#181818"  # Navigation bar (slightly deeper)
     BG_INPUT: str = "#121212"  # Input background (very dark for contrast)
+    BG_TOPBAR: str = "#333337"  # setup-page top bar (clearly gray vs. #252526)
 
     # ── Borders ──────────────────────────────────────────────────────────────
     BORDER: str = "#3e3e42"

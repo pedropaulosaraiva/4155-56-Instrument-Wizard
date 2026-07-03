@@ -1,8 +1,13 @@
 """
 extra_widgets/measurement_status_dialog.py
 -------------------------------------------
-Modal detail view for the measurement-config status widget: three columns —
+Modal detail view for the measurement-config status widget: three columns,
 Critical (blocking errors), Warnings (non-blocking), and Information (stats).
+
+Each column is a rounded card carrying a colored top accent stripe (red /
+yellow / blue), echoing the VAR1/VAR2 section-card visual language. Critical
+and Warnings render as bullet rows; Information renders as label-left /
+bold-value-right rows.
 """
 
 from __future__ import annotations
@@ -23,6 +28,10 @@ from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.stylesheets import (
     settings_dialog_stylesheet,
     status_column_title_stylesheet,
+    status_modal_card_stylesheet,
+    status_modal_empty_stylesheet,
+    status_modal_info_label_stylesheet,
+    status_modal_info_value_stylesheet,
     status_modal_item_stylesheet,
 )
 
@@ -59,30 +68,25 @@ class MeasurementStatusDialog(QDialog):
         columns = QHBoxLayout()
         columns.setSpacing(16)
         columns.addWidget(
-            self._column(
+            self._message_column(
                 "critical",
                 tr_ui(_T.CFG_COL_CRITICAL),
-                criticals or [tr_ui(_T.CFG_NO_CRITICAL)],
-                "critical" if criticals else "muted",
+                criticals,
+                tr_ui(_T.CFG_NO_CRITICAL),
             ),
             1,
         )
         columns.addWidget(
-            self._column(
+            self._message_column(
                 "warning",
                 tr_ui(_T.CFG_COL_WARNINGS),
-                warnings or [tr_ui(_T.CFG_NO_WARNINGS)],
-                "warning" if warnings else "muted",
+                warnings,
+                tr_ui(_T.CFG_NO_WARNINGS),
             ),
             1,
         )
         columns.addWidget(
-            self._column(
-                "info",
-                tr_ui(_T.CFG_COL_INFO),
-                [f"{label}: {value}" for label, value in info_lines],
-                "info",
-            ),
+            self._info_column(tr_ui(_T.CFG_COL_INFO), info_lines),
             1,
         )
         root.addLayout(columns)
@@ -96,23 +100,60 @@ class MeasurementStatusDialog(QDialog):
         buttons.addWidget(close)
         root.addLayout(buttons)
 
+    # ── Column factories ─────────────────────────────────────────────────────
+
     @staticmethod
-    def _column(
-        kind: str, title: str, items: List[str], item_kind: str
-    ) -> QFrame:
-        col = QFrame()
-        lay = QVBoxLayout(col)
-        lay.setContentsMargins(4, 4, 4, 4)
-        lay.setSpacing(8)
+    def _card(kind: str, title: str) -> Tuple[QFrame, QVBoxLayout]:
+        """Titled card with a top accent stripe; returns (card, body)."""
+        card = QFrame()
+        card.setObjectName("status_modal_card")
+        card.setStyleSheet(status_modal_card_stylesheet(kind))
+        body = QVBoxLayout(card)
+        body.setContentsMargins(16, 14, 16, 14)
+        body.setSpacing(10)
 
         heading = QLabel(title)
         heading.setStyleSheet(status_column_title_stylesheet(kind))
-        lay.addWidget(heading)
+        body.addWidget(heading)
+        return card, body
 
-        for text in items:
-            item = QLabel(text)
-            item.setWordWrap(True)
-            item.setStyleSheet(status_modal_item_stylesheet(item_kind))
-            lay.addWidget(item)
-        lay.addStretch()
-        return col
+    @classmethod
+    def _message_column(
+        cls, kind: str, title: str, items: List[str], empty_text: str
+    ) -> QFrame:
+        """Critical/Warnings column: bullet rows, or a muted-italic empty."""
+        card, body = cls._card(kind, title)
+        if items:
+            for text in items:
+                item = QLabel(f"•  {text}")
+                item.setWordWrap(True)
+                item.setStyleSheet(status_modal_item_stylesheet(kind))
+                body.addWidget(item)
+        else:
+            empty = QLabel(empty_text)
+            empty.setWordWrap(True)
+            empty.setStyleSheet(status_modal_empty_stylesheet())
+            body.addWidget(empty)
+        body.addStretch()
+        return card
+
+    @classmethod
+    def _info_column(
+        cls, title: str, info_lines: List[Tuple[str, str]]
+    ) -> QFrame:
+        """Information column: label-left / bold-value-right rows."""
+        card, body = cls._card("info", title)
+        for label, value in info_lines:
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 0, 0, 0)
+            row.setSpacing(12)
+            lbl = QLabel(label)
+            lbl.setStyleSheet(status_modal_info_label_stylesheet())
+            val = QLabel(value)
+            val.setStyleSheet(status_modal_info_value_stylesheet())
+            row.addWidget(lbl)
+            row.addStretch()
+            row.addWidget(val)
+            body.addLayout(row)
+        body.addStretch()
+        return card
