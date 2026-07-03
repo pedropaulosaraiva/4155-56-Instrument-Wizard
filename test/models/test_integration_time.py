@@ -130,20 +130,20 @@ def test_short_current_below_table_uses_raw_aperture():
         ) == pytest.approx(5e-4)
 
 
-# ── Current, MEDIUM mode (Table 7-23 × 2 ADC-Zero) ───────────────────────────
+# ── Current, MEDIUM mode (Table 7-23; ×2 ADC-Zero only ≥ 10 nA) ──────────────
 
 
 @pytest.mark.parametrize(
     ("is_4156", "current_range", "expected"),
     [
-        (True, 10e-12, 50 * 2 * PLC50),
-        (True, 100e-12, 10 * 2 * PLC50),
-        (True, 1e-9, 5 * 2 * PLC50),
-        (True, 10e-9, 1 * 2 * PLC50),
-        (True, 100e-3, 1 * 2 * PLC50),
-        (False, 1e-9, 3 * 2 * PLC50),
-        (False, 10e-9, 1 * 2 * PLC50),
-        (False, 100e-3, 1 * 2 * PLC50),
+        (True, 10e-12, 50 * PLC50),      # < 10 nA → no ADC-Zero doubling
+        (True, 100e-12, 10 * PLC50),     # < 10 nA → no doubling
+        (True, 1e-9, 5 * PLC50),         # < 10 nA → no doubling
+        (True, 10e-9, 1 * 2 * PLC50),    # ≥ 10 nA → ×2
+        (True, 100e-3, 1 * 2 * PLC50),   # ≥ 10 nA → ×2
+        (False, 1e-9, 3 * PLC50),        # MPSMU < 10 nA → no doubling
+        (False, 10e-9, 1 * 2 * PLC50),   # ≥ 10 nA → ×2
+        (False, 100e-3, 1 * 2 * PLC50),  # ≥ 10 nA → ×2
     ],
 )
 def test_medium_current(is_4156, current_range, expected):
@@ -153,19 +153,19 @@ def test_medium_current(is_4156, current_range, expected):
     ) == pytest.approx(expected)
 
 
-# ── Current, LONG mode (Table 7-22 × 2 ADC-Zero, capped at 100 PLC) ──────────
+# ── Current, LONG mode (Table 7-22, cap 100 PLC; ×2 ADC-Zero only ≥ 10 nA) ───
 
 
 @pytest.mark.parametrize(
     ("is_4156", "current_range", "long_cycles", "expected"),
     [
-        (True, 10e-12, 5, 100 * 2 * PLC50),   # always 100 PLC
-        (True, 100e-12, 5, 50 * 2 * PLC50),   # min(5×10, 100) = 50
-        (True, 100e-12, 20, 100 * 2 * PLC50),  # min(20×10, 100) = 100 (capped)
-        (True, 1e-9, 5, 25 * 2 * PLC50),      # min(5×5, 100) = 25
-        (True, 10e-9, 50, 50 * 2 * PLC50),    # setting value
-        (False, 1e-9, 30, 30 * 2 * PLC50),    # MPSMU: setting value
-        (False, 100e-3, 30, 30 * 2 * PLC50),
+        (True, 10e-12, 5, 100 * PLC50),    # always 100 PLC, no doubling
+        (True, 100e-12, 5, 50 * PLC50),    # min(5×10, 100) = 50, no doubling
+        (True, 100e-12, 20, 100 * PLC50),  # min(20×10, 100) = 100, no doubling
+        (True, 1e-9, 5, 25 * PLC50),       # min(5×5, 100) = 25, no doubling
+        (True, 10e-9, 50, 50 * 2 * PLC50),  # ≥ 10 nA → setting value ×2
+        (False, 1e-9, 30, 30 * PLC50),     # MPSMU < 10 nA → no doubling
+        (False, 100e-3, 30, 30 * 2 * PLC50),  # ≥ 10 nA → ×2
     ],
 )
 def test_long_current(is_4156, current_range, long_cycles, expected):
@@ -174,6 +174,22 @@ def test_long_current(is_4156, current_range, long_cycles, expected):
         current_range=current_range, long_cycles=long_cycles,
         is_4156=is_4156, freq=50,
     ) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("mode", [IntegrationMode.MED, IntegrationMode.LONG])
+def test_adc_zero_boundary_at_10na(mode):
+    # ADC-Zero doubles the current integration time only on the 10 nA range or
+    # greater: 1 nA is NOT doubled, 10 nA IS (HRSMU, base 1 PLC ≥ 10 nA).
+    def t(current_range):
+        return eff(
+            mode, measures_current=True, current_range=current_range,
+            long_cycles=1, is_4156=True, freq=50,
+        )
+
+    # HRSMU: 1 nA base = 5 PLC (MED) / min(1×5,100)=5 PLC (LONG); no doubling.
+    assert t(1e-9) == pytest.approx(5 * PLC50)
+    # 10 nA base = 1 PLC, doubled by ADC-Zero.
+    assert t(10e-9) == pytest.approx(1 * 2 * PLC50)
 
 
 # ── possible_current_ranges ──────────────────────────────────────────────────
@@ -239,8 +255,8 @@ def test_auto_current_yields_interval():
     lo, hi = estimated_sample_time_range(
         ms, [_smu(mode="V")], ["I1"], {"SMU1": {"source": 0.0}}, "4155C", 50
     )
-    assert lo == pytest.approx(0.04)  # common ranges: 1 PLC × 2
-    assert hi == pytest.approx(0.12)  # MPSMU 1 nA: 3 PLC × 2
+    assert lo == pytest.approx(0.04)  # ≥ 10 nA ranges: 1 PLC × 2
+    assert hi == pytest.approx(0.06)  # MPSMU 1 nA: 3 PLC (no ADC-Zero < 10 nA)
     assert hi > lo
 
 

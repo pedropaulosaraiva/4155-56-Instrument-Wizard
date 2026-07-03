@@ -159,13 +159,13 @@ def test_sweep_span_excludes_voltage_measuring_smu():
 
 
 def test_sweep_execution_time_interval():
-    # MPSMU AUTO current in MED spans 0.04–0.12 s; 11 indexes; hold 0.5.
+    # MPSMU AUTO current in MED spans 0.04–0.06 s; 11 indexes; hold 0.5.
     cfg = _sweep_cfg()
     lo, hi = sweep_execution_time_range(
         cfg, [_smu(function="VAR1")], "4155C", 50
     )
     assert lo == pytest.approx(0.5 + 0.04 * 11)
-    assert hi == pytest.approx(0.5 + 0.12 * 11)
+    assert hi == pytest.approx(0.5 + 0.06 * 11)
 
 
 def test_sweep_execution_time_voltage_only_collapses():
@@ -271,11 +271,11 @@ def test_sampling_log_mode_is_indeterminate():
 
 
 def test_sampling_auto_uses_adjusted_interval():
-    # MPSMU AUTO MED interval 0.04–0.12 s; IINT 0.02 → adjusted 0.04–0.12.
+    # MPSMU AUTO MED interval 0.04–0.06 s; IINT 0.02 → adjusted 0.04–0.06.
     cfg = _samp_cfg(period_mode=PeriodMode.AUTO)
     lo, hi = sampling_execution_time_range(cfg, _SAMP_CHANNELS, "4155C", 50)
     assert lo == pytest.approx(0.04 * 11)
-    assert hi == pytest.approx(0.12 * 11)
+    assert hi == pytest.approx(0.06 * 11)
 
 
 # ── Adjusted interval & formatting ───────────────────────────────────────────
@@ -305,7 +305,7 @@ def test_sweep_measurement_stats():
     assert stats.indexes == _VAR1_POINTS
     assert stats.points == _VAR1_POINTS
     assert stats.exec_time == pytest.approx(
-        (0.5 + 0.04 * _VAR1_POINTS, 0.5 + 0.12 * _VAR1_POINTS)
+        (0.5 + 0.04 * _VAR1_POINTS, 0.5 + 0.06 * _VAR1_POINTS)
     )
 
 
@@ -325,7 +325,7 @@ def test_sampling_measurement_stats():
     stats = sampling_measurement_stats(cfg, _SAMP_CHANNELS, "4155C", 50)
     assert stats.indexes == samples
     assert stats.points == samples
-    assert stats.exec_time == pytest.approx((0.04 * samples, 0.12 * samples))
+    assert stats.exec_time == pytest.approx((0.04 * samples, 0.06 * samples))
 
 
 def test_format_execution_interval():

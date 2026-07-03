@@ -21,9 +21,12 @@ This module reproduces the manual's behaviour:
 - Table 7-23  Integration Time in Medium Mode (without ADC Zero)
 - Table 7-24  Integration Time in Short Mode  (Integ time 0.96–1.92 ms)
 
-The "without ADC Zero" tables omit the extra ×2 applied to *current*
-measurements in MEDIUM/LONG, so that factor is re-applied here.  Only HRSMU
-and MPSMU are in scope; HPSMU rows are ignored.
+The "without ADC Zero" tables omit the extra ×2 the instrument applies in
+MEDIUM/LONG.  Per the manual, that ADC-Zero step doubles *voltage* measurements
+and *current* measurements on the 10 nA range or greater only, so the factor
+is re-applied here for voltage and for current ranges ≥ 10 nA (the 10 pA /
+100 pA / 1 nA rows are already the effective time).  Only HRSMU and MPSMU are
+in scope; HPSMU rows are ignored.
 
 Because AUTO / limited-auto ranging hides the run-time current range,
 ``estimated_sample_time_range`` returns a ``(min, max)`` interval spanning the
@@ -51,8 +54,9 @@ SHORT_TABLE_MIN: float = 0.96e-3  # s
 
 _DEFAULT_LINE_FREQUENCY_HZ: int = 50
 _LONG_MAX_PLC: int = 100  # Table 7-22 caps the integration time at 100 PLC
-# Extra ×2 applied in MEDIUM/LONG (current: the ADC-Zero factor absent from the
-# "without ADC Zero" tables; voltage: the manual's doubling of the setting).
+# ADC-Zero doubling in MEDIUM/LONG (absent from the "without ADC Zero" tables).
+# Voltage: always applied.  Current: only on the 10 nA range or greater — see
+# ``_adc_zero_factor`` — never on the 10 pA / 100 pA / 1 nA rows.
 _MED_LONG_FACTOR: int = 2
 
 # Current-range decade exponents (round(log10(range))); table rows are keyed by
@@ -154,6 +158,15 @@ def _short_current_seconds(
     return _mpsmu_short_seconds(decade, voltage_range, short_time)
 
 
+def _adc_zero_factor(current_range: float) -> int:
+    """ADC-Zero doubling (MEDIUM/LONG) applies only to current ranges ≥ 10 nA.
+
+    The 10 pA / 100 pA / 1 nA rows in Tables 7-22/7-23 already give the
+    effective integration time, so no doubling applies there (User's Guide).
+    """
+    return _MED_LONG_FACTOR if _range_decade(current_range) >= _DEC_10NA else 1
+
+
 def _med_current_plc(current_range: float, is_4156: bool) -> float:
     """Table 7-23 integration time in PLC (before the ×2 ADC-Zero factor)."""
     table = _MED_PLC_HRSMU if is_4156 else _MED_PLC_MPSMU
@@ -214,7 +227,7 @@ def _current_integration_seconds(
         plc_count = _long_current_plc(current_range, is_4156, long_cycles)
     else:
         plc_count = _med_current_plc(current_range, is_4156)
-    return plc_count * _MED_LONG_FACTOR * plc
+    return plc_count * _adc_zero_factor(current_range) * plc
 
 
 def effective_integration_time(

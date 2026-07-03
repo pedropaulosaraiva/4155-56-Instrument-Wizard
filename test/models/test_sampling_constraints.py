@@ -477,9 +477,10 @@ def test_range_vs_compliance_blocks_oversized_fixed_range():
 
 
 def test_timing_warning_close():
-    # MPSMU AUTO-range current in MED spans ~0.04–0.12 s (worst case 0.12 s).
-    # IINT chosen so the worst case sits between the CLOSE and EXCEED ratios.
-    cfg = make_valid_config(initial_interval=0.1)
+    # MPSMU AUTO-range current in MED spans ~0.04–0.06 s (worst case 0.06 s).
+    # IINT chosen so the worst case sits between the CLOSE and EXCEED ratios
+    # (0.75 × 0.05 = 0.0375 ≤ 0.06 < 2 × 0.05 = 0.1).
+    cfg = make_valid_config(initial_interval=0.05)
     errors, warnings = validate(cfg)
     assert errors == []
     assert len(warnings) == 1
@@ -487,8 +488,8 @@ def test_timing_warning_close():
 
 
 def test_timing_warning_exceed():
-    # Worst-case estimate (~0.12 s) ≥ 2 × IINT (0.05 s) → strong warning.
-    cfg = make_valid_config(initial_interval=0.05)
+    # Worst-case estimate (~0.06 s) ≥ 2 × IINT (0.02 s) → strong warning.
+    cfg = make_valid_config(initial_interval=0.02)
     errors, warnings = validate(cfg)
     assert errors == []
     assert len(warnings) == 1
