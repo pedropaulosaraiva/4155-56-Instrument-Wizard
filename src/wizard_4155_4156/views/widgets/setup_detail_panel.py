@@ -477,7 +477,7 @@ def _source_units(ch: Optional[dict]) -> tuple[str, str]:
 
 def _last_var2_value(var: dict) -> Optional[float]:
     try:
-        return var["start"] + var["n_of_steps"] * var["step"]
+        return var["start"] + (var["n_of_steps"] - 1) * var["step"]
     except (KeyError, TypeError):
         return None
 

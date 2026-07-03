@@ -84,7 +84,7 @@ def _sweep_source_magnitudes(
     if function == "VAR1":
         return _magnitude_bounds(cfg.var1.start, cfg.var1.stop)
     if function == "VAR2":
-        end = cfg.var2.start + cfg.var2.n_of_steps * cfg.var2.step
+        end = cfg.var2.start + (cfg.var2.n_of_steps - 1) * cfg.var2.step
         return _magnitude_bounds(cfg.var2.start, end)
     if function == "VAR1'":  # VARD: output = VAR1 × ratio + offset
         a = cfg.var1.start * cfg.vard.ratio + cfg.vard.offset

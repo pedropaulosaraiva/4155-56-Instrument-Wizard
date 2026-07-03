@@ -946,11 +946,12 @@ class SweepConstraints:
             )
         step_ok = v2.step != 0 and stp_min <= v2.step <= stp_max
 
-        # The last swept value is Start + Step × Number of Steps.  Like
-        # VAR1 Stop / VARD Output it must stay within the channel source range;
-        # only meaningful once Step and Number of Steps are themselves valid.
+        # The last swept value is Start + Step × (Number of Steps − 1),
+        # since Number of Steps is the point count (first point is Start).
+        # Like VAR1 Stop / VARD Output it must stay within the channel source
+        # range; only meaningful once Step and Number of Steps are valid.
         if step_ok and n_steps_ok:
-            last = v2.start + v2.n_of_steps * v2.step
+            last = v2.start + (v2.n_of_steps - 1) * v2.step
             errors.extend(
                 SweepConstraints._validate_source_value(
                     "VAR2 Last Value", last, src_min, src_max

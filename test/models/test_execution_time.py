@@ -127,7 +127,7 @@ def test_sweep_span_var2_source():
     cfg = _sweep_cfg()
     cfg.var2.start = 0.0
     cfg.var2.step = 10.0
-    cfg.var2.n_of_steps = 3  # 0 → 30 V
+    cfg.var2.n_of_steps = 5  # 0 → (5-1)*10 = 40 V (points, not intervals)
     spans = _sweep_voltage_ranges_by_unit(
         cfg, [_smu(2, function="VAR2", mode="V")]
     )

@@ -409,7 +409,7 @@ class _VAR2Section(_SectionFrame):
         for row in [
             _form_row("Start", self._start_edit),
             _form_row("Step", self._step_edit),
-            _form_row("Number of steps", self._n_steps_sb),
+            _form_row("Number of points", self._n_steps_sb),
             self._comp_row,
             self._pcomp_row,
         ]:
