@@ -113,9 +113,13 @@ class MeasurementTopBar(QWidget):
         self._critical_lbl = QLabel()
         self._warning_lbl = QLabel()
         self._info_lbl = QLabel()
-        for lbl in (self._critical_lbl, self._warning_lbl, self._info_lbl):
-            card_row.addWidget(lbl)
+        # Spread the three chips across the card (space-between) instead of
+        # clustering them at the left edge.
+        card_row.addWidget(self._critical_lbl)
         card_row.addStretch()
+        card_row.addWidget(self._warning_lbl)
+        card_row.addStretch()
+        card_row.addWidget(self._info_lbl)
         row.addWidget(self._card, stretch=1)
 
         self._save_btn = QPushButton(tr_ui(_T.CFG_BTN_SAVE_SETUP))
