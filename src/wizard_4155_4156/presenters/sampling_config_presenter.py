@@ -53,7 +53,10 @@ from wizard_4155_4156.models.sampling_config import (
     SamplingMode,
     SConEvent,
 )
-from wizard_4155_4156.models.sweep_config import IntegrationMode
+from wizard_4155_4156.models.sweep_config import (
+    IntegrationMode,
+    default_range_config,
+)
 from wizard_4155_4156.views.pages.sampling_config_page import (
     SamplingConfigPageView,
 )
@@ -198,11 +201,12 @@ class SamplingConfigPresenter(QObject):
                 :DISPLAY_VARS_MAX
             ]
 
-        # Default ranges (AUTO) for measurement-capable units
+        # Default ranges for measurement-capable units (current-measuring
+        # units → limited-auto at 1 nA; voltage-measuring units → AUTO).
         for ch in active:
             if ch["unit_type"] in {"SMU", "VMU"}:
                 cfg.measurement_setup.ranges.setdefault(
-                    ch["id"], {"mode": "AUTO"}
+                    ch["id"], default_range_config(ch)
                 )
 
         # Default constants for CONST source units (non-COMM)

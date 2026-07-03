@@ -63,6 +63,12 @@ class DocTopic(StrEnum):
     QSCV_TIMING = "qscv.timing"
     QSCV_VAR1 = "qscv.var1"
 
+    # ── Setup Status (shared by every measurement-config mode) ───────────────
+    STATUS_OVERVIEW = "status.overview"
+    STATUS_CRITICAL = "status.critical"
+    STATUS_WARNING = "status.warning"
+    STATUS_INFO = "status.info"
+
 
 @dataclass(frozen=True)
 class DocPage:
@@ -117,6 +123,10 @@ DOC_TITLES: dict[DocTopic, str] = {
     DocTopic.QSCV_MEASURE_SETUP: "QSCV Measure Setup",
     DocTopic.QSCV_TIMING: "QSCV Timing",
     DocTopic.QSCV_VAR1: "VAR1 — Voltage Sweep",
+    DocTopic.STATUS_OVERVIEW: "Setup Status",
+    DocTopic.STATUS_CRITICAL: "Critical Notifications",
+    DocTopic.STATUS_WARNING: "Warnings",
+    DocTopic.STATUS_INFO: "Information",
 }
 
 
@@ -174,6 +184,17 @@ DOC_TREE: tuple[DocSection, ...] = (
             DocNode("VAR1 — Voltage Sweep", DocTopic.QSCV_VAR1),
         ),
     ),
+    # Shared by the status card on every measurement-config page (the ⓘ icons
+    # beside the Critical / Warnings / Information columns in its modal).
+    DocSection(
+        "Setup Status",
+        DocTopic.STATUS_OVERVIEW,
+        (
+            DocNode("Critical Notifications", DocTopic.STATUS_CRITICAL),
+            DocNode("Warnings", DocTopic.STATUS_WARNING),
+            DocNode("Information", DocTopic.STATUS_INFO),
+        ),
+    ),
 )
 
 
@@ -208,6 +229,10 @@ DOC_BODIES: dict[DocTopic, str] = {
     DocTopic.QSCV_OVERVIEW: pages.qscv_mode.BODY,
     DocTopic.QSCV_MEASURE_SETUP: pages.qscv_measure_setup.BODY,
     DocTopic.QSCV_VAR1: pages.qscv_var1_voltage_sweep.BODY,
+    DocTopic.STATUS_OVERVIEW: pages.status_overview.BODY,
+    DocTopic.STATUS_CRITICAL: pages.status_critical.BODY,
+    DocTopic.STATUS_WARNING: pages.status_warning.BODY,
+    DocTopic.STATUS_INFO: pages.status_information.BODY,
 }
 
 

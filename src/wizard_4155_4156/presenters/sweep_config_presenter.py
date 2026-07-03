@@ -49,6 +49,7 @@ from wizard_4155_4156.models.sweep_config import (
     SweepStop,
     SweepUnitFlags,
     VAR1Mode,
+    default_range_config,
 )
 from wizard_4155_4156.views.pages.sweep_config_page import SweepConfigPageView
 
@@ -318,18 +319,21 @@ class SweepConfigPresenter(QObject):
             self._config.display_vars = unique_vars[:DISPLAY_VARS_MAX]
 
         # Prune ranges for disabled/inactive measurement units (SMUs and VMUs)
-        # and initialize defaults (AUTO) for new active units.
+        # and initialize defaults for new active units (current-measuring
+        # units → limited-auto at 1 nA; voltage-measuring units → AUTO).
         active_meas_units = {
-            ch["id"] for ch in active if ch["unit_type"] in ("SMU", "VMU")
+            ch["id"]: ch
+            for ch in active
+            if ch["unit_type"] in ("SMU", "VMU")
         }
         updated_ranges = {}
-        for uid in active_meas_units:
+        for uid, ch in active_meas_units.items():
             if uid in self._config.measurement_setup.ranges:
                 updated_ranges[uid] = self._config.measurement_setup.ranges[
                     uid
                 ]
             else:
-                updated_ranges[uid] = {"mode": "AUTO"}
+                updated_ranges[uid] = default_range_config(ch)
         self._config.measurement_setup.ranges = updated_ranges
 
         # Prune/initialize constant entries to match

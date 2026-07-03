@@ -172,7 +172,7 @@ class _SweepTimingSection(_SectionFrame):
 
         # Hold time has a DIFFERENT (larger) max than delay
         self._hold_edit = _SciDoubleEdit(
-            0.5, HOLD_TIME_MIN, HOLD_TIME_MAX, "s"
+            0.0, HOLD_TIME_MIN, HOLD_TIME_MAX, "s"
         )
         self._hold_edit._edit.setToolTip(
             f"Range: {HOLD_TIME_MIN} – {HOLD_TIME_MAX} s"
@@ -180,7 +180,7 @@ class _SweepTimingSection(_SectionFrame):
         self.body().addWidget(_form_row("Hold Time", self._hold_edit))
 
         self._stop_seg = _SegmentedGroup(
-            ["ABNORMAL", "COMPLIANCE", "OFF"], "COMPLIANCE"
+            ["ABNORMAL", "COMPLIANCE", "OFF"], "OFF"
         )
         self.body().addWidget(_form_row("Sweep Stop", self._stop_seg))
 
@@ -396,7 +396,7 @@ class _VAR2Section(_SectionFrame):
             0.1, VAR2_V_STEP_MIN, VAR2_V_STEP_MAX, "V", disallow_zero=True
         )
         self._n_steps_sb = _spinbox(
-            VAR2_N_OF_STEPS_MIN, VAR2_N_OF_STEPS_MAX, 3
+            VAR2_N_OF_STEPS_MIN, VAR2_N_OF_STEPS_MAX, 1
         )
         self._n_steps_sb.setToolTip(
             f"Range: {VAR2_N_OF_STEPS_MIN} – {VAR2_N_OF_STEPS_MAX}"
@@ -697,8 +697,8 @@ class SweepConfigPageView(BasePage):
         )
         self._timing_sec.display_state(
             snap.get("delay", 0.0),
-            snap.get("hold_time", 0.5),
-            snap.get("sweep_stop", "COMPLIANCE"),
+            snap.get("hold_time", 0.0),
+            snap.get("sweep_stop", "OFF"),
         )
         v1 = snap.get("var1", {})
         self._var1_sec.display_state(
@@ -715,7 +715,7 @@ class SweepConfigPageView(BasePage):
         self._var2_sec.display_state(
             v2.get("start", 0.0),
             v2.get("step", 0.1),
-            v2.get("n_of_steps", 3),
+            v2.get("n_of_steps", 1),
             v2.get("compliance", 0.01),
             v2.get("power_compliance", 0.01),
             v2.get("power_compliance_enabled", False),

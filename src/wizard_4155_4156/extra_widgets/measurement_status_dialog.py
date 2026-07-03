@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.stylesheets import (
     settings_dialog_stylesheet,
@@ -34,12 +36,15 @@ from wizard_4155_4156.styles.stylesheets import (
     status_modal_info_value_stylesheet,
     status_modal_item_stylesheet,
 )
+from wizard_4155_4156.views.widgets.doc_tooltip import DocTooltipButton
 
 _T = CommandWizardText
 
 
 class MeasurementStatusDialog(QDialog):
     """Read-only three-column breakdown of the current setup's status."""
+
+    documentation_requested = Signal(str)  # DocTopic value
 
     def __init__(
         self,
@@ -73,6 +78,7 @@ class MeasurementStatusDialog(QDialog):
                 tr_ui(_T.CFG_COL_CRITICAL),
                 criticals,
                 tr_ui(_T.CFG_NO_CRITICAL),
+                DocTopic.STATUS_CRITICAL,
             ),
             1,
         )
@@ -82,11 +88,14 @@ class MeasurementStatusDialog(QDialog):
                 tr_ui(_T.CFG_COL_WARNINGS),
                 warnings,
                 tr_ui(_T.CFG_NO_WARNINGS),
+                DocTopic.STATUS_WARNING,
             ),
             1,
         )
         columns.addWidget(
-            self._info_column(tr_ui(_T.CFG_COL_INFO), info_lines),
+            self._info_column(
+                tr_ui(_T.CFG_COL_INFO), info_lines, DocTopic.STATUS_INFO
+            ),
             1,
         )
         root.addLayout(columns)
@@ -102,9 +111,14 @@ class MeasurementStatusDialog(QDialog):
 
     # ── Column factories ─────────────────────────────────────────────────────
 
-    @staticmethod
-    def _card(kind: str, title: str) -> Tuple[QFrame, QVBoxLayout]:
-        """Titled card with a top accent stripe; returns (card, body)."""
+    def _card(
+        self, kind: str, title: str, doc_topic: DocTopic
+    ) -> Tuple[QFrame, QVBoxLayout]:
+        """Titled card with a top accent stripe; returns (card, body).
+
+        The header row carries the column title plus a ``ⓘ`` icon that opens
+        the matching documentation page.
+        """
         card = QFrame()
         card.setObjectName("status_modal_card")
         card.setStyleSheet(status_modal_card_stylesheet(kind))
@@ -112,17 +126,29 @@ class MeasurementStatusDialog(QDialog):
         body.setContentsMargins(16, 14, 16, 14)
         body.setSpacing(10)
 
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(8)
         heading = QLabel(title)
         heading.setStyleSheet(status_column_title_stylesheet(kind))
-        body.addWidget(heading)
+        header.addWidget(heading)
+        header.addStretch()
+        doc_btn = DocTooltipButton(doc_topic)
+        doc_btn.requested.connect(self._on_doc_requested)
+        header.addWidget(doc_btn)
+        body.addLayout(header)
         return card, body
 
-    @classmethod
     def _message_column(
-        cls, kind: str, title: str, items: List[str], empty_text: str
+        self,
+        kind: str,
+        title: str,
+        items: List[str],
+        empty_text: str,
+        doc_topic: DocTopic,
     ) -> QFrame:
         """Critical/Warnings column: bullet rows, or a muted-italic empty."""
-        card, body = cls._card(kind, title)
+        card, body = self._card(kind, title, doc_topic)
         if items:
             for text in items:
                 item = QLabel(f"•  {text}")
@@ -137,12 +163,14 @@ class MeasurementStatusDialog(QDialog):
         body.addStretch()
         return card
 
-    @classmethod
     def _info_column(
-        cls, title: str, info_lines: List[Tuple[str, str]]
+        self,
+        title: str,
+        info_lines: List[Tuple[str, str]],
+        doc_topic: DocTopic,
     ) -> QFrame:
         """Information column: label-left / bold-value-right rows."""
-        card, body = cls._card("info", title)
+        card, body = self._card("info", title, doc_topic)
         for label, value in info_lines:
             row = QHBoxLayout()
             row.setContentsMargins(0, 0, 0, 0)
@@ -157,3 +185,15 @@ class MeasurementStatusDialog(QDialog):
             body.addLayout(row)
         body.addStretch()
         return card
+
+    # ── Actions ──────────────────────────────────────────────────────────────
+
+    def _on_doc_requested(self, topic: str) -> None:
+        """Close the modal, then ask the app to open the documentation page.
+
+        The dialog is application-modal (opened via ``exec``); a documentation
+        window shown while it is up would be input-blocked, so accept the
+        dialog first and forward the request as it tears down.
+        """
+        self.accept()
+        self.documentation_requested.emit(topic)

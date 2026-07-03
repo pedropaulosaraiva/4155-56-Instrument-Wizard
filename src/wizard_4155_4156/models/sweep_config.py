@@ -147,6 +147,11 @@ VAR2_N_OF_STEPS_MIN: int = 1
 VAR2_N_OF_STEPS_MAX: int = 128  # strictly defined in measure_sweep.py
 TOTAL_POINTS_MAX: int = 15_200  # measurable vars × total indexes (data buffer)
 DISPLAY_VARS_MAX: int = 8
+
+# Default measurement range for current-measuring units: limited-auto (LIM)
+# capped at 1 nA — the smallest current range common to both the 4155 (MPSMU)
+# and 4156 (HRSMU), so it is a valid default for any instrument model.
+DEFAULT_LIMITED_CURRENT_RANGE: float = 1e-9  # 1 nA
 # Range values for SMU and VMU measurement modes
 # 4155 (MPSMU) Current ranges (Current mode)
 RANGE_VALUES_MPSMU_CURRENT: Tuple[Tuple[str, float], ...] = (
@@ -225,7 +230,7 @@ class VAR1Config:
 class VAR2Config:
     start: float = 0.0
     step: float = 0.1
-    n_of_steps: int = 3
+    n_of_steps: int = 1
     compliance: float = 0.01
     power_compliance: float = 0.01
     power_compliance_enabled: bool = False
@@ -250,8 +255,8 @@ class SweepConfig:
         default_factory=MeasurementSetup
     )
     delay: float = 0.0
-    hold_time: float = 0.5
-    sweep_stop: SweepStop = SweepStop.COMPLIANCE
+    hold_time: float = 0.0
+    sweep_stop: SweepStop = SweepStop.OFF
     var1: VAR1Config = field(default_factory=VAR1Config)
     var2: VAR2Config = field(default_factory=VAR2Config)
     vard: VARDConfig = field(default_factory=VARDConfig)
@@ -347,6 +352,22 @@ def smallest_range_at_least(
         if r_val >= target:
             return r_val
     return None
+
+
+def default_range_config(channel: Dict[str, Any]) -> Dict[str, Any]:
+    """Initial measurement-range entry for a freshly added measurement unit.
+
+    An SMU measuring current (any mode except I / IPULSE) starts in
+    "Automatic with limitation" (LIM) capped at 1 nA.  Voltage-measuring
+    units (an SMU forcing I, or any VMU) start in plain AUTO, since 1 nA is
+    not a voltage range.
+    """
+    if channel.get("unit_type") == "SMU" and channel.get("mode") not in (
+        "I",
+        "IPULSE",
+    ):
+        return {"mode": "LIM", "value": DEFAULT_LIMITED_CURRENT_RANGE}
+    return {"mode": "AUTO"}
 
 
 # Rule-3 table: current-compliance ceiling (A) per voltage output range (V).

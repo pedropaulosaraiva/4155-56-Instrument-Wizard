@@ -199,7 +199,7 @@ class QscvConfig:
     leak_name: str = "IL"  # LNAME
     leak_compensation: bool = False  # LCAN
     zero_cancel: bool = False  # ZCAN
-    sweep_stop: SweepStop = SweepStop.COMPLIANCE
+    sweep_stop: SweepStop = SweepStop.OFF
     var1: QscvVar1Config = field(default_factory=QscvVar1Config)
     channel_standby: Dict[str, bool] = field(default_factory=dict)
     display_vars: List[str] = field(default_factory=list)

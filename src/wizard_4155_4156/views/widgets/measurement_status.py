@@ -216,9 +216,11 @@ class MeasurementTopBar(QWidget):
     # ── Actions ──────────────────────────────────────────────────────────────
 
     def _open_modal(self) -> None:
-        MeasurementStatusDialog(
+        dlg = MeasurementStatusDialog(
             self._criticals, self._warnings, self._info_lines, self
-        ).exec()
+        )
+        dlg.documentation_requested.connect(self.documentation_requested)
+        dlg.exec()
 
     def _show_menu(self) -> None:
         menu = ActionMenu(self)

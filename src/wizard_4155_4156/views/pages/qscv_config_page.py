@@ -304,7 +304,7 @@ class _QscvTimingSection(_SectionFrame):
         self.body().addWidget(_form_row("Hold Time", self._hold_edit))
 
         self._stop_seg = _SegmentedGroup(
-            ["ABNORMAL", "COMPLIANCE", "OFF"], "COMPLIANCE"
+            ["ABNORMAL", "COMPLIANCE", "OFF"], "OFF"
         )
         self.body().addWidget(_form_row("Sweep Stop", self._stop_seg))
 
@@ -519,7 +519,7 @@ class QscvConfigPageView(BasePage):
         self._timing_sec.display_state(
             snap.get("delay", 0.0),
             snap.get("hold_time", 0.0),
-            snap.get("sweep_stop", "COMPLIANCE"),
+            snap.get("sweep_stop", "OFF"),
         )
         v1 = snap.get("var1", {})
         self._var1_sec.display_state(
