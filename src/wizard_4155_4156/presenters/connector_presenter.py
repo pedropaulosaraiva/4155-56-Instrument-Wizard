@@ -27,9 +27,9 @@ trigger_setup_only(setup_cmds)
 trigger_run_only(run_cmds, fetch_cmds)
 trigger_full_sequence(setup_cmds, run_cmds, fetch_cmds)
 
-  These are called by future measurement presenters (e.g.
-  MeasurementsPresenter) via a reference to this presenter.  They enqueue
-  tasks onto the FIFO pool and emit hardware_busy(True) immediately.
+  These are called by measurement presenters (the config pages' quick
+  apply/run and RunsPresenter) via a reference to this presenter.  They
+  enqueue tasks onto the FIFO pool and emit hardware_busy(True) immediately.
 
   CRITICAL: Tasks are submitted in strict submission order.  The pool's
   single-thread constraint guarantees they execute in that order with no
@@ -231,8 +231,8 @@ class ConnectorPresenter(QObject):
             self._view.display_connected(name)
         else:
             self._view.display_disconnected()
-        # Notify application-level listeners (e.g. MeasurementsPresenter) so
-        # they can gate hardware-dependent controls on the connection state.
+        # Notify application-level listeners (e.g. the config presenters and
+        # RunsPresenter) so they can gate hardware controls on the connection.
         self.connection_changed.emit(connected, name)
 
     @Slot(int, int, str)

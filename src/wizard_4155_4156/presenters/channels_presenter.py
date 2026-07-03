@@ -20,8 +20,8 @@ View driving
 Public API for other presenters
   get_config() → ChannelsConfig
     Returns a deep copy of the current configuration.
-    SweepConfigPresenter and MeasurementsPresenter will call this when they
-    need to know which channels are active and what their variable names are.
+    The config presenters call this when they need to know which channels
+    are active and what their variable names are.
 
 Constraint summary (4155/56 rules)
 ------------------------------------

@@ -31,36 +31,12 @@ class CommandWizardText(StrEnum):
     EQUIP_ITEM = "{idn} ({address})"
     HARDWARE_ERROR_ALERT = "Hardware Error! Check Log."
 
-    # ── Measurements & Run page ──────────────────────────────────────────────
-    MEAS_PAGE_TITLE = "Measurements & Run"
-    MEAS_CONFIG_SOURCE = "Configuration Source"
-    MEAS_RUN_CONTROLS = "Run Controls"
-    MEAS_SOURCE_LIVE = "Source: Live Measure Config"
-    MEAS_SOURCE_FILE = "Source: {name}"
+    # ── Measurement setup (shared: config factory + Runs page) ───────────────
     MEAS_NO_CONFIG = (
         "No measurement configuration generated. "
         "Use 'Configure Measure' on the Channels page."
     )
-    MEAS_BTN_LOAD_FILE = "Load setup file…"
-    MEAS_BTN_USE_LIVE = "Use live config"
     MEAS_BTN_APPLY_SETUP = "Apply Setup"
-    MEAS_BTN_RUN_FETCH = "Run && Fetch"
-    MEAS_BTN_FULL_SEQUENCE = "Apply Setup, Run && Fetch"
-    MEAS_FILE_DIALOG_TITLE = "Load Measurement Setup"
-    MEAS_FILE_DIALOG_FILTER = "Setup files (*.json);;All files (*)"
-    MEAS_SUMMARY_EMPTY = "No configuration available."
-    MEAS_SUMMARY_TEMPLATE = (
-        "Mode: {mode}\nActive channels: {channels}\nDisplay variables: {vars}"
-    )
-    MEAS_PREVIEW_TITLE = "Active Configuration"
-    MEAS_PREVIEW_EMPTY = "No configuration to preview."
-    MEAS_PREVIEW_COL_FIELD = "Field"
-    MEAS_PREVIEW_COL_VALUE = "Value"
-    MEAS_STATUS_READY = "Status: Ready"
-    MEAS_STATUS_DISCONNECTED = "Status: Connect an instrument to run."
-    MEAS_STATUS_RUNNING = "Status: Running…"
-    MEAS_CONFIG_ERROR = "Configuration error:\n{error}"
-    MEAS_FILE_ERROR = "Could not load setup file:\n{error}"
 
     # ── Channels page ────────────────────────────────────────────────────────
     CHAN_VALIDATION_VALID = "✅ {message}"
@@ -75,7 +51,12 @@ class CommandWizardText(StrEnum):
     CFG_BTN_SAVE_SETUP = "Save Setup"
     CFG_MENU_SAVE_JSON = "Save JSON…"
     CFG_MENU_GENERATE_JSON = "Generate JSON"
+    CFG_MENU_QUICK_APPLY_SETUP = "Quick Apply Setup"
+    CFG_MENU_QUICK_APPLY_RUN = "Quick Apply Setup & Run"
+    CFG_QUICK_NEED_CONNECTION = "Connect an instrument first."
+    CFG_QUICK_BUSY = "Instrument is busy."
     CFG_STATUS_READY = "Ready to Save"
+    CFG_STATUS_READY_AND_RUN = "Ready to Save and Run"
     CFG_STATUS_NOT_READY = "Not Ready"
     CFG_INFO_INDEXES = "Total measurement indexes"
     CFG_INFO_POINTS = "Total measurement points"

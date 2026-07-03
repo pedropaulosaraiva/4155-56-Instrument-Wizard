@@ -56,9 +56,6 @@ from wizard_4155_4156.presenters.home_presenter import HomePresenter
 from wizard_4155_4156.presenters.measure_config_factory import (
     MeasureConfigFactory,
 )
-from wizard_4155_4156.presenters.measurements_presenter import (
-    MeasurementsPresenter,
-)
 from wizard_4155_4156.presenters.runs_presenter import RunsPresenter
 from wizard_4155_4156.presenters.table_presenter import TablePresenter
 from wizard_4155_4156.styles.stylesheets import (
@@ -77,7 +74,6 @@ from wizard_4155_4156.views.pages import (
     ChannelsPageView,
     GraphPage,
     HomePageView,
-    MeasurementsPageView,
     Page,
     RunsPageView,
     TablePageView,
@@ -125,9 +121,8 @@ class MainWindow(QMainWindow):
         )
 
         # ── ChannelsPresenter ────────────────────────────────────────────────
-        # Call self._channels_presenter.get_config() from SweepConfigPresenter
-        # MeasurementsPresenter to read active channel layout and variable
-        # names.
+        # Call self._channels_presenter.get_config() from the config
+        # presenters to read active channel layout and variable names.
         self._channels_presenter = ChannelsPresenter(
             view=self._channels_page, parent=self
         )
@@ -139,40 +134,32 @@ class MainWindow(QMainWindow):
             self._on_doc_topic_requested
         )
 
-        # ── MeasureConfigFactory ─────────────────────────────────────────────
-        # Lazily generates the measurement-config page (sweep or sampling)
-        # from a static channels snapshot each time "Configure Measure" is
-        # clicked.  No page exists until then — the nav button stays
-        # disabled.
-        self._measure_factory = MeasureConfigFactory(
-            channels_presenter=self._channels_presenter,
-            settings_provider=self._global_settings,
-            parent=self,
-        )
-        self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, False)
-        # Everything except Home is locked until a project is opened/created.
-        self._set_project_pages_enabled(False)
-
         # ── ConnectorPresenter ───────────────────────────────────────────────
         # Owns GPIB41xxController + single-thread QThreadPool.
-        # _connector (CompactConnectorWidget) is the View;
-        # this is its Presenter.
+        # _connector (CompactConnectorWidget) is the View; this is its
+        # Presenter.  Built before the factory so generated config pages can
+        # drive quick apply/run over the shared connector.
         self._connector_presenter = ConnectorPresenter(
             view=self._connector, parent=self
         )
         self._connector_presenter.data_ready.connect(self.on_data_ready)
         self._connector_presenter.hardware_busy.connect(self.on_hardware_busy)
 
-        # ── MeasurementsPresenter ────────────────────────────────────────────
-        # Orchestrates Setup/Run/Fetch by reading config from the generated
-        # measure-config page (or a loaded file) and delegating hardware
-        # I/O to the connector.
-        self._measurements_presenter = MeasurementsPresenter(
-            view=self._measurements_page,
-            config_provider=self._measure_factory,
+        # ── MeasureConfigFactory ─────────────────────────────────────────────
+        # Lazily generates the measurement-config page (sweep or sampling)
+        # from a static channels snapshot each time "Configure Measure" is
+        # clicked.  No page exists until then — the nav button stays
+        # disabled.  The connector lets each generated config page's top-bar
+        # ⋮ menu apply/run the live setup directly.
+        self._measure_factory = MeasureConfigFactory(
+            channels_presenter=self._channels_presenter,
+            settings_provider=self._global_settings,
             connector_presenter=self._connector_presenter,
             parent=self,
         )
+        self._nav_bar.set_page_enabled(Page.MEASURE_CONFIG, False)
+        # Everything except Home is locked until a project is opened/created.
+        self._set_project_pages_enabled(False)
 
         # ── RunsPresenter ────────────────────────────────────────────────────
         # CRUD browser over the open project database.  Reads the live config
@@ -272,8 +259,6 @@ class MainWindow(QMainWindow):
 
         self._channels_page = ChannelsPageView()
         stack.addWidget(self._channels_page)
-        self._measurements_page = MeasurementsPageView()
-        stack.addWidget(self._measurements_page)
         self._runs_page = RunsPageView()
         stack.addWidget(self._runs_page)
         self._graph_page = GraphPage()
@@ -285,7 +270,6 @@ class MainWindow(QMainWindow):
             Page.HOME: self._home_page,
             Page.CHANNELS: self._channels_page,
             Page.MEASURE_CONFIG: None,  # generated lazily
-            Page.MEASUREMENTS: self._measurements_page,
             Page.RUNS: self._runs_page,
             Page.GRAPH: self._graph_page,
             Page.TABLE: self._table_page,
@@ -450,7 +434,6 @@ class MainWindow(QMainWindow):
         """Lock/unlock every page except Home (and the lazy Measure Config)."""
         for page in (
             Page.CHANNELS,
-            Page.MEASUREMENTS,
             Page.RUNS,
             Page.GRAPH,
             Page.TABLE,

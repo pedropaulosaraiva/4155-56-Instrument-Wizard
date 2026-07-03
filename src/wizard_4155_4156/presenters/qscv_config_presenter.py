@@ -43,6 +43,7 @@ from wizard_4155_4156.models.sweep_config import (
     DISPLAY_VARS_MAX,
     measured_variable,
 )
+from wizard_4155_4156.presenters.live_run_helper import LiveMeasurementRunner
 from wizard_4155_4156.views.pages.qscv_config_page import QscvConfigPageView
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -67,11 +68,26 @@ class QscvConfigPresenter(QObject):
         line_frequency_hz: int = 50,
         parent: QObject | None = None,
         initial_setup: dict | None = None,
+        connector_presenter=None,  # ConnectorPresenter — quick apply/run
     ) -> None:
         super().__init__(parent)
         self._view = view
         self._channels_config = channels_snapshot
         self._line_frequency_hz = line_frequency_hz or 50
+        # Ephemeral GPIB apply/run runner + tracked hardware state (None when
+        # the page is built without a connector, e.g. in isolated tests).
+        self._connector = connector_presenter
+        self._runner = (
+            LiveMeasurementRunner(connector_presenter)
+            if connector_presenter is not None
+            else None
+        )
+        self._connected = (
+            connector_presenter.is_connected()
+            if connector_presenter is not None
+            else False
+        )
+        self._busy = False
         self._config = (
             qscv_config_from_setup(initial_setup)
             if initial_setup is not None
@@ -88,7 +104,9 @@ class QscvConfigPresenter(QObject):
         }
 
         self._connect_view_signals()
+        self._connect_connector_signals()
         self._on_page_activated()
+        self._push_hardware_state()
 
     # ── Public API ─────────────────────────────────────────────────────
 
@@ -138,6 +156,10 @@ class QscvConfigPresenter(QObject):
         v.export_requested.connect(self._on_export_requested)
         v.save_requested.connect(self._on_save_requested)
         v.save_message_expired.connect(self._update_validation)
+
+        # Quick apply / run over GPIB
+        v.apply_setup_requested.connect(self._on_quick_apply_setup)
+        v.apply_run_fetch_requested.connect(self._on_quick_apply_run_fetch)
 
         v.const_source_changed.connect(self._on_const_source_changed)
         v.const_compliance_changed.connect(self._on_const_compliance_changed)
@@ -439,6 +461,45 @@ class QscvConfigPresenter(QObject):
         with open(path, "w", encoding="utf-8") as fp:
             json.dump(self._build_json(), fp, indent=4)
         self._view.display_save_success(Path(path).name)
+
+    # ── Quick apply / run (ephemeral GPIB) ─────────────────────────────
+
+    def _connect_connector_signals(self) -> None:
+        if self._connector is None:
+            return
+        self._connector.connection_changed.connect(
+            self._on_hw_connection_changed
+        )
+        self._connector.hardware_busy.connect(self._on_hw_busy)
+
+    def _on_hw_connection_changed(self, connected: bool, _name: str) -> None:
+        self._connected = connected
+        self._push_hardware_state()
+
+    def _on_hw_busy(self, busy: bool) -> None:
+        self._busy = busy
+        self._push_hardware_state()
+
+    def _push_hardware_state(self) -> None:
+        self._view.display_hardware_state(self._connected, self._busy)
+
+    def _on_quick_apply_setup(self) -> None:
+        if self._runner is None:
+            return
+        try:
+            config = self.get_json()
+        except ValueError:
+            return  # menu is gated on validity; ignore defensively
+        self._runner.apply_setup(config)
+
+    def _on_quick_apply_run_fetch(self) -> None:
+        if self._runner is None:
+            return
+        try:
+            config = self.get_json()
+        except ValueError:
+            return
+        self._runner.apply_run_fetch(config)
 
     # ── Validation ─────────────────────────────────────────────────────
 

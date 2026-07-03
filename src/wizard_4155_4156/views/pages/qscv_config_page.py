@@ -472,6 +472,8 @@ class QscvConfigPageView(BasePage):
     export_requested = Signal()
     save_requested = Signal(str)
     save_to_db_requested = Signal()
+    apply_setup_requested = Signal()  # quick-apply setup over GPIB
+    apply_run_fetch_requested = Signal()  # quick-apply setup + run + fetch
     save_message_expired = Signal()
     const_source_changed = Signal(str, float)
     const_compliance_changed = Signal(str, float)
@@ -564,6 +566,10 @@ class QscvConfigPageView(BasePage):
             criticals, warnings, indexes, points, exec_time
         )
 
+    def display_hardware_state(self, connected: bool, busy: bool) -> None:
+        """Push GPIB readiness so the top bar can gate quick-apply actions."""
+        self._top_bar.set_hardware_state(connected, busy)
+
     def display_json(self, json_str: str) -> None:
         dlg = _JsonPreviewDialog(
             json_str, self, title="Generated JSON — QSCV Configuration"
@@ -607,6 +613,12 @@ class QscvConfigPageView(BasePage):
         self._top_bar.save_setup_requested.connect(self.save_to_db_requested)
         self._top_bar.save_json_requested.connect(self._on_save_clicked)
         self._top_bar.export_requested.connect(self.export_requested)
+        self._top_bar.apply_setup_requested.connect(
+            self.apply_setup_requested
+        )
+        self._top_bar.apply_run_fetch_requested.connect(
+            self.apply_run_fetch_requested
+        )
         self._top_bar.documentation_requested.connect(
             self.documentation_requested
         )

@@ -61,6 +61,8 @@ class MeasurementTopBar(QWidget):
     save_setup_requested = Signal()
     save_json_requested = Signal()
     export_requested = Signal()
+    apply_setup_requested = Signal()  # quick-apply setup over GPIB
+    apply_run_fetch_requested = Signal()  # quick-apply setup + run + fetch
 
     def __init__(
         self,
@@ -74,6 +76,14 @@ class MeasurementTopBar(QWidget):
         self._info_lines: List[Tuple[str, str]] = []
         self._status_text: str = ""
         self._savable: bool = False
+        # Latest measurement statistics, kept so the status/info can be rebuilt
+        # when only the hardware state changes (no fresh display_status call).
+        self._indexes: str = ""
+        self._points: str = ""
+        self._exec_time: str = ""
+        # Hardware readiness (pushed by the presenter from connector signals).
+        self._hw_connected: bool = False
+        self._hw_busy: bool = False
 
         self._toast_timer = QTimer(self)
         self._toast_timer.setSingleShot(True)
@@ -152,19 +162,36 @@ class MeasurementTopBar(QWidget):
         self._criticals = list(criticals)
         self._warnings = list(warnings)
         self._savable = not self._criticals
-        self._status_text = (
-            tr_ui(_T.CFG_STATUS_READY)
-            if self._savable
-            else tr_ui(_T.CFG_STATUS_NOT_READY)
-        )
-        self._info_lines = [
-            (tr_ui(_T.CFG_INFO_INDEXES), indexes),
-            (tr_ui(_T.CFG_INFO_POINTS), points),
-            (tr_ui(_T.CFG_INFO_EXEC_TIME), exec_time),
-            (tr_ui(_T.CFG_INFO_STATUS), self._status_text),
-        ]
+        self._indexes = indexes
+        self._points = points
+        self._exec_time = exec_time
+        self._compute_status()
         self._toast_timer.stop()
         self._render()
+
+    def set_hardware_state(self, connected: bool, busy: bool) -> None:
+        """Push GPIB readiness so the status/menu reflect run availability."""
+        self._hw_connected = connected
+        self._hw_busy = busy
+        self._compute_status()
+        # Never overwrite a live "Saved" toast; it restores on its own timeout.
+        if not self._toast_timer.isActive():
+            self._render()
+
+    def _compute_status(self) -> None:
+        """Derive the setup-status text (three states) and the info lines."""
+        if not self._savable:
+            self._status_text = tr_ui(_T.CFG_STATUS_NOT_READY)
+        elif self._hw_connected:
+            self._status_text = tr_ui(_T.CFG_STATUS_READY_AND_RUN)
+        else:
+            self._status_text = tr_ui(_T.CFG_STATUS_READY)
+        self._info_lines = [
+            (tr_ui(_T.CFG_INFO_INDEXES), self._indexes),
+            (tr_ui(_T.CFG_INFO_POINTS), self._points),
+            (tr_ui(_T.CFG_INFO_EXEC_TIME), self._exec_time),
+            (tr_ui(_T.CFG_INFO_STATUS), self._status_text),
+        ]
 
     def flash_saved(self, name: str) -> None:
         """Briefly show a save confirmation, then restore the status."""
@@ -224,6 +251,28 @@ class MeasurementTopBar(QWidget):
 
     def _show_menu(self) -> None:
         menu = ActionMenu(self)
+        # Quick-apply actions need a valid setup AND an idle, connected
+        # instrument (JSON actions only need a valid setup).
+        can_run = self._hw_connected and not self._hw_busy
+        if self._hw_busy:
+            run_reason = tr_ui(_T.CFG_QUICK_BUSY)
+        else:
+            run_reason = tr_ui(_T.CFG_QUICK_NEED_CONNECTION)
+        menu.add_item(
+            tr_ui(_T.CFG_MENU_QUICK_APPLY_SETUP),
+            icon="⚡",
+            callback=self.apply_setup_requested.emit,
+            available=can_run,
+            unavailable_reason=run_reason,
+        )
+        menu.add_item(
+            tr_ui(_T.CFG_MENU_QUICK_APPLY_RUN),
+            icon="▶",
+            callback=self.apply_run_fetch_requested.emit,
+            available=can_run,
+            unavailable_reason=run_reason,
+        )
+        menu.add_separator()
         menu.add_item(
             tr_ui(_T.CFG_MENU_SAVE_JSON),
             callback=self.save_json_requested.emit,

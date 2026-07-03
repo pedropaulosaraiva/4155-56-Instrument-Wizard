@@ -1013,32 +1013,7 @@ def sweep_spinbox_stylesheet() -> str:
     """
 
 
-# ── Measurements & Run Page ──────────────────────────────────────────────
-
-
-def measurements_page_stylesheet() -> str:
-    return f"background-color: {P.BG_DEEP};"
-
-
-def meas_source_label_stylesheet() -> str:
-    return (
-        f"color: {P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_MD}; "
-        f"font-weight: bold; background: transparent;"
-    )
-
-
-def meas_summary_box_stylesheet() -> str:
-    return f"""
-        QLabel {{
-            background-color: {P.BG_INPUT};
-            color: {P.TEXT_PRIMARY};
-            border: 1px solid {P.BORDER};
-            border-radius: {P.RADIUS_MD};
-            padding: 10px 14px;
-            font-size: {P.FONT_SIZE_SM};
-            font-family: {P.FONT_FAMILY_MONO};
-        }}
-    """
+# ── Setup detail panel (Runs page) ───────────────────────────────────────
 
 
 def meas_status_label_stylesheet() -> str:

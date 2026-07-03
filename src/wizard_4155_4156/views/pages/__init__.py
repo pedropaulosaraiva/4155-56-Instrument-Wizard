@@ -18,7 +18,6 @@ uses a single, stable import path:
         ChannelsPageView,
         SweepConfigPageView,
         SamplingConfigPageView,
-        MeasurementsPageView,
         GraphPage,
         TablePageView,
     )
@@ -64,7 +63,6 @@ class Page(IntEnum):
     HOME = 0
     CHANNELS = 1
     MEASURE_CONFIG = 2
-    MEASUREMENTS = 3
     GRAPH = 4
     TABLE = 5
     RUNS = 6
@@ -107,9 +105,6 @@ from wizard_4155_4156.views.pages.channels_page import (  # noqa: E402
     ChannelsPageView,
 )
 from wizard_4155_4156.views.pages.home_page import HomePageView  # noqa: E402
-from wizard_4155_4156.views.pages.measurements_page import (  # noqa: E402
-    MeasurementsPageView,
-)
 from wizard_4155_4156.views.pages.qscv_config_page import (  # noqa: E402
     QscvConfigPageView,
 )
@@ -137,7 +132,6 @@ __all__ = [
     "SweepConfigPageView",
     "SamplingConfigPageView",
     "QscvConfigPageView",
-    "MeasurementsPageView",
     "GraphPage",
     "TablePageView",
     "RunsPageView",

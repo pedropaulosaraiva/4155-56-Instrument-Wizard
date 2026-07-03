@@ -15,8 +15,9 @@ Lifecycle contract
   handed back to MainWindow (which owns the QStackedWidget) so it can
   be removed from the stack BEFORE deleteLater() is called on it.
 
-MeasurementsPresenter consumes the active configuration through the
-duck-typed get_json() (same ValueError contract as the presenters).
+Consumers (RunsPresenter, the config pages' quick apply/run) read the active
+configuration through the duck-typed get_json() (same ValueError contract as
+the presenters).
 """
 
 from __future__ import annotations
@@ -57,11 +58,13 @@ class MeasureConfigFactory(QObject):
         self,
         channels_presenter,  # ChannelsPresenter — loose type, no cycle
         settings_provider=None,  # GlobalSettingsManager — for QSCV line freq
+        connector_presenter=None,  # ConnectorPresenter — quick apply/run
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._channels_presenter = channels_presenter
         self._settings_provider = settings_provider
+        self._connector = connector_presenter
         self._page: BasePage | None = None
         self._presenter: QObject | None = None
 
@@ -134,6 +137,7 @@ class MeasureConfigFactory(QObject):
                 channels_snapshot=snapshot,
                 line_frequency_hz=self._line_frequency(),
                 parent=self,
+                connector_presenter=self._connector,
             )
         elif mode == MeasurementMode.SAMPLING:
             page = SamplingConfigPageView()
@@ -142,6 +146,7 @@ class MeasureConfigFactory(QObject):
                 channels_snapshot=snapshot,
                 line_frequency_hz=self._line_frequency(),
                 parent=self,
+                connector_presenter=self._connector,
             )
         elif mode == MeasurementMode.QSCV:
             page = QscvConfigPageView()
@@ -150,6 +155,7 @@ class MeasureConfigFactory(QObject):
                 channels_snapshot=snapshot,
                 line_frequency_hz=self._line_frequency(),
                 parent=self,
+                connector_presenter=self._connector,
             )
         else:
             return None
@@ -185,6 +191,7 @@ class MeasureConfigFactory(QObject):
                 line_frequency_hz=self._line_frequency(),
                 parent=self,
                 initial_setup=setup_dict,
+                connector_presenter=self._connector,
             )
         elif mode == MeasurementMode.SAMPLING:
             page = SamplingConfigPageView()
@@ -194,6 +201,7 @@ class MeasureConfigFactory(QObject):
                 line_frequency_hz=self._line_frequency(),
                 parent=self,
                 initial_setup=setup_dict,
+                connector_presenter=self._connector,
             )
         elif mode == MeasurementMode.QSCV:
             page = QscvConfigPageView()
@@ -203,6 +211,7 @@ class MeasureConfigFactory(QObject):
                 line_frequency_hz=self._line_frequency(),
                 parent=self,
                 initial_setup=setup_dict,
+                connector_presenter=self._connector,
             )
         else:
             return None

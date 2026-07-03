@@ -3,8 +3,7 @@ views/pages/runs_page.py
 ------------------------
 Measurement Runs page — a CRUD browser over the project database.
 
-This is the new home for measurement *setups* and their *executions* (the
-legacy ephemeral ``measurements_page.py`` is left untouched but unused).  Pure
+This is the home for measurement *setups* and their *executions*.  Pure
 View layer: it emits ``*_requested`` signals and renders state pushed in via
 ``display_*`` methods.  It imports only the Qt-free row DTOs
 (``SetupRow``/``ExecRow``) — never the ORM — mirroring how the home page

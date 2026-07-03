@@ -42,7 +42,7 @@ from wizard_4155_4156.views.pages.runs_page import RunsPageView
 _SAMPLE_POINTS = 21
 
 # Trace-fetch defaults
-# (mirror MeasurementsPresenter / MeasureRunCommandBuilder).
+# (mirror LiveMeasurementRunner / MeasureRunCommandBuilder).
 _FETCH_FORMAT = "REAL"
 _FETCH_LENGTH = 64
 _FETCH_BORDER = "NORM"
