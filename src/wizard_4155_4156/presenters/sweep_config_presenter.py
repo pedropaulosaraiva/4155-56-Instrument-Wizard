@@ -640,10 +640,10 @@ class SweepConfigPresenter(QObject):
             self._ctx["instrument_model"],
             self._line_frequency_hz,
         )
-        indexes, points, min_time = measurement_stat_values(stats)
+        indexes, points, exec_time = measurement_stat_values(stats)
         # Sweep has no non-blocking warnings yet (reserved for future rules).
         self._view.display_measurement_status(
-            criticals, [], indexes, points, min_time
+            criticals, [], indexes, points, exec_time
         )
 
     # ── JSON builder ───────────────────────────────────────────────────

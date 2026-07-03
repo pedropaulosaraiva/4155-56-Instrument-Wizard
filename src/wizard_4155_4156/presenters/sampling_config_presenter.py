@@ -515,9 +515,9 @@ class SamplingConfigPresenter(QObject):
             self._ctx["instrument_model"],
             self._line_frequency_hz,
         )
-        indexes, points, min_time = measurement_stat_values(stats)
+        indexes, points, exec_time = measurement_stat_values(stats)
         self._view.display_measurement_status(
-            criticals, warnings, indexes, points, min_time
+            criticals, warnings, indexes, points, exec_time
         )
 
     # ── JSON builder ───────────────────────────────────────────────────────

@@ -9,8 +9,8 @@ from wizard_4155_4156.models.execution_time import (
     _adjusted_interval,
     _sweep_total_indexes,
     _sweep_voltage_ranges_by_unit,
+    format_execution_interval,
     format_execution_time,
-    format_min_execution_time,
     qscv_execution_time_range,
     qscv_measurement_stats,
     sampling_execution_time_range,
@@ -304,16 +304,19 @@ def test_sweep_measurement_stats():
     stats = sweep_measurement_stats(cfg, [_smu(function="VAR1")], "4155C", 50)
     assert stats.indexes == _VAR1_POINTS
     assert stats.points == _VAR1_POINTS
-    assert stats.min_exec_time == pytest.approx(0.5 + 0.04 * _VAR1_POINTS)
+    assert stats.exec_time == pytest.approx(
+        (0.5 + 0.04 * _VAR1_POINTS, 0.5 + 0.12 * _VAR1_POINTS)
+    )
 
 
 def test_qscv_measurement_stats():
     steps, n_vars = 9, 2  # no_of_step(0, 10, 1) × {C, IL}
     cfg = _qscv_cfg(display_vars=["C", "IL"])
     stats = qscv_measurement_stats(cfg)
+    total = 0.5 + (0.1 + 0.05) * steps
     assert stats.indexes == steps
     assert stats.points == steps * n_vars
-    assert stats.min_exec_time == pytest.approx(0.5 + (0.1 + 0.05) * steps)
+    assert stats.exec_time == pytest.approx((total, total))  # deterministic
 
 
 def test_sampling_measurement_stats():
@@ -322,12 +325,13 @@ def test_sampling_measurement_stats():
     stats = sampling_measurement_stats(cfg, _SAMP_CHANNELS, "4155C", 50)
     assert stats.indexes == samples
     assert stats.points == samples
-    assert stats.min_exec_time == pytest.approx(0.04 * samples)
+    assert stats.exec_time == pytest.approx((0.04 * samples, 0.12 * samples))
 
 
-def test_format_min_execution_time():
-    assert format_min_execution_time(None) == "indeterminate"
-    assert format_min_execution_time(1.5) == "1.5 s"
+def test_format_execution_interval():
+    assert format_execution_interval(None) == "indeterminate"
+    assert format_execution_interval((1.5, 1.5)) == "~1.5 s"
+    assert format_execution_interval((12.0, 48.0)) == "~12–48 s"
 
 
 def test_format_execution_time_interval():

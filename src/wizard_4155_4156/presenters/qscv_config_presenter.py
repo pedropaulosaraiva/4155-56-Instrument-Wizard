@@ -458,12 +458,12 @@ class QscvConfigPresenter(QObject):
 
     def _update_validation(self) -> None:
         criticals = list(self._run_validation().values())
-        indexes, points, min_time = measurement_stat_values(
+        indexes, points, exec_time = measurement_stat_values(
             qscv_measurement_stats(self._config)
         )
         # QSCV has no non-blocking warnings yet (reserved for future rules).
         self._view.display_measurement_status(
-            criticals, [], indexes, points, min_time
+            criticals, [], indexes, points, exec_time
         )
 
     # ── JSON builder ───────────────────────────────────────────────────

@@ -139,7 +139,7 @@ class MeasurementTopBar(QWidget):
         warnings: List[str],
         indexes: str,
         points: str,
-        min_time: str,
+        exec_time: str,
     ) -> None:
         self._criticals = list(criticals)
         self._warnings = list(warnings)
@@ -152,7 +152,7 @@ class MeasurementTopBar(QWidget):
         self._info_lines = [
             (tr_ui(_T.CFG_INFO_INDEXES), indexes),
             (tr_ui(_T.CFG_INFO_POINTS), points),
-            (tr_ui(_T.CFG_INFO_MIN_TIME), min_time),
+            (tr_ui(_T.CFG_INFO_EXEC_TIME), exec_time),
             (tr_ui(_T.CFG_INFO_STATUS), self._status_text),
         ]
         self._toast_timer.stop()

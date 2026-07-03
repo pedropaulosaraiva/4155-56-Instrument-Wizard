@@ -557,11 +557,11 @@ class QscvConfigPageView(BasePage):
         warnings: List[str],
         indexes: str,
         points: str,
-        min_time: str,
+        exec_time: str,
     ) -> None:
         """Push the setup's critical/warning/info state to the top bar."""
         self._top_bar.display_status(
-            criticals, warnings, indexes, points, min_time
+            criticals, warnings, indexes, points, exec_time
         )
 
     def display_json(self, json_str: str) -> None:

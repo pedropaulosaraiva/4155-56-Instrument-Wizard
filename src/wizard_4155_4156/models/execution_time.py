@@ -236,11 +236,17 @@ def format_execution_time(result: Optional[Tuple[float, float]]) -> str:
     return f"est. {_fmt_seconds(lo)}–{_fmt_seconds(hi)} s"
 
 
-def format_min_execution_time(seconds: Optional[float]) -> str:
-    """Minimum execution time for the widget ('indeterminate' when None)."""
-    if seconds is None:
+def format_execution_interval(
+    result: Optional[Tuple[float, float]],
+) -> str:
+    """Execution-time interval for the widget: ``~lo–hi s`` (``~v s`` when the
+    bounds coincide), or 'indeterminate' when None."""
+    if result is None:
         return "indeterminate"
-    return f"{_fmt_seconds(seconds)} s"
+    lo, hi = result
+    if math.isclose(lo, hi, rel_tol=1e-9):
+        return f"~{_fmt_seconds(hi)} s"
+    return f"~{_fmt_seconds(lo)}–{_fmt_seconds(hi)} s"
 
 
 # ── Measurement statistics (status widget) ───────────────────────────────────
@@ -251,17 +257,13 @@ class MeasurementStats:
     """Counts shown in the status widget's Information section.
 
     ``points`` = ``indexes`` × number of measurable display variables (a DVOL
-    VMU counts as one).  ``min_exec_time`` is the lower bound of the
-    execution-time interval in seconds, or None when indeterminate.
+    VMU counts as one).  ``exec_time`` is the ``(min, max)`` execution-time
+    interval in seconds, or None when indeterminate.
     """
 
     indexes: Optional[int]
     points: Optional[int]
-    min_exec_time: Optional[float]
-
-
-def _min_time(result: Optional[Tuple[float, float]]) -> Optional[float]:
-    return None if result is None else result[0]
+    exec_time: Optional[Tuple[float, float]]
 
 
 def _points(indexes: Optional[int], n_vars: int) -> Optional[int]:
@@ -281,9 +283,7 @@ def sweep_measurement_stats(
     exec_range = sweep_execution_time_range(
         cfg, active_channels, instrument_model, line_frequency_hz
     )
-    return MeasurementStats(
-        indexes, _points(indexes, n_vars), _min_time(exec_range)
-    )
+    return MeasurementStats(indexes, _points(indexes, n_vars), exec_range)
 
 
 def _qscv_measurable_count(cfg: QscvConfig) -> int:
@@ -298,7 +298,7 @@ def qscv_measurement_stats(cfg: QscvConfig) -> MeasurementStats:
     return MeasurementStats(
         indexes,
         _points(indexes, n_vars),
-        _min_time(qscv_execution_time_range(cfg)),
+        qscv_execution_time_range(cfg),
     )
 
 
@@ -315,13 +315,11 @@ def sampling_measurement_stats(
     exec_range = sampling_execution_time_range(
         cfg, active_channels, instrument_model, line_frequency_hz
     )
-    return MeasurementStats(
-        indexes, _points(indexes, n_vars), _min_time(exec_range)
-    )
+    return MeasurementStats(indexes, _points(indexes, n_vars), exec_range)
 
 
 def measurement_stat_values(stats: MeasurementStats) -> Tuple[str, str, str]:
-    """(indexes, points, min-time) as display strings for the status widget."""
+    """(indexes, points, exec-time) as display strings for the widget."""
 
     def _count(value: Optional[int]) -> str:
         return f"{value:,}" if isinstance(value, int) else "—"
@@ -329,5 +327,5 @@ def measurement_stat_values(stats: MeasurementStats) -> Tuple[str, str, str]:
     return (
         _count(stats.indexes),
         _count(stats.points),
-        format_min_execution_time(stats.min_exec_time),
+        format_execution_interval(stats.exec_time),
     )
