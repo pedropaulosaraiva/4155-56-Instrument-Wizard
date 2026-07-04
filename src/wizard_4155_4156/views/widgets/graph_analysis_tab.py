@@ -36,6 +36,7 @@ from wizard_4155_4156.styles.stylesheets import (
     unit_card_combo_stylesheet,
 )
 from wizard_4155_4156.views.widgets.config_sections import (
+    GRAPH_SECTION_MARGINS,
     SectionFrame,
     SegmentedGroup,
     form_row,
@@ -49,6 +50,12 @@ _TRACE_ID_ROLE = Qt.ItemDataRole.UserRole
 def _data_combo() -> QComboBox:
     box = QComboBox()
     box.setStyleSheet(unit_card_combo_stylesheet())
+    # Shrinkable minimum (not longest-item) + tooltips for clipped text.
+    box.setSizeAdjustPolicy(
+        QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+    )
+    box.setMinimumContentsLength(8)
+    box.currentTextChanged.connect(box.setToolTip)
     return box
 
 
@@ -61,6 +68,8 @@ def _fill_combo(
     box.clear()
     for data, label in options:
         box.addItem(label, data)
+        box.setItemData(box.count() - 1, label, Qt.ItemDataRole.ToolTipRole)
+    box.setToolTip(box.currentText())
     if current is not None:
         idx = box.findData(current)
         if idx >= 0:
@@ -85,12 +94,20 @@ class _RemovableList(QWidget):
 
         self._list = QListWidget()
         self._list.setStyleSheet(graph_results_list_stylesheet())
-        self._list.setFixedHeight(90)
+        self._list.setWordWrap(True)  # wrap equations instead of clipping
+        self._list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self._list.setMinimumHeight(90)
+        self._list.setMaximumHeight(132)
+        self._list.itemSelectionChanged.connect(self._update_remove_enabled)
         v.addWidget(self._list)
 
         self._remove_btn = QPushButton("✕")
         self._remove_btn.setStyleSheet(runs_secondary_button_stylesheet())
         self._remove_btn.setFixedWidth(34)
+        self._remove_btn.setToolTip(tr_ui(TXT.GRAPH_TT_REMOVE_SELECTED))
+        self._remove_btn.setEnabled(False)  # acts on the selected entry
         self._remove_btn.clicked.connect(self._on_remove)
         v.addWidget(self._remove_btn, alignment=Qt.AlignmentFlag.AlignRight)
 
@@ -100,7 +117,12 @@ class _RemovableList(QWidget):
         for trace_id, text in entries:
             item = QListWidgetItem(text)
             item.setData(_TRACE_ID_ROLE, trace_id)
+            item.setToolTip(text)
             self._list.addItem(item)
+        self._update_remove_enabled()
+
+    def _update_remove_enabled(self) -> None:
+        self._remove_btn.setEnabled(self._list.currentItem() is not None)
 
     def _on_remove(self) -> None:
         item = self._list.currentItem()
@@ -139,7 +161,10 @@ class GraphAnalysisTab(QWidget):
     # ── Build helpers ───────────────────────────────────────────────────────
 
     def _build_fit_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_CURVE_FIT))
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_CURVE_FIT),
+            body_margins=GRAPH_SECTION_MARGINS,
+        )
         body = section.body()
 
         self._fit_trace = _data_combo()
@@ -158,13 +183,12 @@ class GraphAnalysisTab(QWidget):
         )
 
         self._fit_degree = spinbox(2, 6, 2)
-        body.addWidget(
-            form_row(
-                tr_ui(TXT.GRAPH_LBL_FIT_DEGREE),
-                self._fit_degree,
-                _LABEL_WIDTH,
-            )
+        self._fit_degree_row = form_row(
+            tr_ui(TXT.GRAPH_LBL_FIT_DEGREE),
+            self._fit_degree,
+            _LABEL_WIDTH,
         )
+        body.addWidget(self._fit_degree_row)
 
         buttons = QWidget()
         h = QHBoxLayout(buttons)
@@ -186,7 +210,10 @@ class GraphAnalysisTab(QWidget):
         return section
 
     def _build_math_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_TRACE_MATH))
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_TRACE_MATH),
+            body_margins=GRAPH_SECTION_MARGINS,
+        )
         body = section.body()
 
         # Placeholder segmented group; rebuilt by set_operations().
@@ -255,7 +282,7 @@ class GraphAnalysisTab(QWidget):
         if self._category_group is not None:
             self._category_group.deleteLater()
         self._category_group = SegmentedGroup(
-            [label for _cid, label in categories]
+            [label for _cid, label in categories], compact=True
         )
         self._category_group.selection_changed.connect(
             self._on_category_changed
@@ -283,6 +310,13 @@ class GraphAnalysisTab(QWidget):
         self._fit_section.setEnabled(enabled)
         self._math_section.setEnabled(enabled)
 
+    def set_fit_roi_enabled(self, enabled: bool) -> None:
+        """ROI fitting is only offered while the ROI itself is active."""
+        self._fit_roi_btn.setEnabled(enabled)
+        self._fit_roi_btn.setToolTip(
+            "" if enabled else tr_ui(TXT.GRAPH_FIT_NEED_ROI)
+        )
+
     # ── Internals ───────────────────────────────────────────────────────────
 
     def _current_category(self) -> str:
@@ -305,7 +339,7 @@ class GraphAnalysisTab(QWidget):
         model_id = self._fit_model.currentData()
         ranges = getattr(self, "_fit_degree_ranges", {})
         has_degree, lo, hi = ranges.get(model_id, (False, 1, 1))
-        self._fit_degree.setEnabled(has_degree)
+        self._fit_degree_row.setVisible(has_degree)
         if has_degree:
             self._fit_degree.setRange(lo, hi)
 

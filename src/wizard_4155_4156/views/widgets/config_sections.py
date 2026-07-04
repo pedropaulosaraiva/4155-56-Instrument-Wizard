@@ -85,6 +85,9 @@ _SCI_DISPLAY_LOWER = 0.01
 _SCI_DISPLAY_UPPER = 1e5
 _MAX_SCI_PARTS = 2
 
+#: Tighter SectionFrame card margins for the narrow Graphs sidebar.
+GRAPH_SECTION_MARGINS = (12, 12, 12, 12)
+
 # ── Shared helpers ──────────────────────────────────────────────
 
 
@@ -106,14 +109,26 @@ def form_row(
     return row
 
 
-def combo(options: List[str], default: str = "") -> QComboBox:
+def combo(
+    options: List[str], default: str = "", min_chars: int = 8
+) -> QComboBox:
     cb = QComboBox()
     cb.setStyleSheet(unit_card_combo_stylesheet())
+    # Minimum width follows ``min_chars`` — not the longest item — so
+    # the combo can shrink inside narrow containers (Graphs sidebar).
+    # QComboBox never elides, so tooltips carry the full text instead.
+    cb.setSizeAdjustPolicy(
+        QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+    )
+    cb.setMinimumContentsLength(min_chars)
     for opt in options:
         cb.addItem(opt, opt)
+        cb.setItemData(cb.count() - 1, opt, Qt.ItemDataRole.ToolTipRole)
     idx = cb.findData(default)
     if idx >= 0:
         cb.setCurrentIndex(idx)
+    cb.currentTextChanged.connect(cb.setToolTip)
+    cb.setToolTip(cb.currentText())
     return cb
 
 
@@ -412,9 +427,11 @@ class SegmentedGroup(QWidget):
         options: List[str],
         default: str = "",
         parent: QWidget | None = None,
+        compact: bool = False,
     ) -> None:
         super().__init__(parent)
         self._buttons: Dict[str, QPushButton] = {}
+        self._compact = compact
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
 
@@ -429,6 +446,11 @@ class SegmentedGroup(QWidget):
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
             )
             btn.setFixedHeight(28)
+            if compact:
+                # QPushButton enforces a wide minimumSizeHint regardless
+                # of QSS padding — cap it so many-option groups can
+                # shrink inside narrow containers.
+                btn.setMinimumWidth(24)
             self._buttons[opt] = btn
             self._group.addButton(btn)
             h.addWidget(btn)
@@ -461,9 +483,9 @@ class SegmentedGroup(QWidget):
     def _refresh_styles(self) -> None:
         for btn in self._buttons.values():
             btn.setStyleSheet(
-                segmented_btn_checked_stylesheet()
+                segmented_btn_checked_stylesheet(self._compact)
                 if btn.isChecked()
-                else segmented_btn_unchecked_stylesheet()
+                else segmented_btn_unchecked_stylesheet(self._compact)
             )
 
 
@@ -481,6 +503,7 @@ class SectionFrame(QFrame):
         parent: QWidget | None = None,
         accent: str | None = None,
         doc_topic: DocTopic | None = None,
+        body_margins: Tuple[int, int, int, int] | None = None,
     ) -> None:
         super().__init__(parent)
         root = QVBoxLayout(self)
@@ -495,7 +518,7 @@ class SectionFrame(QFrame):
         self._card.setObjectName("section_card")
         self._card.setStyleSheet(section_card_stylesheet(accent))
         self._body = QVBoxLayout(self._card)
-        self._body.setContentsMargins(16, 14, 16, 14)
+        self._body.setContentsMargins(*(body_margins or (16, 14, 16, 14)))
         self._body.setSpacing(10)
         root.addWidget(self._card)
 

@@ -23,10 +23,11 @@ else) and delegates ``display_*`` calls back down.  Zero business logic.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
+    QSplitter,
     QTabBar,
     QToolButton,
     QVBoxLayout,
@@ -39,10 +40,13 @@ from wizard_4155_4156.gui_text.general_text import (
 from wizard_4155_4156.gui_text.general_text import tr_ui
 from wizard_4155_4156.styles.stylesheets import (
     graph_add_scene_button_stylesheet,
+    graph_body_splitter_stylesheet,
     graph_page_stylesheet,
     graph_scene_tabbar_stylesheet,
     graph_sidebar_toggle_stylesheet,
+    graph_tab_close_button_stylesheet,
 )
+from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
 from wizard_4155_4156.views.widgets.graph_plot_area import GraphPlotArea
 from wizard_4155_4156.views.widgets.graph_sidebar import GraphSidebar
@@ -121,11 +125,12 @@ class GraphPageView(BasePage):
 
         self._tab_bar = QTabBar()
         self._tab_bar.setStyleSheet(graph_scene_tabbar_stylesheet())
-        self._tab_bar.setTabsClosable(True)
+        # Close buttons are themed QToolButtons installed per tab in
+        # display_scenes() — never Qt's native (platform-styled) icon.
+        self._tab_bar.setTabsClosable(False)
         self._tab_bar.setUsesScrollButtons(True)
         self._tab_bar.setExpanding(False)
         self._tab_bar.currentChanged.connect(self._on_tab_changed)
-        self._tab_bar.tabCloseRequested.connect(self.scene_close_requested)
         self._tab_bar.tabBarDoubleClicked.connect(self._on_tab_renamed)
         h.addWidget(self._tab_bar)
 
@@ -138,14 +143,26 @@ class GraphPageView(BasePage):
         h.addStretch(1)
         return bar
 
+    #: Width of the collapse strip inside the splitter's right pane
+    #: (toggle button + layout spacing) — kept when the sidebar hides.
+    _TOGGLE_STRIP_WIDTH = 18 + 6
+
     def _build_body(self) -> QWidget:
-        body = QWidget()
-        h = QHBoxLayout(body)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.setSpacing(6)
+        self._splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._splitter.setStyleSheet(graph_body_splitter_stylesheet())
+        self._splitter.setHandleWidth(6)
+        self._splitter.setChildrenCollapsible(False)
 
         self.plot_area = GraphPlotArea()
-        h.addWidget(self.plot_area, stretch=1)
+        self.plot_area.setMinimumWidth(P.GRAPH_PLOT_MIN_WIDTH)
+        self._splitter.addWidget(self.plot_area)
+
+        # The toggle strip travels with the sidebar in one right pane so
+        # collapsing leaves only the strip visible.
+        right = QWidget()
+        h = QHBoxLayout(right)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(6)
 
         self._toggle_btn = QToolButton()
         self._toggle_btn.setText("›")
@@ -158,7 +175,15 @@ class GraphPageView(BasePage):
 
         self.sidebar = GraphSidebar()
         h.addWidget(self.sidebar)
-        return body
+        self._splitter.addWidget(right)
+
+        self._splitter.setStretchFactor(0, 1)  # window growth → plot
+        self._splitter.setStretchFactor(1, 0)
+        self._saved_sidebar_size = (
+            P.GRAPH_SIDEBAR_WIDTH + self._TOGGLE_STRIP_WIDTH
+        )
+        self._splitter.setSizes([10_000, self._saved_sidebar_size])
+        return self._splitter
 
     def _chain_signals(self) -> None:
         """Re-emit every child signal at page level (presenter contract)."""
@@ -210,13 +235,33 @@ class GraphPageView(BasePage):
         self._tab_bar.blockSignals(True)
         while self._tab_bar.count():
             self._tab_bar.removeTab(0)
-        for name in names:
-            self._tab_bar.addTab(name)
-        self._tab_bar.setCurrentIndex(current)
-        # A single scene must stay open — hide its close button.
+        # A single scene must stay open — no close button then.
         closable = len(names) > 1
-        self._tab_bar.setTabsClosable(closable)
+        for index, name in enumerate(names):
+            self._tab_bar.addTab(name)
+            self._tab_bar.setTabToolTip(index, tr_ui(TXT.GRAPH_TT_RENAME_HINT))
+            if closable:
+                self._tab_bar.setTabButton(
+                    index,
+                    QTabBar.ButtonPosition.RightSide,
+                    self._make_close_button(index),
+                )
+        self._tab_bar.setCurrentIndex(current)
         self._tab_bar.blockSignals(False)
+
+    def _make_close_button(self, index: int) -> QToolButton:
+        """Themed '✕' replacing Qt's native close icon.  Tabs are fully
+        rebuilt on every display_scenes, so the captured index is safe."""
+        btn = QToolButton()
+        btn.setText("✕")
+        btn.setFixedSize(16, 16)
+        btn.setToolTip(tr_ui(TXT.GRAPH_CLOSE_SCENE_TITLE))
+        btn.setStyleSheet(graph_tab_close_button_stylesheet())
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.clicked.connect(
+            lambda _c=False, i=index: self.scene_close_requested.emit(i)
+        )
+        return btn
 
     # ── Plot area ────────────────────────────────────────────────────────────
 
@@ -306,6 +351,9 @@ class GraphPageView(BasePage):
     def set_analysis_enabled(self, enabled: bool) -> None:
         self.sidebar.analysis_tab.set_analysis_enabled(enabled)
 
+    def set_fit_roi_enabled(self, enabled: bool) -> None:
+        self.sidebar.analysis_tab.set_fit_roi_enabled(enabled)
+
     # =========================================================================
     # Internals
     # =========================================================================
@@ -319,8 +367,8 @@ class GraphPageView(BasePage):
             return
         name, ok = QInputDialog.getText(
             self,
-            tr_ui(TXT.GRAPH_SCENE_DEFAULT).format(n=index + 1),
-            "",
+            tr_ui(TXT.GRAPH_RENAME_TITLE),
+            tr_ui(TXT.GRAPH_RENAME_LABEL),
             text=self._tab_bar.tabText(index),
         )
         if ok and name.strip():
@@ -328,5 +376,19 @@ class GraphPageView(BasePage):
 
     def _toggle_sidebar(self) -> None:
         visible = self.sidebar.isVisible()
-        self.sidebar.setVisible(not visible)
+        total = sum(self._splitter.sizes())
+        if visible:
+            # Hiding the sidebar removes its minimum width from the
+            # splitter's solver, so only the toggle strip remains.
+            self._saved_sidebar_size = self._splitter.sizes()[1]
+            self.sidebar.setVisible(False)
+            self._splitter.setSizes(
+                [total - self._TOGGLE_STRIP_WIDTH, self._TOGGLE_STRIP_WIDTH]
+            )
+        else:
+            self.sidebar.setVisible(True)
+            self._splitter.setSizes(
+                [total - self._saved_sidebar_size, self._saved_sidebar_size]
+            )
+        self._splitter.handle(1).setEnabled(not visible)
         self._toggle_btn.setText("‹" if visible else "›")

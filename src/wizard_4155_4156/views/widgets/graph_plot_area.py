@@ -574,7 +574,15 @@ class GraphPlotArea(QWidget):
             movable=False,
             pen=pg.mkPen(color),
         )
-        label = pg.TextItem(color=P.TEXT_PRIMARY, anchor=(0, 1.2))
+        # Filled + bordered so the readout stays legible over curves.
+        label_fill = pg.mkColor(P.BG_PANEL)
+        label_fill.setAlphaF(0.85)
+        label = pg.TextItem(
+            color=P.TEXT_PRIMARY,
+            anchor=(0, 1.2),
+            fill=pg.mkBrush(label_fill),
+            border=pg.mkPen(P.BORDER),
+        )
         for item in (line, marker, label):
             state.plot.addItem(item)
         slot = state.spec.index

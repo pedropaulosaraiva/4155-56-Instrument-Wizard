@@ -925,13 +925,16 @@ def unit_label_stylesheet() -> str:
     )
 
 
-def segmented_btn_checked_stylesheet() -> str:
+def segmented_btn_checked_stylesheet(compact: bool = False) -> str:
+    """``compact`` shrinks the horizontal padding so many-option groups
+    (e.g. the Graphs-page multiplier row) fit a narrow sidebar."""
+    padding = "5px 4px" if compact else "5px 16px"
     return f"""
         QPushButton {{
             background-color: {P.ACCENT};
             color: {P.TEXT_WHITE};
             border: 1px solid {P.ACCENT};
-            padding: 5px 16px;
+            padding: {padding};
             font-size: {P.FONT_SIZE_SM};
             font-weight: bold;
             border-radius: 0;
@@ -939,13 +942,14 @@ def segmented_btn_checked_stylesheet() -> str:
     """
 
 
-def segmented_btn_unchecked_stylesheet() -> str:
+def segmented_btn_unchecked_stylesheet(compact: bool = False) -> str:
+    padding = "5px 4px" if compact else "5px 16px"
     return f"""
         QPushButton {{
             background-color: {P.BG_DEEP};
             color: {P.TEXT_SECONDARY};
             border: 1px solid {P.BORDER};
-            padding: 5px 16px;
+            padding: {padding};
             font-size: {P.FONT_SIZE_SM};
             border-radius: 0;
         }}
@@ -1782,6 +1786,73 @@ def graph_sidebar_stylesheet() -> str:
     """
 
 
+def _graph_thin_vscrollbar_qss() -> str:
+    """Thin themed vertical scrollbar rules shared by the Graphs-page
+    scroll surfaces (sidebar tabs, dataset tree, results lists)."""
+    return f"""
+        QScrollBar:vertical {{
+            background: transparent;
+            width: {P.SCROLLBAR_THIN}px;
+            margin: 0px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: {P.BORDER};
+            border-radius: 4px;
+            min-height: 24px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: {P.TEXT_DISABLED};
+        }}
+        QScrollBar::add-line:vertical,
+        QScrollBar::sub-line:vertical {{
+            height: 0px;
+        }}
+        QScrollBar::add-page:vertical,
+        QScrollBar::sub-page:vertical {{
+            background: transparent;
+        }}
+    """
+
+
+def graph_sidebar_scroll_stylesheet() -> str:
+    """Sidebar tab scroll areas: transparent surface + thin gutter."""
+    return f"""
+        QScrollArea {{ background: transparent; border: none; }}
+        QScrollArea > QWidget > QWidget {{ background: transparent; }}
+        {_graph_thin_vscrollbar_qss()}
+    """
+
+
+def graph_body_splitter_stylesheet() -> str:
+    """Plot-area | sidebar splitter on the Graphs page."""
+    return f"""
+        QSplitter::handle:horizontal {{
+            background-color: {P.BG_DEEP};
+        }}
+        QSplitter::handle:horizontal:hover {{
+            background-color: {P.ACCENT_MUTED};
+        }}
+    """
+
+
+def graph_tab_close_button_stylesheet() -> str:
+    """Themed '✕' close button installed on each scene tab."""
+    return f"""
+        QToolButton {{
+            background: transparent;
+            color: {P.TEXT_MUTED};
+            border: none;
+            border-radius: {P.RADIUS_SM};
+            font-size: {P.FONT_SIZE_XS};
+            font-weight: bold;
+        }}
+        QToolButton:hover {{
+            color: {P.STATUS_ERROR};
+            background-color: {P.BG_ELEVATED};
+        }}
+    """
+
+
 def graph_sidebar_toggle_stylesheet() -> str:
     """Slim edge button that collapses/expands the sidebar."""
     return f"""
@@ -1828,6 +1899,7 @@ def graph_dataset_tree_stylesheet() -> str:
         QTreeWidget::item:disabled {{
             color: {P.TEXT_DISABLED};
         }}
+        {_graph_thin_vscrollbar_qss()}
     """
 
 
@@ -1875,6 +1947,7 @@ def graph_results_list_stylesheet() -> str:
             background-color: {P.ACCENT_MUTED};
             color: {P.TEXT_WHITE};
         }}
+        {_graph_thin_vscrollbar_qss()}
     """
 
 

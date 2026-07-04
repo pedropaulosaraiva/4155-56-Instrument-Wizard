@@ -588,6 +588,7 @@ class GraphPresenter(QObject):
             plot.roi = self._default_roi(plot)
         self._schedule_save()
         self._render_plot_area()
+        self._view.set_fit_roi_enabled(on)
 
     @staticmethod
     def _default_roi(plot: PlotConfig) -> tuple[float, float]:
@@ -1007,6 +1008,7 @@ class GraphPresenter(QObject):
             plot.cursor_source_id,
             plot.roi_enabled,
         )
+        self._view.set_fit_roi_enabled(plot.roi_enabled)
         self._view.display_cursor_readout(
             self._readout_text(self._scene.active_index)
         )

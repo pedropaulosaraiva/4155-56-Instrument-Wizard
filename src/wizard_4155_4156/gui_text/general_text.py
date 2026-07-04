@@ -142,6 +142,9 @@ class CommandWizardText(StrEnum):
     GRAPH_TT_TOGGLE_SIDEBAR = "Show/hide the configuration sidebar"
     GRAPH_CLOSE_SCENE_TITLE = "Close scene"
     GRAPH_CLOSE_SCENE_MSG = "Close this scene and discard its configuration?"
+    GRAPH_RENAME_TITLE = "Rename scene"
+    GRAPH_RENAME_LABEL = "Scene name:"
+    GRAPH_TT_RENAME_HINT = "Double-click to rename this scene"
     # Sidebar tabs
     GRAPH_TAB_DATA = "Data"
     GRAPH_TAB_VIEW = "View"
@@ -184,6 +187,8 @@ class CommandWizardText(StrEnum):
     GRAPH_LBL_PLOT_TITLE = "Plot title:"
     GRAPH_LBL_X_LABEL = "X label:"
     GRAPH_LBL_Y_LABEL = "Y label:"
+    GRAPH_PH_TITLE = "Optional — no title when empty"
+    GRAPH_PH_AXIS_LABEL = "Auto — uses the variable name"
     GRAPH_NO_TRACES = "No traces in the active plot."
     GRAPH_CURSOR_READOUT = "x = {x}    y = {y}"
     GRAPH_CURSOR_DELTA = "Δx = {dx}    Δy = {dy}    Δy/Δx = {slope}"
@@ -215,6 +220,7 @@ class CommandWizardText(StrEnum):
     GRAPH_BTN_ADD_COMPUTED = "Add computed trace"
     GRAPH_FITS_TITLE = "Fits"
     GRAPH_COMPUTED_TITLE = "Computed traces"
+    GRAPH_TT_REMOVE_SELECTED = "Remove the selected entry"
     GRAPH_ANALYSIS_EMPTY = (
         "Select executions on the Data tab to enable analysis."
     )

@@ -15,6 +15,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QLabel,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -26,10 +27,12 @@ from wizard_4155_4156.gui_text.general_text import (
 )
 from wizard_4155_4156.gui_text.general_text import tr_ui
 from wizard_4155_4156.styles.stylesheets import (
+    form_label_stylesheet,
     global_option_checkbox_stylesheet,
     graph_dataset_tree_stylesheet,
 )
 from wizard_4155_4156.views.widgets.config_sections import (
+    GRAPH_SECTION_MARGINS,
     SciDoubleEdit,
     SectionFrame,
     SegmentedGroup,
@@ -51,7 +54,7 @@ class _AxisSection:
     """The X-axis or Y-axis SectionFrame (built once per axis)."""
 
     def __init__(self, owner: "GraphDataTab", axis: str, title: str):
-        self.section = SectionFrame(title)
+        self.section = SectionFrame(title, body_margins=GRAPH_SECTION_MARGINS)
         body = self.section.body()
 
         self.var_combo = combo([])
@@ -77,14 +80,15 @@ class _AxisSection:
             form_row(tr_ui(TXT.GRAPH_LBL_MAX), self.max_edit, _LABEL_WIDTH)
         )
 
-        self.mult_group = SegmentedGroup(_MULTIPLIER_OPTIONS, "1")
-        body.addWidget(
-            form_row(
-                tr_ui(TXT.GRAPH_LBL_MULTIPLIER),
-                self.mult_group,
-                _LABEL_WIDTH,
-            )
+        # Stacked full-width row — the only layout where 8 segments fit
+        # the narrow sidebar (a form_row would leave them ~150px).
+        mult_lbl = QLabel(tr_ui(TXT.GRAPH_LBL_MULTIPLIER))
+        mult_lbl.setStyleSheet(form_label_stylesheet())
+        body.addWidget(mult_lbl)
+        self.mult_group = SegmentedGroup(
+            _MULTIPLIER_OPTIONS, "1", compact=True
         )
+        body.addWidget(self.mult_group)
 
         self.var_combo.currentTextChanged.connect(
             lambda name: owner._on_variable_changed(axis, name)
@@ -142,6 +146,11 @@ class _AxisSection:
         self.var_combo.clear()
         for opt in options:
             self.var_combo.addItem(opt, opt)
+            self.var_combo.setItemData(
+                self.var_combo.count() - 1,
+                opt,
+                Qt.ItemDataRole.ToolTipRole,
+            )
         idx = self.var_combo.findText(current)
         self.var_combo.setCurrentIndex(idx)
         self.var_combo.blockSignals(False)
@@ -178,7 +187,10 @@ class GraphDataTab(QWidget):
     # ── Build helpers ───────────────────────────────────────────────────────
 
     def _build_datasets_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_DATASETS))
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_DATASETS),
+            body_margins=GRAPH_SECTION_MARGINS,
+        )
         self._tree = QTreeWidget()
         self._tree.setHeaderHidden(True)
         self._tree.setStyleSheet(graph_dataset_tree_stylesheet())
@@ -188,7 +200,10 @@ class GraphDataTab(QWidget):
         return section
 
     def _build_layout_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_LAYOUT))
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_LAYOUT),
+            body_margins=GRAPH_SECTION_MARGINS,
+        )
         body = section.body()
 
         self._rows_spin = spinbox(1, 3, 1)

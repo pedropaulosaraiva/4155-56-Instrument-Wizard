@@ -13,7 +13,7 @@ opacity…) can be appended without restructuring.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -43,6 +43,7 @@ from wizard_4155_4156.styles.stylesheets import (
     unit_card_line_edit_stylesheet,
 )
 from wizard_4155_4156.views.widgets.config_sections import (
+    GRAPH_SECTION_MARGINS,
     SectionFrame,
     SegmentedGroup,
     combo,
@@ -80,23 +81,45 @@ _CURSOR_LABELS = {
 def _id_combo(options: list[tuple[str, TXT]]) -> QComboBox:
     box = QComboBox()
     box.setStyleSheet(unit_card_combo_stylesheet())
+    # Shrinkable minimum (not longest-item) + tooltips for clipped text.
+    box.setSizeAdjustPolicy(
+        QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+    )
+    box.setMinimumContentsLength(6)
     for logical_id, text in options:
         box.addItem(tr_ui(text), logical_id)
+        box.setItemData(
+            box.count() - 1, tr_ui(text), Qt.ItemDataRole.ToolTipRole
+        )
+    box.currentTextChanged.connect(box.setToolTip)
+    box.setToolTip(box.currentText())
     return box
 
 
 class _TraceRow(QFrame):
-    """One styling row: [visible] [color] [name] [line] [marker]."""
+    """Two-line styling row — the name owns the full first line so it
+    stays readable in the narrow sidebar:
+
+    [visible] [color] [name……………………]
+    [line style combo] [marker combo]
+    """
 
     def __init__(self, owner: "GraphViewTab", spec: dict) -> None:
         super().__init__()
         self.setObjectName("trace_row")
         self.setStyleSheet(graph_trace_row_stylesheet())
         trace_id = spec["id"]
+        self.setToolTip(spec["name"])
 
-        h = QHBoxLayout(self)
-        h.setContentsMargins(6, 4, 6, 4)
-        h.setSpacing(6)
+        v = QVBoxLayout(self)
+        v.setContentsMargins(6, 4, 6, 4)
+        v.setSpacing(4)
+        top = QHBoxLayout()
+        top.setSpacing(6)
+        bottom = QHBoxLayout()
+        bottom.setSpacing(6)
+        v.addLayout(top)
+        v.addLayout(bottom)
 
         visible = QCheckBox()
         visible.setStyleSheet(global_option_checkbox_stylesheet())
@@ -104,7 +127,7 @@ class _TraceRow(QFrame):
         visible.toggled.connect(
             lambda on: owner.trace_visibility_changed.emit(trace_id, on)
         )
-        h.addWidget(visible)
+        top.addWidget(visible)
 
         swatch = QPushButton()
         swatch.setFixedSize(20, 20)
@@ -112,14 +135,16 @@ class _TraceRow(QFrame):
         swatch.clicked.connect(
             lambda: owner._pick_color(trace_id, spec["color"])
         )
-        h.addWidget(swatch)
+        top.addWidget(swatch)
 
         name = QLineEdit(spec["name"])
         name.setStyleSheet(unit_card_line_edit_stylesheet())
+        name.setToolTip(spec["name"])
+        name.textChanged.connect(name.setToolTip)  # full text when clipped
         name.editingFinished.connect(
             lambda: owner.trace_renamed.emit(trace_id, name.text())
         )
-        h.addWidget(name, stretch=1)
+        top.addWidget(name, stretch=1)
 
         line = _id_combo(_LINE_STYLE_OPTIONS)
         line.setCurrentIndex(max(0, line.findData(spec["line_style"])))
@@ -128,7 +153,7 @@ class _TraceRow(QFrame):
                 trace_id, line.currentData()
             )
         )
-        h.addWidget(line)
+        bottom.addWidget(line, stretch=1)
 
         marker = _id_combo(_MARKER_OPTIONS)
         marker.setCurrentIndex(max(0, marker.findData(spec["marker"])))
@@ -137,7 +162,7 @@ class _TraceRow(QFrame):
                 trace_id, marker.currentData()
             )
         )
-        h.addWidget(marker)
+        bottom.addWidget(marker, stretch=1)
 
 
 class GraphViewTab(QWidget):
@@ -171,7 +196,10 @@ class GraphViewTab(QWidget):
     # ── Build helpers ───────────────────────────────────────────────────────
 
     def _build_tools_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_TOOLS))
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_TOOLS),
+            body_margins=GRAPH_SECTION_MARGINS,
+        )
         body = section.body()
 
         self._reset_btn = QPushButton(tr_ui(TXT.GRAPH_BTN_RESET_VIEW))
@@ -180,7 +208,7 @@ class GraphViewTab(QWidget):
         body.addWidget(self._reset_btn)
 
         self._mouse_group = SegmentedGroup(
-            [tr_ui(t) for t in _MOUSE_LABELS.values()]
+            [tr_ui(t) for t in _MOUSE_LABELS.values()], compact=True
         )
         body.addWidget(
             form_row(
@@ -194,7 +222,7 @@ class GraphViewTab(QWidget):
         )
 
         self._cursor_group = SegmentedGroup(
-            [tr_ui(t) for t in _CURSOR_LABELS.values()]
+            [tr_ui(t) for t in _CURSOR_LABELS.values()], compact=True
         )
         body.addWidget(
             form_row(
@@ -224,6 +252,7 @@ class GraphViewTab(QWidget):
         self._readout = QLabel("")
         self._readout.setStyleSheet(graph_cursor_readout_stylesheet())
         self._readout.setWordWrap(True)
+        self._readout.setVisible(False)  # shown only with cursor text
         body.addWidget(self._readout)
 
         self._roi_chk = QCheckBox(tr_ui(TXT.GRAPH_CHK_ROI))
@@ -249,11 +278,15 @@ class GraphViewTab(QWidget):
         return section
 
     def _build_labels_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_LABELS))
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_LABELS),
+            body_margins=GRAPH_SECTION_MARGINS,
+        )
         body = section.body()
 
         self._title_edit = QLineEdit()
         self._title_edit.setStyleSheet(unit_card_line_edit_stylesheet())
+        self._title_edit.setPlaceholderText(tr_ui(TXT.GRAPH_PH_TITLE))
         self._title_edit.editingFinished.connect(
             lambda: self.plot_title_committed.emit(self._title_edit.text())
         )
@@ -272,6 +305,7 @@ class GraphViewTab(QWidget):
             ("y", self._y_label_edit, TXT.GRAPH_LBL_Y_LABEL),
         ):
             edit.setStyleSheet(unit_card_line_edit_stylesheet())
+            edit.setPlaceholderText(tr_ui(TXT.GRAPH_PH_AXIS_LABEL))
             edit.editingFinished.connect(
                 lambda a=axis, e=edit: self.axis_label_committed.emit(
                     a, e.text()
@@ -281,7 +315,10 @@ class GraphViewTab(QWidget):
         return section
 
     def _build_traces_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_TRACES))
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_TRACES),
+            body_margins=GRAPH_SECTION_MARGINS,
+        )
         self._traces_box = QVBoxLayout()
         self._traces_box.setSpacing(6)
         section.body().addLayout(self._traces_box)
@@ -333,6 +370,11 @@ class GraphViewTab(QWidget):
         self._cursor_source.clear()
         for trace_id, name in options:
             self._cursor_source.addItem(name, trace_id)
+            self._cursor_source.setItemData(
+                self._cursor_source.count() - 1,
+                name,
+                Qt.ItemDataRole.ToolTipRole,
+            )
         if current is not None:
             idx = self._cursor_source.findData(current)
             self._cursor_source.setCurrentIndex(idx)
@@ -351,6 +393,7 @@ class GraphViewTab(QWidget):
 
     def display_cursor_readout(self, text: str) -> None:
         self._readout.setText(text)
+        self._readout.setVisible(bool(text))
 
     # ── Internals ───────────────────────────────────────────────────────────
 

@@ -70,7 +70,11 @@ class _Palette:
         "#ce9178",  # copper
     )
     GRAPH_GRID_ALPHA: float = 0.25  # pyqtgraph showGrid alpha
-    GRAPH_SIDEBAR_WIDTH: int = 320  # px — scene sidebar fixed width
+    GRAPH_SIDEBAR_WIDTH: int = 340  # px — scene sidebar default splitter size
+    GRAPH_SIDEBAR_MIN_WIDTH: int = 280  # px — splitter lower bound
+    GRAPH_SIDEBAR_MAX_WIDTH: int = 560  # px — splitter upper bound
+    GRAPH_PLOT_MIN_WIDTH: int = 360  # px — plot area can't be crushed
+    SCROLLBAR_THIN: int = 8  # px — thin themed scrollbar width
     GRAPH_CURSOR: str = "#f48771"  # cursor line/marker (coral)
     GRAPH_CURSOR_ALT: str = "#dcdcaa"  # second cursor (amber)
     GRAPH_ROI: str = "#094771"  # ROI region fill base (ACCENT_MUTED)
