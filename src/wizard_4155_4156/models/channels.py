@@ -280,9 +280,7 @@ class ChannelsConstraints:
         secondary is nameless and must not be emitted as its own command —
         VMU1's DVOLT command auto-couples it on the instrument.
         """
-        return (
-            ChannelsConstraints.dvol_pair_active(cfg) and index == VMU_COUNT
-        )
+        return ChannelsConstraints.dvol_pair_active(cfg) and index == VMU_COUNT
 
     @staticmethod
     def _enabled_dvol_count(cfg: ChannelsConfig) -> int:

@@ -43,6 +43,7 @@ The VISA driver is created lazily on the user's first scan (see
 GPIB41xxController.initialize_visa, invoked from ScanTask), so no auto-scan
 runs at startup.
 """
+
 from typing import List
 
 from PySide6.QtCore import QObject, QThreadPool, Signal, Slot
@@ -63,8 +64,12 @@ from wizard_4155_4156.views.connector_widget import CompactConnectorWidget
 
 # Union of all task types accepted by _wire_task
 _AnyTask = (
-    ScanTask | ConnectTask | DisconnectTask |
-    SetupTask | MeasurementRunTask | DataFetchTask
+    ScanTask
+    | ConnectTask
+    | DisconnectTask
+    | SetupTask
+    | MeasurementRunTask
+    | DataFetchTask
 )
 
 
@@ -75,7 +80,7 @@ class ConnectorPresenter(QObject):
     """
 
     # ── Application-level signals (consumed by MainWindow) ───────────────────
-    data_ready = Signal(dict)     # forwarded from DataFetchTask.data_fetched
+    data_ready = Signal(dict)  # forwarded from DataFetchTask.data_fetched
     hardware_busy = Signal(bool)  # True when any trigger_* sequence is active
     connection_changed = Signal(bool, str)  # (connected, instrument name)
 
@@ -108,7 +113,7 @@ class ConnectorPresenter(QObject):
         accepted to prevent tasks from accessing destroyed objects.
         """
         self._pool.clear()
-        self._pool.waitForDone(3_000)   # 3 s grace period
+        self._pool.waitForDone(3_000)  # 3 s grace period
 
     def is_connected(self) -> bool:
         """Whether an instrument is currently connected (initial state)."""
@@ -250,7 +255,5 @@ class ConnectorPresenter(QObject):
         # ! state.
         self._pool.clear()
         self.hardware_busy.emit(False)
-        self._view.display_error(
-            tr_ui(CommandWizardText.HARDWARE_ERROR_ALERT)
-        )
+        self._view.display_error(tr_ui(CommandWizardText.HARDWARE_ERROR_ALERT))
         self._view.modal.append_log(LogMsg.WORKER_ERROR.format(error=err_msg))

@@ -204,7 +204,7 @@ def test_leak_integration_validation(freq, leak, ok):
 
 @pytest.mark.parametrize(
     ("delay", "ok"),
-    [(0.0, True), (65.535, True), (-0.1, False), (66.0, False)]
+    [(0.0, True), (65.535, True), (-0.1, False), (66.0, False)],
 )
 def test_delay_validation(delay, ok):
     errors = validate(make_valid_config(delay=delay))
@@ -213,7 +213,7 @@ def test_delay_validation(delay, ok):
 
 @pytest.mark.parametrize(
     ("hold", "ok"),
-    [(0.0, True), (655.35, True), (-0.1, False), (700.0, False)]
+    [(0.0, True), (655.35, True), (-0.1, False), (700.0, False)],
 )
 def test_hold_validation(hold, ok):
     errors = validate(make_valid_config(hold_time=hold))
@@ -382,6 +382,4 @@ def test_display_vars_requires_c_or_il():
     # Only non-measurable (source) variables selected → Rule 1 fails;
     # for QSCV the measurement variables are C/IL only.
     cfg = make_valid_config(display_vars=["V2", "VSU1"])
-    assert any(
-        "at least one measurement variable" in e for e in validate(cfg)
-    )
+    assert any("at least one measurement variable" in e for e in validate(cfg))

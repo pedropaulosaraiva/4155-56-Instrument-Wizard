@@ -372,8 +372,8 @@ def test_setup_measurement_orchestrator(setup_director):
         "display_vars": ["V1", "I1"],
     }
     # The display list is set by post_setup, not setup_measurement.
-    cmd_mode, cmd_chan, cmd_meas, cmd_swe = (
-        setup_director.setup_measurement(config_sweep)
+    cmd_mode, cmd_chan, cmd_meas, cmd_swe = setup_director.setup_measurement(
+        config_sweep
     )
 
     assert cmd_mode.set_command == ":PAGE:CHAN:MODE SWEEP"

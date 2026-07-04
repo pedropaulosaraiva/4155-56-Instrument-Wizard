@@ -339,9 +339,7 @@ class _VAR1Section(_SectionFrame):
                     start, stop, step, spacing
                 )
         elif all(v is not None for v in (start, stop)):
-            return SweepConstraints.var1_step_count(
-                start, stop, 0.0, spacing
-            )
+            return SweepConstraints.var1_step_count(start, stop, 0.0, spacing)
         return None
 
     def get_input_errors(self) -> Dict[str, str]:
@@ -849,9 +847,7 @@ class SweepConfigPageView(BasePage):
         self._top_bar.save_setup_requested.connect(self.save_to_db_requested)
         self._top_bar.save_json_requested.connect(self._on_save_clicked)
         self._top_bar.export_requested.connect(self.export_requested)
-        self._top_bar.apply_setup_requested.connect(
-            self.apply_setup_requested
-        )
+        self._top_bar.apply_setup_requested.connect(self.apply_setup_requested)
         self._top_bar.apply_run_fetch_requested.connect(
             self.apply_run_fetch_requested
         )

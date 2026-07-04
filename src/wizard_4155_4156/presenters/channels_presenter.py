@@ -309,9 +309,9 @@ class ChannelsPresenter(QObject):
         )
 
         # Structural changes
-        self._view.display_available_modes([
-            mode.value for mode in allowed_modes
-        ])
+        self._view.display_available_modes(
+            [mode.value for mode in allowed_modes]
+        )
 
         # Per-card function lists and COMM locks for SMUs
         for index, smu in config.smu.items():

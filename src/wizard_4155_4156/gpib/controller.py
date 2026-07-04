@@ -19,6 +19,7 @@ externally by ConnectorPresenter, which restricts the QThreadPool to a
 single thread (FIFO queue), ensuring sequential, non-concurrent access to
 every method of this class.
 """
+
 from typing import Final, Optional, Sequence, cast
 
 from pyvisa import ResourceManager, VisaIOError
@@ -114,8 +115,7 @@ class GPIB41xxController:
         idn_query = cmd_builder.build()
 
         gpib_resources = (
-            r for r in rm.list_resources()
-            if self.GPIB_ADDRESS_ID in r
+            r for r in rm.list_resources() if self.GPIB_ADDRESS_ID in r
         )
 
         for resource in gpib_resources:

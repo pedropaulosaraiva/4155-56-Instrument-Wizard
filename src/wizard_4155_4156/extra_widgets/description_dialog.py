@@ -5,6 +5,7 @@ Read-only modal showing a setup's or run's name + description, styled like
 the rest of the application (shares ``settings_dialog_stylesheet`` with the
 metadata dialog) instead of a generic ``QMessageBox``.
 """
+
 from __future__ import annotations
 
 from PySide6.QtWidgets import (

@@ -12,6 +12,7 @@ Layer contract: no Qt imports (pure model reconstruction).  Enum coercion is
 defensive: any unexpected/legacy value falls back to a sane default rather than
 raising, so a stored setup can never crash the copy.
 """
+
 from __future__ import annotations
 
 import copy

@@ -12,6 +12,7 @@ The dialog reads/writes the Qt-free :class:`GlobalSettings` value object; it
 performs no persistence itself — MainWindow saves through
 ``GlobalSettingsManager`` on ``accept``.
 """
+
 from __future__ import annotations
 
 from PySide6.QtWidgets import (

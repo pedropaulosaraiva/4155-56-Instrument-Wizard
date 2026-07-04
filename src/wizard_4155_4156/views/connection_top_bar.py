@@ -10,6 +10,7 @@ No business logic lives here — the owner updates the pill via
 set_project_status() to reflect whether a project is open.  (Live
 hardware busy/ready is surfaced by the bottom QStatusBar instead.)
 """
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
@@ -67,8 +68,9 @@ class ConnectionTopBar(QFrame):
             self._lbl_status.setText("📁  No Project Open")
             self._lbl_status.setToolTip("")
             self._lbl_status.setStyleSheet(
-                top_bar_sys_status_stylesheet()
-                .replace(P.STATUS_OK, P.STATUS_WARN)
+                top_bar_sys_status_stylesheet().replace(
+                    P.STATUS_OK, P.STATUS_WARN
+                )
             )
             return
 

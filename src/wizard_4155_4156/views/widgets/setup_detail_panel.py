@@ -13,6 +13,7 @@ A header with a **Summary / Raw** segmented toggle sits over a stacked area:
 
 The owner pushes state via :meth:`display`; the widget keeps no business logic.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -89,7 +90,7 @@ class SetupDetailPanel(QWidget):
 
         self._stack = QStackedWidget()
         self._stack.addWidget(self._build_summary_view())  # index 0
-        self._stack.addWidget(self._build_raw_view())      # index 1
+        self._stack.addWidget(self._build_raw_view())  # index 1
         root.addWidget(self._stack, stretch=1)
 
     def _build_summary_view(self) -> QWidget:
@@ -209,12 +210,16 @@ class SetupDetailPanel(QWidget):
         self._add_display_vars_card(channels, cfg.get("display_vars", []))
         self._add_units_card(channels)
 
-        self._add_card(P.ACCENT, tr_ui(_T.RUNS_SUM_TIMING), [
-            *self._integration_rows(ms),
-            ("Hold time", f"{_num(sweep.get('hold_time'))} s"),
-            ("Delay", f"{_num(sweep.get('delay'))} s"),
-            ("Sweep stop", _txt(sweep.get("sweep_stop"))),
-        ])
+        self._add_card(
+            P.ACCENT,
+            tr_ui(_T.RUNS_SUM_TIMING),
+            [
+                *self._integration_rows(ms),
+                ("Hold time", f"{_num(sweep.get('hold_time'))} s"),
+                ("Delay", f"{_num(sweep.get('delay'))} s"),
+                ("Sweep stop", _txt(sweep.get("sweep_stop"))),
+            ],
+        )
 
     def _build_sampling_summary(self) -> None:
         cfg = self._config
@@ -237,23 +242,31 @@ class SetupDetailPanel(QWidget):
         self._add_display_vars_card(channels, cfg.get("display_vars", []))
         self._add_units_card(channels)
 
-        self._add_card(P.ACCENT, tr_ui(_T.RUNS_SUM_TIMING), [
-            *self._integration_rows(ms),
-            ("Hold time", f"{_num(samp.get('hold_time'))} s"),
-        ])
+        self._add_card(
+            P.ACCENT,
+            tr_ui(_T.RUNS_SUM_TIMING),
+            [
+                *self._integration_rows(ms),
+                ("Hold time", f"{_num(samp.get('hold_time'))} s"),
+            ],
+        )
 
     def _build_qscv_summary(self) -> None:
         cfg = self._config
         channels = cfg.get("channels", {})
         q = cfg.get("qscv_setup", {})
 
-        self._add_card(P.STATUS_INFO, tr_ui(_T.RUNS_SUM_MEASUREMENT), [
-            ("Range", _txt(q.get("range"))),
-            ("Unit", _txt(q.get("unit"))),
-            ("Sweep stop", _txt(q.get("sweep_stop"))),
-            ("Leak cancel", _txt(q.get("leak_cancel"))),
-            ("Zero cancel", _txt(q.get("zero_cancel"))),
-        ])
+        self._add_card(
+            P.STATUS_INFO,
+            tr_ui(_T.RUNS_SUM_MEASUREMENT),
+            [
+                ("Range", _txt(q.get("range"))),
+                ("Unit", _txt(q.get("unit"))),
+                ("Sweep stop", _txt(q.get("sweep_stop"))),
+                ("Leak cancel", _txt(q.get("leak_cancel"))),
+                ("Zero cancel", _txt(q.get("zero_cancel"))),
+            ],
+        )
         if "var1" in q:
             self._add_var_card(
                 P.FUNC_VAR1, "VAR1", channels, q["var1"], "VAR1"
@@ -265,12 +278,22 @@ class SetupDetailPanel(QWidget):
         )
         self._add_units_card(channels)
 
-        self._add_card(P.ACCENT, tr_ui(_T.RUNS_SUM_TIMING), [
-            ("Cap. integration", f"{_num(q.get('cap_integration_time'))} s"),
-            ("Leak integration", f"{_num(q.get('leak_integration_time'))} s"),
-            ("Hold time", f"{_num(q.get('hold_time'))} s"),
-            ("Delay", f"{_num(q.get('delay'))} s"),
-        ])
+        self._add_card(
+            P.ACCENT,
+            tr_ui(_T.RUNS_SUM_TIMING),
+            [
+                (
+                    "Cap. integration",
+                    f"{_num(q.get('cap_integration_time'))} s",
+                ),
+                (
+                    "Leak integration",
+                    f"{_num(q.get('leak_integration_time'))} s",
+                ),
+                ("Hold time", f"{_num(q.get('hold_time'))} s"),
+                ("Delay", f"{_num(q.get('delay'))} s"),
+            ],
+        )
 
     def _build_generic_summary(self) -> None:
         cfg = self._config
@@ -314,10 +337,13 @@ class SetupDetailPanel(QWidget):
         if "spacing" in var:
             rows.append(("Spacing", _txt(var.get("spacing"))))
         if "start" in var and "stop" in var:
-            rows.append((
-                "Sweep",
-                f"{_num(var['start'])} → {_num(var['stop'])} {src_u}".strip(),
-            ))
+            rows.append(
+                (
+                    "Sweep",
+                    f"{_num(var['start'])} → {_num(var['stop'])} "
+                    f"{src_u}".strip(),
+                )
+            )
         elif "start" in var:
             rows.append(("Start", f"{_num(var['start'])} {src_u}".strip()))
         if "step" in var:
@@ -337,10 +363,12 @@ class SetupDetailPanel(QWidget):
         if "cstep" in var:
             rows.append(("Cap. step", _num(var.get("cstep"))))
         if "compliance" in var:
-            rows.append((
-                "Compliance",
-                f"{_num(var['compliance'])} {comp_u}".strip(),
-            ))
+            rows.append(
+                (
+                    "Compliance",
+                    f"{_num(var['compliance'])} {comp_u}".strip(),
+                )
+            )
         if "pcompliance" in var:
             rows.append(("Power compliance", f"{_num(var['pcompliance'])} W"))
 
@@ -362,9 +390,7 @@ class SetupDetailPanel(QWidget):
         host.setStyleSheet("background: transparent;")
         for name in names:
             chip = QLabel(str(name))
-            chip.setStyleSheet(
-                setup_summary_chip_stylesheet(name in measured)
-            )
+            chip.setStyleSheet(setup_summary_chip_stylesheet(name in measured))
             host.layout().addWidget(chip)
         card.body().addWidget(host)
         self._summary_layout.addWidget(card)
@@ -487,7 +513,9 @@ def _var1_points(var: dict) -> Optional[int]:
         return None
     try:
         return SweepConstraints.var1_step_count(
-            var["start"], var["stop"], var.get("step", 0.0),
+            var["start"],
+            var["stop"],
+            var.get("step", 0.0),
             var.get("spacing", "LINEAR"),
         )
     except (TypeError, ValueError, ZeroDivisionError):

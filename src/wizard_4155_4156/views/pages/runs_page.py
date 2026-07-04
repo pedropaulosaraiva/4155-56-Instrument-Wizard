@@ -13,6 +13,7 @@ Layout: a top toolbar (Save current config as setup · Apply Setup · Apply
 Setup and Run) over a three-pane splitter (setups | runs | setup detail).
 Per-element actions live in a three-dot (⋮) ellipsis menu in each panel header.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -59,15 +60,15 @@ class RunsPageView(BasePage):
     page_activated = Signal()
     setup_selected = Signal(int)
     execution_selected = Signal(int)
-    create_setup_requested = Signal()                     # presenter prompts
-    edit_setup_metadata_requested = Signal(int)            # setup id
+    create_setup_requested = Signal()  # presenter prompts
+    edit_setup_metadata_requested = Signal(int)  # setup id
     delete_setup_requested = Signal(int)
     delete_execution_requested = Signal(int)
-    insert_sample_execution_requested = Signal(int)       # setup id
-    view_execution_data_requested = Signal(int)           # execution id
-    apply_setup_requested = Signal(int)                   # setup id (hardware)
-    apply_run_fetch_requested = Signal(int)               # setup id (hardware)
-    copy_to_config_requested = Signal(int)                # setup id (copy)
+    insert_sample_execution_requested = Signal(int)  # setup id
+    view_execution_data_requested = Signal(int)  # execution id
+    apply_setup_requested = Signal(int)  # setup id (hardware)
+    apply_run_fetch_requested = Signal(int)  # setup id (hardware)
+    copy_to_config_requested = Signal(int)  # setup id (copy)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -397,9 +398,7 @@ class RunsPageView(BasePage):
     def _update_button_state(self) -> None:
         # The ⋮ menus stay clickable at all times — per-entry availability (and
         # the "why disabled" tooltips) is resolved when each menu is opened.
-        can_run = (
-            self._current_setup_id() is not None and self._hardware_ready
-        )
+        can_run = self._current_setup_id() is not None and self._hardware_ready
         self._btn_apply.setEnabled(can_run)
         self._btn_run.setEnabled(can_run)
 

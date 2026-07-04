@@ -11,6 +11,7 @@ the normalized per-project SQLite database.
 Qt-free, owns the JSON file at ``~/.wizard4155/settings.json``.  No PySide6
 imports.
 """
+
 from __future__ import annotations
 
 import json

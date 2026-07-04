@@ -8,6 +8,7 @@ Highlights keywords, numbers, strings and comments for a small set of language
 tags (``python`` | ``c`` | ``matlab``) emitted by ``models/data_export.py``.
 Colors come from the PALETTE singleton — no hex literals appear here.
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import QRegularExpression
@@ -23,16 +24,48 @@ from wizard_4155_4156.styles.theme import PALETTE as P
 
 _KEYWORDS: dict[str, list[str]] = {
     "python": [
-        "import", "from", "as", "def", "return", "for", "in", "if",
-        "else", "elif", "while", "True", "False", "None",
+        "import",
+        "from",
+        "as",
+        "def",
+        "return",
+        "for",
+        "in",
+        "if",
+        "else",
+        "elif",
+        "while",
+        "True",
+        "False",
+        "None",
     ],
     "c": [
-        "double", "int", "float", "char", "void", "const", "static",
-        "define", "include", "return", "for", "while", "if", "else",
+        "double",
+        "int",
+        "float",
+        "char",
+        "void",
+        "const",
+        "static",
+        "define",
+        "include",
+        "return",
+        "for",
+        "while",
+        "if",
+        "else",
     ],
     "matlab": [
-        "function", "end", "for", "while", "if", "else", "elseif",
-        "return", "NaN", "Inf",
+        "function",
+        "end",
+        "for",
+        "while",
+        "if",
+        "else",
+        "elseif",
+        "return",
+        "NaN",
+        "Inf",
     ],
 }
 
@@ -46,9 +79,9 @@ _NUMBER = r"\b\d[\d.]*(?:[eE][+-]?\d+)?\b"
 _STRINGS = [r"\"[^\"]*\"", r"'[^']*'"]
 
 
-def _fmt(color: str, *, bold: bool = False, italic: bool = False) -> (
-    QTextCharFormat
-):
+def _fmt(
+    color: str, *, bold: bool = False, italic: bool = False
+) -> QTextCharFormat:
     fmt = QTextCharFormat()
     fmt.setForeground(QColor(color))
     if bold:

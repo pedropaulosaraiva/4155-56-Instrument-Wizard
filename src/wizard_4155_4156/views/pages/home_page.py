@@ -8,6 +8,7 @@ The view exposes:
     Signals  → user intents that the presenter subscribes to
     Methods  → display_* slots the presenter calls to update state
 """
+
 from pathlib import Path
 from typing import List
 
@@ -66,7 +67,7 @@ class ProjectCard(QFrame):
 
     def __init__(
         self, project: ProjectData, parent: QWidget | None = None
-        ) -> None:
+    ) -> None:
         super().__init__(parent)
         self._project = project
         self._hovered = False
@@ -162,6 +163,7 @@ class ProjectCard(QFrame):
 # QUICK ACTIONS PANEL  (left sidebar inside home page)
 # =============================================================================
 
+
 class QuickActionsPanel(QFrame):
     """Start sidebar: New / Open buttons + resource links."""
 
@@ -226,9 +228,7 @@ class QuickActionsPanel(QFrame):
         layout.addWidget(version)
 
     @staticmethod
-    def _make_primary_btn(
-        icon: str, title: str, desc: str
-    ) -> QPushButton:
+    def _make_primary_btn(icon: str, title: str, desc: str) -> QPushButton:
         btn = QPushButton()
         btn.setFixedHeight(90)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -279,11 +279,12 @@ class QuickActionsPanel(QFrame):
 # RECENT PROJECTS PANEL  (right grid inside home page)
 # =============================================================================
 
+
 class RecentProjectsPanel(QFrame):
     """Scrollable grid of ProjectCard widgets."""
 
     project_selected = Signal(ProjectData)
-    project_removed = Signal(str)          # emits path
+    project_removed = Signal(str)  # emits path
     clear_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -388,6 +389,7 @@ class RecentProjectsPanel(QFrame):
 # HOME PAGE  (composed view)
 # =============================================================================
 
+
 class HomePageView(BasePage):
     """
     Composed home page: QuickActionsPanel (left) + RecentProjectsPanel (right).
@@ -404,7 +406,7 @@ class HomePageView(BasePage):
 
     new_project_requested = Signal()
     open_project_requested = Signal()
-    project_opened = Signal(str)          # path
+    project_opened = Signal(str)  # path
     project_remove_requested = Signal(str)  # path
     clear_history_requested = Signal()
     settings_requested = Signal()
@@ -458,9 +460,7 @@ class HomePageView(BasePage):
         self._recent_panel.clear_requested.connect(
             self.clear_history_requested
         )
-        self._quick_actions.settings_requested.connect(
-            self.settings_requested
-        )
+        self._quick_actions.settings_requested.connect(self.settings_requested)
         self._quick_actions.documentation_requested.connect(
             self.documentation_requested
         )

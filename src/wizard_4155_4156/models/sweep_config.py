@@ -716,11 +716,7 @@ class SweepConstraints:
                     f" – {SHORT_TIME_MAX:.3g} s)"
                 )
         elif ms.integration_mode == IntegrationMode.LONG:
-            if not (
-                LONG_CYCLES_MIN
-                <= ms.long_time_cycles
-                <= LONG_CYCLES_MAX
-            ):
+            if not (LONG_CYCLES_MIN <= ms.long_time_cycles <= LONG_CYCLES_MAX):
                 errors.append(
                     f"Integration Cycles: invalid value "
                     f"(range: {LONG_CYCLES_MIN}"
@@ -770,13 +766,16 @@ class SweepConstraints:
         if v1.spacing == SweepSpacing.LINEAR:
             errors.extend(
                 SweepConstraints._validate_var1_linear_step(
-                    v1, flags, src_min, src_max, interlock_open,
+                    v1,
+                    flags,
+                    src_min,
+                    src_max,
+                    interlock_open,
                 )
             )
         elif v1.start == 0 or v1.stop == 0:
             errors.append(
-                "VAR1: Start and Stop cannot be zero"
-                " for logarithmic sweeps."
+                "VAR1: Start and Stop cannot be zero for logarithmic sweeps."
             )
         elif (v1.start < 0) != (v1.stop < 0):
             errors.append(
@@ -785,8 +784,7 @@ class SweepConstraints:
             )
         elif v1.stop == v1.start:
             errors.append(
-                "VAR1: Stop must differ from Start"
-                " for logarithmic sweeps."
+                "VAR1: Stop must differ from Start for logarithmic sweeps."
             )
 
         if not flags.var1_is_vsu:
@@ -877,13 +875,11 @@ class SweepConstraints:
             ]
         if v1.step > 0 and v1.stop <= v1.start:
             return [
-                "VAR1: Stop must be greater than Start"
-                " when Step is positive."
+                "VAR1: Stop must be greater than Start when Step is positive."
             ]
         if v1.step < 0 and v1.stop >= v1.start:
             return [
-                "VAR1: Stop must be less than Start"
-                " when Step is negative."
+                "VAR1: Stop must be less than Start when Step is negative."
             ]
         return []
 
@@ -900,9 +896,7 @@ class SweepConstraints:
         VMU counts as one measurable variable (one stored value).
         """
         v1 = cfg.var1
-        step_val = (
-            v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
-        )
+        step_val = v1.step if v1.spacing == SweepSpacing.LINEAR else 0.0
         v1_count = SweepConstraints.var1_step_count(
             v1.start, v1.stop, step_val, v1.spacing
         )
@@ -1119,36 +1113,56 @@ class SweepConstraints:
         if flags.has_var1:
             errors.extend(
                 SweepConstraints._validate_var1(
-                    cfg, flags, interlock_open, instrument_model,
+                    cfg,
+                    flags,
+                    interlock_open,
+                    instrument_model,
                 )
             )
             if not any(e.startswith("VAR1") for e in errors):
                 errors.extend(
                     SweepConstraints._validate_point_counts(
-                        cfg, flags, active_channels or [],
+                        cfg,
+                        flags,
+                        active_channels or [],
                     )
                 )
 
         if flags.has_var2:
             errors.extend(
                 SweepConstraints._validate_var2(
-                    cfg, flags, interlock_open, instrument_model,
+                    cfg,
+                    flags,
+                    interlock_open,
+                    instrument_model,
                 )
             )
         if flags.has_vard:
             errors.extend(
                 SweepConstraints._validate_vard(
-                    cfg, flags, interlock_open, instrument_model,
+                    cfg,
+                    flags,
+                    interlock_open,
+                    instrument_model,
                 )
             )
 
         any_pcomp = (
-            (flags.has_var1 and not flags.var1_is_vsu
-            and cfg.var1.power_compliance_enabled)
-            or (flags.has_var2 and not flags.var2_is_vsu
-                and cfg.var2.power_compliance_enabled)
-            or (flags.has_vard and not flags.vard_is_vsu
-                and cfg.vard.power_compliance_enabled)
+            (
+                flags.has_var1
+                and not flags.var1_is_vsu
+                and cfg.var1.power_compliance_enabled
+            )
+            or (
+                flags.has_var2
+                and not flags.var2_is_vsu
+                and cfg.var2.power_compliance_enabled
+            )
+            or (
+                flags.has_vard
+                and not flags.vard_is_vsu
+                and cfg.vard.power_compliance_enabled
+            )
         )
         if any_pcomp and cfg.sweep_stop == SweepStop.OFF:
             errors.append(

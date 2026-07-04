@@ -186,15 +186,17 @@ class QscvConfigPresenter(QObject):
             enabled_smu_ids.append(ch_id)
             if ch_id not in self._config.channel_standby:
                 self._config.channel_standby[ch_id] = False
-            active.append({
-                "id": ch_id,
-                "unit_type": "SMU",
-                "function": fn,
-                "mode": smu.mode.value,
-                "v_name": smu.voltage_name,
-                "i_name": smu.current_name,
-                "standby": self._config.channel_standby.get(ch_id, False),
-            })
+            active.append(
+                {
+                    "id": ch_id,
+                    "unit_type": "SMU",
+                    "function": fn,
+                    "mode": smu.mode.value,
+                    "v_name": smu.voltage_name,
+                    "i_name": smu.current_name,
+                    "standby": self._config.channel_standby.get(ch_id, False),
+                }
+            )
             channel_vars.extend([smu.voltage_name, smu.current_name])
             if fn == "VAR1":
                 var1_ch = ch_id
@@ -204,15 +206,17 @@ class QscvConfigPresenter(QObject):
             if not vsu.enabled:
                 continue
             ch_id = f"VSU{idx}"
-            active.append({
-                "id": ch_id,
-                "unit_type": "VSU",
-                "function": vsu.function.value,
-                "mode": "V",
-                "v_name": vsu.voltage_name,
-                "i_name": "",
-                "standby": False,
-            })
+            active.append(
+                {
+                    "id": ch_id,
+                    "unit_type": "VSU",
+                    "function": vsu.function.value,
+                    "mode": "V",
+                    "v_name": vsu.voltage_name,
+                    "i_name": "",
+                    "standby": False,
+                }
+            )
             channel_vars.append(vsu.voltage_name)
 
         # VMUs are disabled in QSCV hardware — intentionally omitted.

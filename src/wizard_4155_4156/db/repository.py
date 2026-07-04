@@ -9,6 +9,7 @@ passive-view contract (views never touch the model layer directly).  All
 methods take an open ``Session`` so the presenter controls the transaction
 boundary.  No PySide6 imports.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

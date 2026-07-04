@@ -226,7 +226,6 @@ class SweepConfigPresenter(QObject):
         v.const_source_changed.connect(self._on_const_source_changed)
         v.const_compliance_changed.connect(self._on_const_compliance_changed)
 
-
     # ── Page activation ────────────────────────────────────────────────
 
     def _on_page_activated(self) -> None:
@@ -265,15 +264,17 @@ class SweepConfigPresenter(QObject):
             if ch_id not in self._config.channel_standby:
                 self._config.channel_standby[ch_id] = False
 
-            active.append({
-                "id": ch_id,
-                "unit_type": "SMU",
-                "function": fn,
-                "mode": smu.mode.value,
-                "v_name": smu.voltage_name,
-                "i_name": smu.current_name,
-                "standby": self._config.channel_standby.get(ch_id, False),
-            })
+            active.append(
+                {
+                    "id": ch_id,
+                    "unit_type": "SMU",
+                    "function": fn,
+                    "mode": smu.mode.value,
+                    "v_name": smu.voltage_name,
+                    "i_name": smu.current_name,
+                    "standby": self._config.channel_standby.get(ch_id, False),
+                }
+            )
             available_vars.extend([smu.voltage_name, smu.current_name])
 
             if fn == "VAR1":
@@ -292,15 +293,17 @@ class SweepConfigPresenter(QObject):
             if ChannelsConstraints.is_dvol_secondary(ch_cfg, idx):
                 continue
             ch_id = f"VMU{idx}"
-            active.append({
-                "id": ch_id,
-                "unit_type": "VMU",
-                "function": "MONITOR",
-                "mode": vmu.mode.value,
-                "v_name": vmu.voltage_name,
-                "i_name": "",
-                "standby": False,
-            })
+            active.append(
+                {
+                    "id": ch_id,
+                    "unit_type": "VMU",
+                    "function": "MONITOR",
+                    "mode": vmu.mode.value,
+                    "v_name": vmu.voltage_name,
+                    "i_name": "",
+                    "standby": False,
+                }
+            )
             available_vars.append(vmu.voltage_name)
 
         # ── VSUs ──────────────────────────────────────────────────────
@@ -311,15 +314,17 @@ class SweepConfigPresenter(QObject):
             ch_id = f"VSU{idx}"
             fn = vsu.function.value
 
-            active.append({
-                "id": ch_id,
-                "unit_type": "VSU",
-                "function": fn,
-                "mode": "V",
-                "v_name": vsu.voltage_name,
-                "i_name": "",
-                "standby": False,
-            })
+            active.append(
+                {
+                    "id": ch_id,
+                    "unit_type": "VSU",
+                    "function": fn,
+                    "mode": "V",
+                    "v_name": vsu.voltage_name,
+                    "i_name": "",
+                    "standby": False,
+                }
+            )
             available_vars.append(vsu.voltage_name)
 
             if fn == "VAR1":
@@ -344,9 +349,7 @@ class SweepConfigPresenter(QObject):
         # and initialize defaults for new active units (current-measuring
         # units → limited-auto at 1 nA; voltage-measuring units → AUTO).
         active_meas_units = {
-            ch["id"]: ch
-            for ch in active
-            if ch["unit_type"] in ("SMU", "VMU")
+            ch["id"]: ch for ch in active if ch["unit_type"] in ("SMU", "VMU")
         }
         updated_ranges = {}
         for uid, ch in active_meas_units.items():
@@ -381,12 +384,12 @@ class SweepConfigPresenter(QObject):
             elif ch["unit_type"] == "SMU":
                 if ch["mode"] in ("V", "VPULSE"):
                     updated_constants[uid] = {
-                        "source": 0.0, "compliance": 0.01
+                        "source": 0.0,
+                        "compliance": 0.01,
                     }
                 elif ch["mode"] in ("I", "IPULSE"):
                     updated_constants[uid] = {"source": 0.0, "compliance": 2.0}
         self._config.constants = updated_constants
-
 
         self._ctx = {
             "instrument_model": ch_cfg.instrument_model.value,
@@ -600,7 +603,6 @@ class SweepConfigPresenter(QObject):
             self._config.constants[unit_id]["compliance"] = val
             self._update_validation()
 
-
     def _on_display_var_toggled(self, var_name: str, selected: bool) -> None:
         if selected and var_name not in self._config.display_vars:
             self._config.display_vars.append(var_name)
@@ -678,11 +680,13 @@ class SweepConfigPresenter(QObject):
                 has_var2=self._ctx.get("has_var2", False),
                 has_vard=self._ctx.get("has_vard", False),
                 var1_is_voltage=self._ctx.get(
-                    "var1_is_voltage", True,
+                    "var1_is_voltage",
+                    True,
                 ),
                 var1_is_vsu=self._ctx.get("var1_is_vsu", False),
                 var2_is_voltage=self._ctx.get(
-                    "var2_is_voltage", True,
+                    "var2_is_voltage",
+                    True,
                 ),
                 var2_is_vsu=self._ctx.get("var2_is_vsu", False),
                 vard_is_vsu=self._ctx.get("vard_is_vsu", False),

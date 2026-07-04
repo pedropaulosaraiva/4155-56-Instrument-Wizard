@@ -27,9 +27,9 @@ def test_run_measurement_empty_config(run_director):
 
 
 def test_run_measurement_with_standby(run_director):
-    cmd_stan, cmd_sing, cmd_stat, cmd_opc = run_director.run_measurement({
-        "standby": STATE_ON
-    })
+    cmd_stan, cmd_sing, cmd_stat, cmd_opc = run_director.run_measurement(
+        {"standby": STATE_ON}
+    )
 
     assert cmd_stan.set_command == f":PAGE:SCON:STAN {STATE_ON}"
     assert cmd_stan.get_command == ":PAGE:SCON:STAN?"

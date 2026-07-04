@@ -158,15 +158,17 @@ class SamplingConfigPresenter(QObject):
                 continue
             ch_id = f"SMU{idx}"
             cfg.channel_standby.setdefault(ch_id, False)
-            active.append({
-                "id": ch_id,
-                "unit_type": "SMU",
-                "function": smu.function.value,
-                "mode": smu.mode.value,
-                "v_name": smu.voltage_name,
-                "i_name": smu.current_name,
-                "standby": cfg.channel_standby.get(ch_id, False),
-            })
+            active.append(
+                {
+                    "id": ch_id,
+                    "unit_type": "SMU",
+                    "function": smu.function.value,
+                    "mode": smu.mode.value,
+                    "v_name": smu.voltage_name,
+                    "i_name": smu.current_name,
+                    "standby": cfg.channel_standby.get(ch_id, False),
+                }
+            )
             available_vars.extend([smu.voltage_name, smu.current_name])
 
         # VMUs — monitor-only, usable in SAMPLING
@@ -177,30 +179,34 @@ class SamplingConfigPresenter(QObject):
             # no measured variable and must not appear anywhere.
             if ChannelsConstraints.is_dvol_secondary(ch_cfg, idx):
                 continue
-            active.append({
-                "id": f"VMU{idx}",
-                "unit_type": "VMU",
-                "function": "MONITOR",
-                "mode": vmu.mode.value,
-                "v_name": vmu.voltage_name,
-                "i_name": "",
-                "standby": False,
-            })
+            active.append(
+                {
+                    "id": f"VMU{idx}",
+                    "unit_type": "VMU",
+                    "function": "MONITOR",
+                    "mode": vmu.mode.value,
+                    "v_name": vmu.voltage_name,
+                    "i_name": "",
+                    "standby": False,
+                }
+            )
             available_vars.append(vmu.voltage_name)
 
         # VSUs — source only (CONST in SAMPLING)
         for idx, vsu in ch_cfg.vsu.items():
             if not vsu.enabled:
                 continue
-            active.append({
-                "id": f"VSU{idx}",
-                "unit_type": "VSU",
-                "function": vsu.function.value,
-                "mode": "V",
-                "v_name": vsu.voltage_name,
-                "i_name": "",
-                "standby": False,
-            })
+            active.append(
+                {
+                    "id": f"VSU{idx}",
+                    "unit_type": "VSU",
+                    "function": vsu.function.value,
+                    "mode": "V",
+                    "v_name": vsu.voltage_name,
+                    "i_name": "",
+                    "standby": False,
+                }
+            )
             available_vars.append(vsu.voltage_name)
 
         # Measured variables (stop-condition NAME candidates)
@@ -215,9 +221,7 @@ class SamplingConfigPresenter(QObject):
         unique_vars = list(dict.fromkeys(available_vars))
         if not cfg.display_vars:
             defaults = ["@TIME"] + measured_vars
-            cfg.display_vars = list(dict.fromkeys(defaults))[
-                :DISPLAY_VARS_MAX
-            ]
+            cfg.display_vars = list(dict.fromkeys(defaults))[:DISPLAY_VARS_MAX]
 
         # Default ranges for measurement-capable units (current-measuring
         # units → limited-auto at 1 nA; voltage-measuring units → AUTO).
@@ -369,16 +373,14 @@ class SamplingConfigPresenter(QObject):
             cfg.stop_condition.enabled = False
             self._view.display_config(self._config_snapshot())
         self._view.display_scon_allowed(scon_allowed)
-        self._view.display_scon_delay_bounds(
-            0.0, iint * EDELAY_MAX_MULTIPLIER
-        )
+        self._view.display_scon_delay_bounds(0.0, iint * EDELAY_MAX_MULTIPLIER)
 
     # ── Signal handlers ────────────────────────────────────────────────────
 
     def _on_integration_mode(self, val: str) -> None:
         try:
-            self._config.measurement_setup.integration_mode = (
-                IntegrationMode(val)
+            self._config.measurement_setup.integration_mode = IntegrationMode(
+                val
             )
         except ValueError:
             pass

@@ -4,6 +4,7 @@ models/project.py
 Pure data model for recent-project persistence.
 No Qt imports — this layer must remain framework-agnostic.
 """
+
 import json
 from datetime import datetime
 from pathlib import Path

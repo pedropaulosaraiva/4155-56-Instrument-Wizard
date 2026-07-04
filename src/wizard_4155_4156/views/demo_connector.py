@@ -17,6 +17,7 @@ The interface this widget must expose for ConnectionTopBar and MainWindow:
     modal   — the ConnectorWizardModal instance (
         opened via show_connection_wizard)
 """
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,

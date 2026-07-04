@@ -349,9 +349,7 @@ def stop_cond(**overrides):
 
 
 def test_stop_condition_requires_2ms():
-    cfg = make_valid_config(
-        initial_interval=1e-3, stop_condition=stop_cond()
-    )
+    cfg = make_valid_config(initial_interval=1e-3, stop_condition=stop_cond())
     cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
     cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 0.01}}
     cfg.period_mode = PeriodMode.AUTO

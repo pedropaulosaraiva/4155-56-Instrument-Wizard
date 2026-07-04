@@ -15,6 +15,7 @@ NULL, since SQLite can't store NaN/inf), and rebuilt on read.
 
 No PySide6 imports.
 """
+
 from __future__ import annotations
 
 import copy

@@ -5,6 +5,7 @@ A wrapping ("flow") layout: child widgets are packed left-to-right and wrap to
 the next line when they run out of horizontal room — the standard Qt FlowLayout
 pattern. Used for the display-variable pills in the setup-summary panel.
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QRect, QSize, Qt

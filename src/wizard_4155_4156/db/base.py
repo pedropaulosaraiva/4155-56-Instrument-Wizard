@@ -13,6 +13,7 @@ of ``Base.metadata`` import-time state, and so the existing
 ``models.sweep_config.MeasurementSetup`` dataclass does not collide with the
 ORM root of the same conceptual name.
 """
+
 from __future__ import annotations
 
 from sqlalchemy.orm import DeclarativeBase

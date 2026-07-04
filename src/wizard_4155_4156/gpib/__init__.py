@@ -19,6 +19,7 @@ Import path for consumers:
         WorkerSignals, is_scpi_error_response,
     )
 """
+
 from wizard_4155_4156.gpib.controller import GPIB41xxController
 from wizard_4155_4156.gpib.workers import (
     ConnectTask,

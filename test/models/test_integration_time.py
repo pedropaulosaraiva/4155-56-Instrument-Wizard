@@ -28,8 +28,17 @@ ST = 1e-3  # SHORT aperture inside the Table 7-24 window (0.96–1.92 ms)
 PLC50 = 0.02  # 1 PLC at 50 Hz
 
 
-def eff(mode, *, measures_current, short_time=ST, long_cycles=50, freq=50,
-        current_range=None, voltage_range=None, is_4156=False):
+def eff(
+    mode,
+    *,
+    measures_current,
+    short_time=ST,
+    long_cycles=50,
+    freq=50,
+    current_range=None,
+    voltage_range=None,
+    is_4156=False,
+):
     return effective_integration_time(
         integration_mode=mode,
         short_time=short_time,
@@ -75,23 +84,26 @@ def test_voltage_long_is_twice_the_setting():
 @pytest.mark.parametrize(
     ("current_range", "voltage_range", "expected"),
     [
-        (10e-12, 2.0, 10 * PLC50),   # 10 pA → 10 PLC
-        (100e-12, 2.0, 2 * PLC50),   # 100 pA → 2 PLC
-        (1e-9, 2.0, 1 * PLC50),      # 1 nA → 1 PLC
-        (10e-9, 2.0, 4 * ST),        # 10 nA → ×4
-        (100e-9, 20.0, 2 * ST),      # 100 nA @≤20 V → ×2
-        (100e-9, 40.0, 4 * ST),      # 100 nA @40/100 V → ×4
-        (1e-6, 100.0, 1 * ST),       # 1 µA → ×1
-        (10e-6, 2.0, 1 * ST),        # 10 µA @2 V → ×1
-        (10e-6, 20.0, 2 * ST),       # 10 µA @≥20 V → ×2
-        (100e-6, 100.0, 1 * ST),     # 100 µA → ×1
-        (100e-3, 100.0, 1 * ST),     # 100 mA → ×1
+        (10e-12, 2.0, 10 * PLC50),  # 10 pA → 10 PLC
+        (100e-12, 2.0, 2 * PLC50),  # 100 pA → 2 PLC
+        (1e-9, 2.0, 1 * PLC50),  # 1 nA → 1 PLC
+        (10e-9, 2.0, 4 * ST),  # 10 nA → ×4
+        (100e-9, 20.0, 2 * ST),  # 100 nA @≤20 V → ×2
+        (100e-9, 40.0, 4 * ST),  # 100 nA @40/100 V → ×4
+        (1e-6, 100.0, 1 * ST),  # 1 µA → ×1
+        (10e-6, 2.0, 1 * ST),  # 10 µA @2 V → ×1
+        (10e-6, 20.0, 2 * ST),  # 10 µA @≥20 V → ×2
+        (100e-6, 100.0, 1 * ST),  # 100 µA → ×1
+        (100e-3, 100.0, 1 * ST),  # 100 mA → ×1
     ],
 )
 def test_short_current_hrsmu(current_range, voltage_range, expected):
     assert eff(
-        IntegrationMode.SHORT, measures_current=True, short_time=ST,
-        current_range=current_range, voltage_range=voltage_range,
+        IntegrationMode.SHORT,
+        measures_current=True,
+        short_time=ST,
+        current_range=current_range,
+        voltage_range=voltage_range,
         is_4156=True,
     ) == pytest.approx(expected)
 
@@ -99,23 +111,26 @@ def test_short_current_hrsmu(current_range, voltage_range, expected):
 @pytest.mark.parametrize(
     ("current_range", "voltage_range", "expected"),
     [
-        (1e-9, 40.0, 1 * ST),    # 1 nA @≤40 V → ×1
-        (1e-9, 100.0, 2 * ST),   # 1 nA @100 V → ×2
-        (10e-9, 2.0, 1 * ST),    # 10 nA → ×1
+        (1e-9, 40.0, 1 * ST),  # 1 nA @≤40 V → ×1
+        (1e-9, 100.0, 2 * ST),  # 1 nA @100 V → ×2
+        (10e-9, 2.0, 1 * ST),  # 10 nA → ×1
         (100e-9, 20.0, 1 * ST),  # 100 nA @≤20 V → ×1
         (100e-9, 40.0, 2 * ST),  # 100 nA @40 V → ×2
         (100e-9, 100.0, 4 * ST),  # 100 nA @100 V → ×4
-        (1e-6, 100.0, 1 * ST),   # 1 µA → ×1
-        (10e-6, 20.0, 1 * ST),   # 10 µA @≤20 V → ×1
-        (10e-6, 40.0, 2 * ST),   # 10 µA @40 V → ×2
+        (1e-6, 100.0, 1 * ST),  # 1 µA → ×1
+        (10e-6, 20.0, 1 * ST),  # 10 µA @≤20 V → ×1
+        (10e-6, 40.0, 2 * ST),  # 10 µA @40 V → ×2
         (10e-6, 100.0, 3 * ST),  # 10 µA @100 V → ×3
         (100e-3, 100.0, 1 * ST),  # 100 mA → ×1
     ],
 )
 def test_short_current_mpsmu(current_range, voltage_range, expected):
     assert eff(
-        IntegrationMode.SHORT, measures_current=True, short_time=ST,
-        current_range=current_range, voltage_range=voltage_range,
+        IntegrationMode.SHORT,
+        measures_current=True,
+        short_time=ST,
+        current_range=current_range,
+        voltage_range=voltage_range,
         is_4156=False,
     ) == pytest.approx(expected)
 
@@ -125,8 +140,12 @@ def test_short_current_below_table_uses_raw_aperture():
     assert SHORT_TABLE_MIN == pytest.approx(0.96e-3)
     for r in (10e-12, 1e-6, 100e-3):
         assert eff(
-            IntegrationMode.SHORT, measures_current=True, short_time=5e-4,
-            current_range=r, voltage_range=100.0, is_4156=True,
+            IntegrationMode.SHORT,
+            measures_current=True,
+            short_time=5e-4,
+            current_range=r,
+            voltage_range=100.0,
+            is_4156=True,
         ) == pytest.approx(5e-4)
 
 
@@ -136,20 +155,23 @@ def test_short_current_below_table_uses_raw_aperture():
 @pytest.mark.parametrize(
     ("is_4156", "current_range", "expected"),
     [
-        (True, 10e-12, 50 * PLC50),      # < 10 nA → no ADC-Zero doubling
-        (True, 100e-12, 10 * PLC50),     # < 10 nA → no doubling
-        (True, 1e-9, 5 * PLC50),         # < 10 nA → no doubling
-        (True, 10e-9, 1 * 2 * PLC50),    # ≥ 10 nA → ×2
-        (True, 100e-3, 1 * 2 * PLC50),   # ≥ 10 nA → ×2
-        (False, 1e-9, 3 * PLC50),        # MPSMU < 10 nA → no doubling
-        (False, 10e-9, 1 * 2 * PLC50),   # ≥ 10 nA → ×2
+        (True, 10e-12, 50 * PLC50),  # < 10 nA → no ADC-Zero doubling
+        (True, 100e-12, 10 * PLC50),  # < 10 nA → no doubling
+        (True, 1e-9, 5 * PLC50),  # < 10 nA → no doubling
+        (True, 10e-9, 1 * 2 * PLC50),  # ≥ 10 nA → ×2
+        (True, 100e-3, 1 * 2 * PLC50),  # ≥ 10 nA → ×2
+        (False, 1e-9, 3 * PLC50),  # MPSMU < 10 nA → no doubling
+        (False, 10e-9, 1 * 2 * PLC50),  # ≥ 10 nA → ×2
         (False, 100e-3, 1 * 2 * PLC50),  # ≥ 10 nA → ×2
     ],
 )
 def test_medium_current(is_4156, current_range, expected):
     assert eff(
-        IntegrationMode.MED, measures_current=True,
-        current_range=current_range, is_4156=is_4156, freq=50,
+        IntegrationMode.MED,
+        measures_current=True,
+        current_range=current_range,
+        is_4156=is_4156,
+        freq=50,
     ) == pytest.approx(expected)
 
 
@@ -159,20 +181,23 @@ def test_medium_current(is_4156, current_range, expected):
 @pytest.mark.parametrize(
     ("is_4156", "current_range", "long_cycles", "expected"),
     [
-        (True, 10e-12, 5, 100 * PLC50),    # always 100 PLC, no doubling
-        (True, 100e-12, 5, 50 * PLC50),    # min(5×10, 100) = 50, no doubling
+        (True, 10e-12, 5, 100 * PLC50),  # always 100 PLC, no doubling
+        (True, 100e-12, 5, 50 * PLC50),  # min(5×10, 100) = 50, no doubling
         (True, 100e-12, 20, 100 * PLC50),  # min(20×10, 100) = 100, no doubling
-        (True, 1e-9, 5, 25 * PLC50),       # min(5×5, 100) = 25, no doubling
+        (True, 1e-9, 5, 25 * PLC50),  # min(5×5, 100) = 25, no doubling
         (True, 10e-9, 50, 50 * 2 * PLC50),  # ≥ 10 nA → setting value ×2
-        (False, 1e-9, 30, 30 * PLC50),     # MPSMU < 10 nA → no doubling
+        (False, 1e-9, 30, 30 * PLC50),  # MPSMU < 10 nA → no doubling
         (False, 100e-3, 30, 30 * 2 * PLC50),  # ≥ 10 nA → ×2
     ],
 )
 def test_long_current(is_4156, current_range, long_cycles, expected):
     assert eff(
-        IntegrationMode.LONG, measures_current=True,
-        current_range=current_range, long_cycles=long_cycles,
-        is_4156=is_4156, freq=50,
+        IntegrationMode.LONG,
+        measures_current=True,
+        current_range=current_range,
+        long_cycles=long_cycles,
+        is_4156=is_4156,
+        freq=50,
     ) == pytest.approx(expected)
 
 
@@ -182,8 +207,12 @@ def test_adc_zero_boundary_at_10na(mode):
     # greater: 1 nA is NOT doubled, 10 nA IS (HRSMU, base 1 PLC ≥ 10 nA).
     def t(current_range):
         return eff(
-            mode, measures_current=True, current_range=current_range,
-            long_cycles=1, is_4156=True, freq=50,
+            mode,
+            measures_current=True,
+            current_range=current_range,
+            long_cycles=1,
+            is_4156=True,
+            freq=50,
         )
 
     # HRSMU: 1 nA base = 5 PLC (MED) / min(1×5,100)=5 PLC (LONG); no doubling.

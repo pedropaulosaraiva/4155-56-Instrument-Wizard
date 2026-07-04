@@ -9,6 +9,7 @@ extension).  ``ProjectDatabase`` wraps one engine; ``ProjectManager`` owns the
 
 Layer contract: no PySide6 imports — this is pure persistence infrastructure.
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager

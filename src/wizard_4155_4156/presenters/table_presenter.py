@@ -16,6 +16,7 @@ It also drives export: the action button copies the generated code to the
 clipboard (code formats) or saves the data to a file (table formats).  All DB
 access happens on the GUI thread here — no ``Session`` ever reaches a worker.
 """
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -91,8 +92,7 @@ class TablePresenter(QObject):
     def show_live_data(self, data: Mapping[str, Sequence[float]]) -> None:
         """Cache a freshly acquired dataset and show it as 'Live'."""
         self._live_data = {
-            name: [float(v) for v in values]
-            for name, values in data.items()
+            name: [float(v) for v in values] for name, values in data.items()
         }
         self._view.display_setups(self._setup_items())
         self._select_setup(LIVE_SETUP_ID)
@@ -109,9 +109,7 @@ class TablePresenter(QObject):
     # ── Wiring ───────────────────────────────────────────────────────────────
 
     def _init_formats(self) -> None:
-        self._view.set_formats(
-            [tr_ui(_FORMAT_LABELS[fmt]) for fmt in FORMATS]
-        )
+        self._view.set_formats([tr_ui(_FORMAT_LABELS[fmt]) for fmt in FORMATS])
         self._view.select_format(0)
 
     def _connect(self) -> None:

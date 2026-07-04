@@ -15,6 +15,7 @@ Thread safety is enforced at the scheduling level by ConnectorPresenter,
 which runs tasks on a QThreadPool restricted to exactly one thread.
 Tasks execute in submission order with no overlap — no locking needed here.
 """
+
 from typing import Any, Callable, Final
 
 from numpy import array as np_array
@@ -52,6 +53,7 @@ class BaseWorkerTask(QRunnable):
     Base worker class providing generic try/except boilerplate and
     signal initialization.
     """
+
     def __init__(self, controller: GPIB41xxController):
         super().__init__()
         self.controller = controller
@@ -95,10 +97,14 @@ class ScanTask(BaseWorkerTask):
 
         self.signals.scan_results.emit(found_instruments)
         self.signals.progress_update.emit(1, 1, StatusMsg.SCAN_COMPLETE)
-        self.signals.log_msg.emit(LogMsg.SCAN_FOUND.format(count=len(found_instruments)))
+        self.signals.log_msg.emit(
+            LogMsg.SCAN_FOUND.format(count=len(found_instruments))
+        )
 
     def _handle_error(self, e: Exception) -> None:
-        self.signals.worker_error.emit(ErrorMsg.SCAN_FAILED.format(error=str(e)))
+        self.signals.worker_error.emit(
+            ErrorMsg.SCAN_FAILED.format(error=str(e))
+        )
 
 
 class ConnectTask(BaseWorkerTask):
@@ -110,14 +116,18 @@ class ConnectTask(BaseWorkerTask):
         self.name = name
 
     def _execute(self) -> None:
-        self.signals.log_msg.emit(LogMsg.CONNECTING.format(address=self.address))
+        self.signals.log_msg.emit(
+            LogMsg.CONNECTING.format(address=self.address)
+        )
         self.controller.connect(self.address)
         self.signals.connection_status.emit(True, self.name)
         self.signals.log_msg.emit(LogMsg.CONNECTED.format(idn=self.name))
 
     def _handle_error(self, e: Exception) -> None:
         self.signals.connection_status.emit(False, "")
-        self.signals.worker_error.emit(ErrorMsg.CONNECT_FAILED.format(error=str(e)))
+        self.signals.worker_error.emit(
+            ErrorMsg.CONNECT_FAILED.format(error=str(e))
+        )
 
 
 class DisconnectTask(BaseWorkerTask):
@@ -132,6 +142,7 @@ class SCPIExecutionTask(BaseWorkerTask):
     Base task for executing a sequence of SCPI commands (Setup, Run, Fetch).
     Handles retry logic, error checking, and progress updating.
     """
+
     def __init__(
         self,
         controller: GPIB41xxController,
@@ -159,8 +170,8 @@ class SCPIExecutionTask(BaseWorkerTask):
             if response.startswith(SCPI_NO_ERROR_PREFIXES):
                 break
 
-            self.signals.log_msg.emit(LogMsg.WORKER_ERROR.format(
-                error=f"SCPI Error: {response}")
+            self.signals.log_msg.emit(
+                LogMsg.WORKER_ERROR.format(error=f"SCPI Error: {response}")
             )
             errors_found.append(response)
 
@@ -194,7 +205,9 @@ class SCPIExecutionTask(BaseWorkerTask):
         if not pair.set_command:
             return
 
-        self.signals.log_msg.emit(LogMsg.SETUP_SEND.format(command=pair.set_command))
+        self.signals.log_msg.emit(
+            LogMsg.SETUP_SEND.format(command=pair.set_command)
+        )
 
         def action() -> None:
             self.controller.write(pair.set_command)  # type: ignore
@@ -226,9 +239,9 @@ class SCPIExecutionTask(BaseWorkerTask):
 
         command = pair.get_command.strip().upper()
         if command == OPC_QUERY:
-            response = (
-                self.controller.query_without_timeout(pair.get_command).strip()
-            )
+            response = self.controller.query_without_timeout(
+                pair.get_command
+            ).strip()
         else:
             response = self.controller.query(pair.get_command).strip()
 
@@ -259,9 +272,9 @@ class SCPIExecutionTask(BaseWorkerTask):
         for step_index, pair in enumerate(self.commands, start=1):
             cmd_name = pair.set_command or pair.get_command
             self.signals.progress_update.emit(
-                step_index, total_steps, status_msg_write.format(
-                    command=cmd_name
-                )
+                step_index,
+                total_steps,
+                status_msg_write.format(command=cmd_name),
             )
 
             self._execute_set_command(pair)
@@ -281,7 +294,9 @@ class SetupTask(SCPIExecutionTask):
         self.signals.finished_setup.emit()
 
     def _handle_error(self, e: Exception) -> None:
-        self.signals.worker_error.emit(ErrorMsg.SETUP_SCPI.format(error=str(e)))
+        self.signals.worker_error.emit(
+            ErrorMsg.SETUP_SCPI.format(error=str(e))
+        )
         self.signals.log_msg.emit(LogMsg.SETUP_ABORTED.format(error=str(e)))
 
 
@@ -294,7 +309,9 @@ class MeasurementRunTask(SCPIExecutionTask):
         self.signals.finished_measurement.emit()
 
     def _handle_error(self, e: Exception) -> None:
-        self.signals.worker_error.emit(ErrorMsg.MEASURE_FAILED.format(error=str(e)))
+        self.signals.worker_error.emit(
+            ErrorMsg.MEASURE_FAILED.format(error=str(e))
+        )
 
 
 class DataFetchTask(SCPIExecutionTask):
@@ -306,5 +323,7 @@ class DataFetchTask(SCPIExecutionTask):
         self.signals.data_fetched.emit(self.results)
 
     def _handle_error(self, e: Exception) -> None:
-        self.signals.worker_error.emit(ErrorMsg.FETCH_FAILED.format(error=str(e)))
+        self.signals.worker_error.emit(
+            ErrorMsg.FETCH_FAILED.format(error=str(e))
+        )
         self.signals.log_msg.emit(LogMsg.FETCH_ERROR.format(error=str(e)))

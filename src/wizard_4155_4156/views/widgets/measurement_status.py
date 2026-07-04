@@ -213,7 +213,9 @@ class MeasurementTopBar(QWidget):
             if n_c > 1:
                 text += f"  +{n_c - 1}"
             self._critical_lbl.setText(text)
-            self._critical_lbl.setStyleSheet(status_chip_stylesheet("critical"))
+            self._critical_lbl.setStyleSheet(
+                status_chip_stylesheet("critical")
+            )
         else:
             self._critical_lbl.setText("❌ 0")
             self._critical_lbl.setStyleSheet(status_chip_stylesheet("muted"))

@@ -10,6 +10,7 @@ global settings.  It is the only layer here touching both Qt and the ORM.
 All DB writes happen on the GUI thread inside this presenter — never on a GPIB
 worker (no ``Session`` is ever handed to a worker).
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -402,8 +403,7 @@ class RunsPresenter(QObject):
         # differ from the setup's defined instrument).
         if connected and name:
             self._connected_model = (
-                name.split(" - ", maxsplit=1)[0].strip()
-                or name
+                name.split(" - ", maxsplit=1)[0].strip() or name
             )
         else:
             self._connected_model = None

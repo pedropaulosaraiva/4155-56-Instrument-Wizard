@@ -133,12 +133,8 @@ class _SamplingSetupSection(_SectionFrame):
         )
         self.body().addWidget(_form_row("Mode", self._mode_seg))
 
-        self._iint_edit = _SciDoubleEdit(
-            2e-3, IINT_MIN_LINEAR, IINT_MAX, "s"
-        )
-        self.body().addWidget(
-            _form_row("Initial Interval", self._iint_edit)
-        )
+        self._iint_edit = _SciDoubleEdit(2e-3, IINT_MIN_LINEAR, IINT_MAX, "s")
+        self.body().addWidget(_form_row("Initial Interval", self._iint_edit))
 
         self._points_sb = _spinbox(SAMPLES_MIN, SAMPLES_MAX, 11)
         self.body().addWidget(_form_row("Number of Samples", self._points_sb))
@@ -225,9 +221,7 @@ class _SamplingSetupSection(_SectionFrame):
 
     def display_iint_bounds(self, min_v: float, max_v: float) -> None:
         self._iint_edit.update_bounds(min_v, max_v)
-        self._iint_edit._edit.setToolTip(
-            f"Range: {min_v:.3g} – {max_v:.3g} s"
-        )
+        self._iint_edit._edit.setToolTip(f"Range: {min_v:.3g} – {max_v:.3g} s")
 
     def display_points_bounds(self, max_points: int) -> None:
         # The spinbox keeps its static maximum (SAMPLES_MAX); the mode/unit-
@@ -262,9 +256,7 @@ class _SamplingSetupSection(_SectionFrame):
             and self._period_combo.currentData() == "NUMERIC"
             and self._period_edit.get_value() is None
         ):
-            errors["period"] = (
-                "Total Samp. Time: value is empty or invalid"
-            )
+            errors["period"] = "Total Samp. Time: value is empty or invalid"
         return errors
 
 
@@ -292,9 +284,7 @@ class _StopConditionSection(_SectionFrame):
         self._enable_cb.setStyleSheet(unit_enable_checkbox_stylesheet())
         self.body().addWidget(self._enable_cb)
 
-        self._hint_lbl = QLabel(
-            "Requires Initial Interval ≥ 2 ms."
-        )
+        self._hint_lbl = QLabel("Requires Initial Interval ≥ 2 ms.")
         self._hint_lbl.setStyleSheet(
             f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
             "background: transparent; font-style: italic;"
@@ -303,10 +293,9 @@ class _StopConditionSection(_SectionFrame):
 
         self._name_combo = QComboBox()
         self._name_combo.setStyleSheet(unit_card_combo_stylesheet())
-        self.body().addWidget(_form_row(
-            "Variable Name (Val)",
-            self._name_combo
-        ))
+        self.body().addWidget(
+            _form_row("Variable Name (Val)", self._name_combo)
+        )
 
         self._event_combo = QComboBox()
         self._event_combo.setStyleSheet(unit_card_combo_stylesheet())
@@ -323,15 +312,12 @@ class _StopConditionSection(_SectionFrame):
         self._count_sb.setToolTip(
             f"Range: {EVENT_COUNT_MIN} – {EVENT_COUNT_MAX}"
         )
-        self.body().addWidget(_form_row(
-            "Maximum Number of Events",
-            self._count_sb
-        ))
+        self.body().addWidget(
+            _form_row("Maximum Number of Events", self._count_sb)
+        )
 
         self._delay_edit = _SciDoubleEdit(0.0, 0.0, 1e30, "s")
-        self.body().addWidget(
-            _form_row("Enable Delay", self._delay_edit)
-        )
+        self.body().addWidget(_form_row("Enable Delay", self._delay_edit))
 
         self._inner_widgets = (
             self._name_combo,
@@ -343,16 +329,10 @@ class _StopConditionSection(_SectionFrame):
 
         self._enable_cb.toggled.connect(self._on_enable_toggled)
         self._name_combo.currentTextChanged.connect(self.name_changed)
-        self._event_combo.currentIndexChanged.connect(
-            self._on_event_changed
-        )
-        self._threshold_edit.value_committed.connect(
-            self.threshold_committed
-        )
+        self._event_combo.currentIndexChanged.connect(self._on_event_changed)
+        self._threshold_edit.value_committed.connect(self.threshold_committed)
         self._count_sb.valueChanged.connect(self.event_count_changed)
-        self._delay_edit.value_committed.connect(
-            self.enable_delay_committed
-        )
+        self._delay_edit.value_committed.connect(self.enable_delay_committed)
 
         self._refresh_enabled_state()
 
@@ -530,9 +510,7 @@ class SamplingConfigPageView(BasePage):
     def display_scon_delay_bounds(self, min_v: float, max_v: float) -> None:
         self._scon_sec.display_delay_bounds(min_v, max_v)
 
-    def display_period_options(
-        self, allowed: List[str], current: str
-    ) -> None:
+    def display_period_options(self, allowed: List[str], current: str) -> None:
         self._sampling_sec.display_period_options(allowed, current)
 
     def display_period_bounds(self, min_v: float, max_v: float) -> None:
@@ -619,9 +597,7 @@ class SamplingConfigPageView(BasePage):
         self._top_bar.save_setup_requested.connect(self.save_to_db_requested)
         self._top_bar.save_json_requested.connect(self._on_save_clicked)
         self._top_bar.export_requested.connect(self.export_requested)
-        self._top_bar.apply_setup_requested.connect(
-            self.apply_setup_requested
-        )
+        self._top_bar.apply_setup_requested.connect(self.apply_setup_requested)
         self._top_bar.apply_run_fetch_requested.connect(
             self.apply_run_fetch_requested
         )
@@ -691,9 +667,7 @@ class SamplingConfigPageView(BasePage):
         root.addWidget(scroll, stretch=1)
 
     def _wire_sections(self) -> None:
-        self._summary_sec.smu_standby_changed.connect(
-            self.smu_standby_changed
-        )
+        self._summary_sec.smu_standby_changed.connect(self.smu_standby_changed)
 
         m = self._meas_sec
         m.integration_mode_changed.connect(self.integration_mode_changed)
@@ -703,9 +677,7 @@ class SamplingConfigPageView(BasePage):
 
         s = self._sampling_sec
         s.mode_changed.connect(self.sampling_mode_changed)
-        s.initial_interval_committed.connect(
-            self.initial_interval_committed
-        )
+        s.initial_interval_committed.connect(self.initial_interval_committed)
         s.points_changed.connect(self.points_changed)
         s.period_mode_changed.connect(self.period_mode_changed)
         s.period_committed.connect(self.period_committed)
@@ -718,9 +690,7 @@ class SamplingConfigPageView(BasePage):
         sc.event_changed.connect(self.scon_event_changed)
         sc.threshold_committed.connect(self.scon_threshold_committed)
         sc.event_count_changed.connect(self.scon_event_count_changed)
-        sc.enable_delay_committed.connect(
-            self.scon_enable_delay_committed
-        )
+        sc.enable_delay_committed.connect(self.scon_enable_delay_committed)
 
         self._display_vars_sec.var_toggled.connect(self.display_var_toggled)
         self._ranges_sec.range_changed.connect(self.range_changed)

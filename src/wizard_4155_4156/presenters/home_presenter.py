@@ -13,6 +13,7 @@ Responsibilities
 The presenter holds references to both model and view but owns neither —
 lifetime is managed by MainWindow.
 """
+
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QFileDialog
 
@@ -70,7 +71,9 @@ class HomePresenter(QObject):
         self._view.project_remove_requested.connect(self._on_remove_project)
         self._view.clear_history_requested.connect(self._on_clear_history)
         self._view.settings_requested.connect(self.settings_requested)
-        self._view.documentation_requested.connect(self.documentation_requested)
+        self._view.documentation_requested.connect(
+            self.documentation_requested
+        )
 
     def _refresh_view(self) -> None:
         self._view.display_recent_projects(self._model.get_projects())

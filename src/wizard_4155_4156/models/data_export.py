@@ -17,6 +17,7 @@ No PySide6 imports — unit-testable without a GUI.  User-visible *labels* for
 the formats deliberately live in ``gui_text`` (routed through ``tr_ui``); this
 module only owns the logical formats and their technical metadata.
 """
+
 from __future__ import annotations
 
 import csv
@@ -100,8 +101,7 @@ _PLOT_MIN_COLUMNS = 2
 def _columns(data: Dataset) -> list[tuple[str, list[float]]]:
     """Ordered ``(name, values)`` pairs, padded to equal length with nan."""
     cols = [
-        (name, [float(v) for v in values])
-        for name, values in data.items()
+        (name, [float(v) for v in values]) for name, values in data.items()
     ]
     n = max((len(values) for _, values in cols), default=0)
     for _, values in cols:

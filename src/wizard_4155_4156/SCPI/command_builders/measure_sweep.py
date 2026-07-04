@@ -291,9 +291,7 @@ class MeasureSweepCommandBuilder(SCPICommandBuilder):
 
     def set_var2_n_of_steps(self, n_of_steps: int):
         if not (
-            self.MIN_VAR2_N_OF_STEPS
-            <= n_of_steps
-            <= self.MAX_VAR2_N_OF_STEPS
+            self.MIN_VAR2_N_OF_STEPS <= n_of_steps <= self.MAX_VAR2_N_OF_STEPS
         ):
             raise ValueError(
                 f"VAR2 number of steps must be {self.MIN_VAR2_N_OF_STEPS}"

@@ -342,9 +342,7 @@ class QscvConstraints:
                 "VAR1: Stop must be less than Start when Step is negative."
             )
 
-        if not any(
-            e.startswith(("VAR1 Start", "VAR1 Stop")) for e in errors
-        ):
+        if not any(e.startswith(("VAR1 Start", "VAR1 Stop")) for e in errors):
             v1_mag = max(abs(v1.start), abs(v1.stop))
             comp_min, comp_max = current_compliance_bounds(
                 instrument_model, v1_mag, interlock_open

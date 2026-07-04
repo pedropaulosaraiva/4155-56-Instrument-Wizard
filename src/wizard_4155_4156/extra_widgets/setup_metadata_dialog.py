@@ -8,6 +8,7 @@ editing an existing setup's metadata — replacing the previous pair of
 sequential ``QInputDialog`` prompts with one styled dialog matching the rest of
 the application (same fonts / widgets as the settings dialog).
 """
+
 from __future__ import annotations
 
 from typing import Callable, Optional

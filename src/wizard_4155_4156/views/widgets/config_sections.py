@@ -250,7 +250,8 @@ class SciDoubleValidator(QValidator):
         return self._determine_state(val_str), input_str, pos
 
     def _classify_scientific_notation(
-        self, val_str: str,
+        self,
+        val_str: str,
     ) -> QValidator.State | None:
         parts = val_str.lower().split("e")
         if len(parts) > _MAX_SCI_PARTS:
@@ -270,7 +271,8 @@ class SciDoubleValidator(QValidator):
         return None
 
     def _determine_state(
-        self, val_str: str,
+        self,
+        val_str: str,
     ) -> QValidator.State:
         if not val_str or val_str in ("-", "+", "-.", "+."):
             return QValidator.State.Intermediate
@@ -387,8 +389,7 @@ class SciDoubleEdit(QWidget):
 
     def _set_text(self, val: float) -> None:
         if val != 0 and (
-            abs(val) < _SCI_DISPLAY_LOWER
-            or abs(val) >= _SCI_DISPLAY_UPPER
+            abs(val) < _SCI_DISPLAY_LOWER or abs(val) >= _SCI_DISPLAY_UPPER
         ):
             self._edit.setText(f"{val:.3e}")
         else:
@@ -527,10 +528,11 @@ class ChannelSummarySection(SectionFrame):
         self._standby_cbs.clear()
 
         if not active_channels:
-            self.body().addWidget(_placeholder_label(
-                "No channels enabled"
-                " — configure the Channels page first."
-            ))
+            self.body().addWidget(
+                _placeholder_label(
+                    "No channels enabled — configure the Channels page first."
+                )
+            )
             return
 
         headers: List[TableHeader] = [
@@ -568,24 +570,29 @@ class ChannelSummarySection(SectionFrame):
 
             fn_color = fn_colors.get(fn, P.TEXT_MUTED)
             i_text = ch.get("i_name", "") if is_smu else "—"
-            table.add_row([
-                (_create_unit_badge(ch_id), CELL_CENTER),
-                (_create_unit_badge(fn_display, fn_color), CELL_CENTER),
-                (_create_unit_badge(mode_display, fn_color), CELL_CENTER),
-                (_create_name_label(ch.get("v_name", "")), CELL_CENTER),
-                (_create_name_label(i_text), CELL_CENTER),
-                (
-                    self._build_standby_cell(
-                        ch_id, is_smu, ch.get("standby", False)
+            table.add_row(
+                [
+                    (_create_unit_badge(ch_id), CELL_CENTER),
+                    (_create_unit_badge(fn_display, fn_color), CELL_CENTER),
+                    (_create_unit_badge(mode_display, fn_color), CELL_CENTER),
+                    (_create_name_label(ch.get("v_name", "")), CELL_CENTER),
+                    (_create_name_label(i_text), CELL_CENTER),
+                    (
+                        self._build_standby_cell(
+                            ch_id, is_smu, ch.get("standby", False)
+                        ),
+                        CELL_CENTER,
                     ),
-                    CELL_CENTER,
-                ),
-            ])
+                ]
+            )
 
         self.body().addWidget(table)
 
     def _build_standby_cell(
-        self, ch_id: str, is_smu: bool, standby: bool,
+        self,
+        ch_id: str,
+        is_smu: bool,
+        standby: bool,
     ) -> QWidget:
         if is_smu:
             cb = QCheckBox()
@@ -593,8 +600,9 @@ class ChannelSummarySection(SectionFrame):
             cb.setCursor(Qt.CursorShape.PointingHandCursor)
             cb.setStyleSheet(unit_enable_checkbox_stylesheet())
             cb.toggled.connect(
-                lambda checked, cid=ch_id:
-                    self.smu_standby_changed.emit(cid, checked)
+                lambda checked, cid=ch_id: self.smu_standby_changed.emit(
+                    cid, checked
+                )
             )
             self._standby_cbs[ch_id] = cb
             return cb
@@ -835,14 +843,13 @@ class RangesSection(SectionFrame):
         self._rows.clear()
 
         eligible_channels = [
-            ch for ch in active_channels
-            if ch["unit_type"] in ("SMU", "VMU")
+            ch for ch in active_channels if ch["unit_type"] in ("SMU", "VMU")
         ]
 
         if not eligible_channels:
-            self.body().addWidget(_placeholder_label(
-                "No active measurement units (SMU/VMU)."
-            ))
+            self.body().addWidget(
+                _placeholder_label("No active measurement units (SMU/VMU).")
+            )
             return
 
         # Column headers — the two data-entry columns share the surplus
@@ -981,16 +988,17 @@ class ConstantsSection(SectionFrame):
         self._rows.clear()
 
         eligible_channels = [
-            ch for ch in active_channels
+            ch
+            for ch in active_channels
             if ch.get("function") == "CONST"
             and ch.get("unit_type") in ("SMU", "VSU")
             and ch.get("mode") != "COMM"
         ]
 
         if not eligible_channels:
-            self.body().addWidget(_placeholder_label(
-                "No constant source units configured."
-            ))
+            self.body().addWidget(
+                _placeholder_label("No constant source units configured.")
+            )
             return
 
         # Column headers — the source and compliance columns share the

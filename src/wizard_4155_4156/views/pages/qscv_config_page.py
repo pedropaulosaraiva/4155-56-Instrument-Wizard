@@ -286,9 +286,7 @@ class _QscvTimingSection(_SectionFrame):
     sweep_stop_changed = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(
-            "QSCV Timing", parent, doc_topic=DocTopic.QSCV_TIMING
-        )
+        super().__init__("QSCV Timing", parent, doc_topic=DocTopic.QSCV_TIMING)
         self._delay_edit = _SciDoubleEdit(0.0, DELAY_MIN, DELAY_MAX, "s")
         self._delay_edit._edit.setToolTip(
             f"Range: {DELAY_MIN} – {DELAY_MAX} s"
@@ -515,9 +513,7 @@ class QscvConfigPageView(BasePage):
             ms.get("leak_comp", False),
             ms.get("zero_cancel", False),
         )
-        self._names_sec.display_state(
-            ms.get("cname", ""), ms.get("iname", "")
-        )
+        self._names_sec.display_state(ms.get("cname", ""), ms.get("iname", ""))
         self._timing_sec.display_state(
             snap.get("delay", 0.0),
             snap.get("hold_time", 0.0),
@@ -613,9 +609,7 @@ class QscvConfigPageView(BasePage):
         self._top_bar.save_setup_requested.connect(self.save_to_db_requested)
         self._top_bar.save_json_requested.connect(self._on_save_clicked)
         self._top_bar.export_requested.connect(self.export_requested)
-        self._top_bar.apply_setup_requested.connect(
-            self.apply_setup_requested
-        )
+        self._top_bar.apply_setup_requested.connect(self.apply_setup_requested)
         self._top_bar.apply_run_fetch_requested.connect(
             self.apply_run_fetch_requested
         )

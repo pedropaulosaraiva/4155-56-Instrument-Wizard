@@ -19,6 +19,7 @@ Design
 
 No PySide6 imports.
 """
+
 from __future__ import annotations
 
 from datetime import datetime

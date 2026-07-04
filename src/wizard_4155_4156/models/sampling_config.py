@@ -289,9 +289,7 @@ class SamplingConstraints:
                     f"(range: {SHORT_TIME_MIN:.3g} – {SHORT_TIME_MAX:.3g} s)"
                 )
         elif ms.integration_mode == IntegrationMode.LONG:
-            if not (
-                LONG_CYCLES_MIN <= ms.long_time_cycles <= LONG_CYCLES_MAX
-            ):
+            if not (LONG_CYCLES_MIN <= ms.long_time_cycles <= LONG_CYCLES_MAX):
                 errors.append(
                     "Integration Cycles: invalid value "
                     f"(range: {LONG_CYCLES_MIN} – {LONG_CYCLES_MAX} PLC)"
@@ -375,8 +373,7 @@ class SamplingConstraints:
             )
         if sc.name not in available_vars:
             errors.append(
-                f"Stop Condition Name: '{sc.name}' is not a "
-                "measured variable"
+                f"Stop Condition Name: '{sc.name}' is not a measured variable"
             )
         return errors
 
@@ -483,9 +480,7 @@ class SamplingConstraints:
             sampling_constraints._validate_sampling_params(cfg, n_units)
         )
         errors.extend(
-            sampling_constraints._validate_stop_condition(
-                cfg, available_vars
-            )
+            sampling_constraints._validate_stop_condition(cfg, available_vars)
         )
         errors.extend(
             sampling_constraints._validate_fast_rules(

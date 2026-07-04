@@ -3,6 +3,7 @@ test/models/test_data_export.py
 -------------------------------
 Unit tests for the Qt-free dataset export model.
 """
+
 import io
 import zipfile
 
@@ -102,9 +103,11 @@ def test_xlsx_is_valid_zip_with_expected_parts():
 
 def test_xlsx_skips_nan_cells():
     raw = to_xlsx_bytes({"x": [1.0, NAN]})
-    sheet = zipfile.ZipFile(io.BytesIO(raw)).read(
-        "xl/worksheets/sheet1.xml"
-    ).decode("utf-8")
+    sheet = (
+        zipfile.ZipFile(io.BytesIO(raw))
+        .read("xl/worksheets/sheet1.xml")
+        .decode("utf-8")
+    )
     assert '<c r="A2" t="n"><v>1.0</v></c>' in sheet
     # The nan row exists but carries no value cell.
     assert '<row r="3">' in sheet

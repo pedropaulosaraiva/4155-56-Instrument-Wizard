@@ -14,6 +14,7 @@ Design contract:
     when the MainWindow navigates programmatically).
     - Tooltips provide the label that would otherwise live next to the icon.
 """
+
 from typing import Dict
 
 from PySide6.QtCore import Qt, Signal

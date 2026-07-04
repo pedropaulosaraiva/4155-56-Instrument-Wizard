@@ -25,6 +25,7 @@ ConnectorWizardModal buttons, which are authored in terms of their
 parent widget.  Each method emits the corresponding Signal — the
 Presenter subscribes to those signals and performs the actual I/O.
 """
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
@@ -44,7 +45,7 @@ from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.stylesheets import (
     compact_connector_stylesheet,
     connector_label_model_stylesheet,
-#   connector_label_status_connected_stylesheet,
+    #   connector_label_status_connected_stylesheet,
     connector_label_status_disconnected_stylesheet,
     connector_label_status_idle_stylesheet,
     connector_modal_stylesheet,
@@ -170,6 +171,7 @@ class ConnectorWizardModal(QDialog):
 # COMPACT CONNECTOR WIDGET  (View — QFrame)
 # =============================================================================
 
+
 class CompactConnectorWidget(QFrame):
     """
     Thumbnail widget shown in ConnectionTopBar.
@@ -191,7 +193,7 @@ class CompactConnectorWidget(QFrame):
     """
 
     scan_requested = Signal()
-    connect_requested = Signal(str, str)   # (address, name)
+    connect_requested = Signal(str, str)  # (address, name)
     disconnect_requested = Signal()
 
     def __init__(self, parent=None) -> None:
@@ -224,7 +226,9 @@ class CompactConnectorWidget(QFrame):
             tr_ui(CommandWizardText.CONNECTED_MODEL).format(model=name)
         )
         self._lbl_status.setText(tr_ui(CommandWizardText.STATUS_IDLE))
-        self._lbl_status.setStyleSheet(connector_label_status_idle_stylesheet())
+        self._lbl_status.setStyleSheet(
+            connector_label_status_idle_stylesheet()
+        )
 
     def display_disconnected(self) -> None:
         self._lbl_model.setText(tr_ui(CommandWizardText.DISCONNECTED_LBL))
@@ -238,9 +242,7 @@ class CompactConnectorWidget(QFrame):
     def display_scan_no_found(self) -> None:
         self._lbl_model.setText(tr_ui(CommandWizardText.SCAN_NO_FOUND))
 
-    def display_progress(
-        self, current: int, total: int, status: str
-    ) -> None:
+    def display_progress(self, current: int, total: int, status: str) -> None:
         self._progress.setMaximum(total)
         self._progress.setValue(current)
         if status:
@@ -251,7 +253,9 @@ class CompactConnectorWidget(QFrame):
     def display_status(self, text: str) -> None:
         """Called after setup finishes or any state reset."""
         self._lbl_status.setText(text)
-        self._lbl_status.setStyleSheet(connector_label_status_idle_stylesheet())
+        self._lbl_status.setStyleSheet(
+            connector_label_status_idle_stylesheet()
+        )
         self._progress.setValue(0)
         self.modal.reset_progress()
 

@@ -9,6 +9,7 @@ unavailable, instead of being silently skipped. Every entry carries an emoji
 icon. The owner rebuilds the menu on each open so entry availability reflects
 the current selection.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Optional

@@ -8,6 +8,7 @@ navigation bar can switch between real pages immediately.
 Replace with full implementations incrementally — the interface
 (BasePage.on_activate, signals) stays constant.
 """
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
@@ -35,9 +36,7 @@ def _make_stub(icon: str, title: str, subtitle: str) -> type[BasePage]:
             layout.setSpacing(12)
 
             icon_lbl = QLabel(icon)
-            icon_lbl.setStyleSheet(
-                "font-size: 56px; background: transparent;"
-            )
+            icon_lbl.setStyleSheet("font-size: 56px; background: transparent;")
             icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(icon_lbl)
 
