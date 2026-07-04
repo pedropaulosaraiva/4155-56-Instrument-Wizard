@@ -57,6 +57,25 @@ class _Palette:
     UNIT_VMU: str = "#9cdcfe"  # light blue (same hue as STATUS_INFO)
     UNIT_VSU: str = "#4ec9b0"  # teal (same hue as STATUS_OK)
 
+    # ── Graphs page ──────────────────────────────────────────────────────────
+    # Trace color cycle (round-robin) — hues that read well on BG_DEEP.
+    GRAPH_TRACE_COLORS: tuple = (
+        "#4ec9b0",  # teal
+        "#0098ff",  # blue
+        "#dcdcaa",  # amber
+        "#c586c0",  # purple
+        "#f48771",  # coral
+        "#9cdcfe",  # light blue
+        "#b5cea8",  # sage
+        "#ce9178",  # copper
+    )
+    GRAPH_GRID_ALPHA: float = 0.25  # pyqtgraph showGrid alpha
+    GRAPH_SIDEBAR_WIDTH: int = 320  # px — scene sidebar fixed width
+    GRAPH_CURSOR: str = "#f48771"  # cursor line/marker (coral)
+    GRAPH_CURSOR_ALT: str = "#dcdcaa"  # second cursor (amber)
+    GRAPH_ROI: str = "#094771"  # ROI region fill base (ACCENT_MUTED)
+    GRAPH_FIT_COLOR: str = "#ffffff"  # default fit-trace color
+
     # ── Navigation bar ───────────────────────────────────────────────────────
     NAV_ACTIVE_BG: str = "#094771"
     NAV_ACTIVE_INDICATOR: str = "#007acc"

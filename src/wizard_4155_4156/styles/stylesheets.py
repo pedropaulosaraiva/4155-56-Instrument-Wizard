@@ -1693,3 +1693,202 @@ def status_modal_info_value_stylesheet() -> str:
         f"QLabel {{ color: {P.TEXT_PRIMARY}; font-size: {P.FONT_SIZE_SM}; "
         "font-weight: bold; background: transparent; }"
     )
+
+
+# ── Graphs page ──────────────────────────────────────────────────────────
+
+
+def graph_page_stylesheet() -> str:
+    return f"background-color: {P.BG_DEEP};"
+
+
+def graph_scene_tabbar_stylesheet() -> str:
+    """Top scene tabs (Scene 1, Scene 2, …) with closable tabs."""
+    return f"""
+        QTabBar {{
+            background: transparent;
+            font-size: {P.FONT_SIZE_SM};
+        }}
+        QTabBar::tab {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-bottom: none;
+            border-top-left-radius: {P.RADIUS_SM};
+            border-top-right-radius: {P.RADIUS_SM};
+            padding: 5px 14px;
+            margin-right: 2px;
+        }}
+        QTabBar::tab:selected {{
+            background-color: {P.ACCENT_MUTED};
+            color: {P.TEXT_WHITE};
+        }}
+        QTabBar::tab:hover:!selected {{
+            background-color: {P.BG_ELEVATED};
+        }}
+        QTabBar::close-button {{
+            subcontrol-position: right;
+        }}
+    """
+
+
+def graph_add_scene_button_stylesheet() -> str:
+    """The '+' button next to the scene tabs."""
+    return f"""
+        QToolButton {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            font-size: {P.FONT_SIZE_LG};
+            font-weight: bold;
+            padding: 0px 10px;
+        }}
+        QToolButton:hover {{
+            background-color: {P.BG_ELEVATED};
+            color: {P.TEXT_WHITE};
+        }}
+    """
+
+
+def graph_sidebar_stylesheet() -> str:
+    """The right sidebar: permanent Data / View / Analysis tabs."""
+    return f"""
+        QTabWidget::pane {{
+            background-color: {P.BG_PANEL};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+            top: -1px;
+        }}
+        QTabBar::tab {{
+            background-color: {P.BG_DEEP};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-bottom: none;
+            border-top-left-radius: {P.RADIUS_SM};
+            border-top-right-radius: {P.RADIUS_SM};
+            padding: 5px 16px;
+            margin-right: 2px;
+            font-size: {P.FONT_SIZE_SM};
+        }}
+        QTabBar::tab:selected {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_WHITE};
+            font-weight: bold;
+        }}
+        QTabBar::tab:hover:!selected {{
+            background-color: {P.BG_ELEVATED};
+        }}
+    """
+
+
+def graph_sidebar_toggle_stylesheet() -> str:
+    """Slim edge button that collapses/expands the sidebar."""
+    return f"""
+        QToolButton {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            font-size: {P.FONT_SIZE_SM};
+            font-weight: bold;
+        }}
+        QToolButton:hover {{
+            background-color: {P.ACCENT_MUTED};
+            color: {P.TEXT_WHITE};
+        }}
+    """
+
+
+def graph_dataset_tree_stylesheet() -> str:
+    """Setups → executions tree with checkboxes on the Data tab."""
+    return f"""
+        QTreeWidget {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            outline: 0;
+            font-size: {P.FONT_SIZE_SM};
+            padding: 4px;
+        }}
+        QTreeWidget::item {{
+            min-height: 20px;
+            padding: 2px 4px;
+            border: none;
+            border-radius: {P.RADIUS_SM};
+        }}
+        QTreeWidget::item:hover {{
+            background-color: {P.BG_ELEVATED};
+        }}
+        QTreeWidget::item:selected {{
+            background-color: {P.ACCENT_MUTED};
+            color: {P.TEXT_WHITE};
+        }}
+        QTreeWidget::item:disabled {{
+            color: {P.TEXT_DISABLED};
+        }}
+    """
+
+
+def graph_trace_row_stylesheet() -> str:
+    """One per-trace styling row inside the View tab Traces section."""
+    return f"""
+        QFrame#trace_row {{
+            background-color: {P.BG_INPUT};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+        }}
+    """
+
+
+def graph_color_swatch_stylesheet(color: str) -> str:
+    """Clickable color swatch of a trace row (opens QColorDialog)."""
+    return f"""
+        QPushButton {{
+            background-color: {color};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+        }}
+        QPushButton:hover {{
+            border: 1px solid {P.BORDER_FOCUS};
+        }}
+    """
+
+
+def graph_results_list_stylesheet() -> str:
+    """Fits / computed-traces lists on the Analysis tab."""
+    return f"""
+        QListWidget {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            outline: 0;
+            font-size: {P.FONT_SIZE_XS};
+            font-family: {P.FONT_FAMILY_MONO};
+        }}
+        QListWidget::item {{
+            padding: 3px 6px;
+        }}
+        QListWidget::item:selected {{
+            background-color: {P.ACCENT_MUTED};
+            color: {P.TEXT_WHITE};
+        }}
+    """
+
+
+def graph_analysis_message_stylesheet() -> str:
+    """Amber explanatory banner (e.g. non-functional trace notice)."""
+    return (
+        f"QLabel {{ color: {P.STATUS_CAUTION}; "
+        f"font-size: {P.FONT_SIZE_XS}; background: transparent; }}"
+    )
+
+
+def graph_cursor_readout_stylesheet() -> str:
+    """Monospace cursor x/y (and Δ) readout label in the View tab."""
+    return (
+        f"QLabel {{ color: {P.STATUS_INFO}; font-size: {P.FONT_SIZE_XS}; "
+        f"font-family: {P.FONT_FAMILY_MONO}; background: transparent; }}"
+    )

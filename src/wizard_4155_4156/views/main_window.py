@@ -52,6 +52,7 @@ from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
 from wizard_4155_4156.presenters.documentation_presenter import (
     DocumentationPresenter,
 )
+from wizard_4155_4156.presenters.graph_presenter import GraphPresenter
 from wizard_4155_4156.presenters.home_presenter import HomePresenter
 from wizard_4155_4156.presenters.measure_config_factory import (
     MeasureConfigFactory,
@@ -72,7 +73,7 @@ from wizard_4155_4156.views.navigation_bar import NavigationBar
 from wizard_4155_4156.views.pages import (
     BasePage,
     ChannelsPageView,
-    GraphPage,
+    GraphPageView,
     HomePageView,
     Page,
     RunsPageView,
@@ -200,6 +201,15 @@ class MainWindow(QMainWindow):
             self._table_presenter.show_live_data
         )
 
+        # ── GraphPresenter ───────────────────────────────────────────────────
+        # Visualizes/compares saved executions and persists graph scenes
+        # into the project DB.  DB executions only — no live-data path.
+        self._graph_presenter = GraphPresenter(
+            view=self._graph_page,
+            project_manager=self._project_manager,
+            parent=self,
+        )
+
         # No bus scan runs at startup — the VISA driver is brought up lazily on
         # the user's first Scan so a missing backend cannot crash startup.
 
@@ -261,7 +271,7 @@ class MainWindow(QMainWindow):
         stack.addWidget(self._channels_page)
         self._runs_page = RunsPageView()
         stack.addWidget(self._runs_page)
-        self._graph_page = GraphPage()
+        self._graph_page = GraphPageView()
         stack.addWidget(self._graph_page)
         self._table_page = TablePageView()
         stack.addWidget(self._table_page)
@@ -373,6 +383,8 @@ class MainWindow(QMainWindow):
 
     def _on_project_file_opened(self, path: str) -> None:
         """Open an existing .wiz4155 project database."""
+        # Persist pending graph-scene edits before the DB is swapped.
+        self._graph_presenter.flush_pending_save()
         try:
             self._project_manager.open(path)
         except FileNotFoundError:
@@ -391,6 +403,7 @@ class MainWindow(QMainWindow):
 
     def _on_new_project(self) -> None:
         """Create a new standalone .wiz4155 project database."""
+        self._graph_presenter.flush_pending_save()
         path, _ = QFileDialog.getSaveFileName(
             self,
             "New Project",
@@ -427,6 +440,7 @@ class MainWindow(QMainWindow):
         self._set_project_pages_enabled(True)
         self._runs_presenter.set_database(self._project_manager.current_db)
         self._table_presenter.set_database(self._project_manager.current_db)
+        self._graph_presenter.set_database(self._project_manager.current_db)
         self._navigate_to(landing_page)
         self._status_bar.showMessage(f"Project ready: {path}", 5000)
 
@@ -617,5 +631,6 @@ class MainWindow(QMainWindow):
         for window in list(self._doc_windows):
             window.close()
         self._connector_presenter.cleanup()
+        self._graph_presenter.flush_pending_save()
         self._project_manager.close()
         super().closeEvent(event)

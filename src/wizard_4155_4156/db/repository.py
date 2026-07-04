@@ -20,6 +20,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from wizard_4155_4156.db.schema import (
+    ExecutionVariable,
+    GraphScene,
     MeasurementExecution,
     MeasurementSetup,
 )
@@ -61,6 +63,16 @@ class ExecRow:
     is_synthetic: bool
     variable_count: int
     description: str
+
+
+@dataclass(frozen=True)
+class GraphSceneRow:
+    """Flat, detached snapshot of a persisted Graphs-page scene."""
+
+    id: int
+    name: str
+    position: int
+    scene_data: dict
 
 
 def _to_setup_row(setup: MeasurementSetup) -> SetupRow:
@@ -185,3 +197,52 @@ class ExecutionRepository:
         execution = session.get(MeasurementExecution, execution_id)
         if execution is not None:
             session.delete(execution)
+
+    @staticmethod
+    def list_variable_names(session: Session, execution_id: int) -> list[str]:
+        """Variable names of one execution, in captured order.
+
+        Queries ``execution_variable`` only — never loads data points —
+        so the Graphs page can run dataset-compatibility checks cheaply.
+        """
+        return list(
+            session.scalars(
+                select(ExecutionVariable.var_name)
+                .where(ExecutionVariable.execution_id == execution_id)
+                .order_by(ExecutionVariable.position)
+            )
+        )
+
+
+class GraphSceneRepository:
+    """Persistence of the Graphs-page scene list (one JSON row per scene).
+
+    The scene list is small and fully presenter-owned, so the sync
+    strategy is the simplest correct one: ``replace_all`` rewrites every
+    row inside the caller's transaction.
+    """
+
+    @staticmethod
+    def list_rows(session: Session) -> list[GraphSceneRow]:
+        scenes = session.scalars(
+            select(GraphScene).order_by(GraphScene.position)
+        ).all()
+        return [
+            GraphSceneRow(
+                id=s.id,
+                name=s.name,
+                position=s.position,
+                scene_data=dict(s.scene_data),
+            )
+            for s in scenes
+        ]
+
+    @staticmethod
+    def replace_all(session: Session, scenes: list[tuple[str, dict]]) -> None:
+        """Overwrite the stored list with ``(name, scene_data)`` pairs."""
+        for row in session.scalars(select(GraphScene)).all():
+            session.delete(row)
+        for position, (name, scene_data) in enumerate(scenes):
+            session.add(
+                GraphScene(name=name, position=position, scene_data=scene_data)
+            )

@@ -66,9 +66,3 @@ SweepConfigPage = _make_stub(
     "Sweep / Sampling / QSCV Config",
     "Define sweep parameters, sampling intervals, and QSCV settings.",
 )
-
-GraphPage = _make_stub(
-    "📈",
-    "Graph View",
-    "Visualise fetched measurement data as interactive curves.",
-)

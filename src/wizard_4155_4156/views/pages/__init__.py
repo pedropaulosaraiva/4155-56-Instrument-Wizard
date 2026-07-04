@@ -18,7 +18,7 @@ uses a single, stable import path:
         ChannelsPageView,
         SweepConfigPageView,
         SamplingConfigPageView,
-        GraphPage,
+        GraphPageView,
         TablePageView,
     )
 
@@ -104,6 +104,9 @@ class BasePage(QWidget):
 from wizard_4155_4156.views.pages.channels_page import (  # noqa: E402
     ChannelsPageView,
 )
+from wizard_4155_4156.views.pages.graph_page import (  # noqa: E402
+    GraphPageView,
+)
 from wizard_4155_4156.views.pages.home_page import HomePageView  # noqa: E402
 from wizard_4155_4156.views.pages.qscv_config_page import (  # noqa: E402
     QscvConfigPageView,
@@ -112,7 +115,6 @@ from wizard_4155_4156.views.pages.runs_page import RunsPageView  # noqa: E402
 from wizard_4155_4156.views.pages.sampling_config_page import (  # noqa: E402
     SamplingConfigPageView,
 )
-from wizard_4155_4156.views.pages.stub_pages import GraphPage  # noqa: E402
 from wizard_4155_4156.views.pages.sweep_config_page import (  # noqa: E402
     SweepConfigPageView,
 )
@@ -132,7 +134,7 @@ __all__ = [
     "SweepConfigPageView",
     "SamplingConfigPageView",
     "QscvConfigPageView",
-    "GraphPage",
+    "GraphPageView",
     "TablePageView",
     "RunsPageView",
 ]

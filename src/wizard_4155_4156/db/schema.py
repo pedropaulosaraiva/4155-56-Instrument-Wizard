@@ -187,31 +187,26 @@ class LogMessage(Base):
 
 
 # =============================================================================
-# Graphics info (future placeholder)
+# Graph scenes (Graphs-page configurations)
 # =============================================================================
 
 
-class GraphicsInfo(Base):
+class GraphScene(Base):
     """
-    Reserved placeholder for saved dynamic graph configurations.
+    One Graphs-page scene tab, stored verbatim as JSON.
 
-    Future updates will persist the dynamic graph settings used to display an
-    execution (rather than static image files).  Kept intentionally minimal.
+    Follows the ``MeasurementSetup.setup_data`` pattern: the whole
+    ``models/graph/config.SceneConfig`` dict (grid shape, per-plot dataset
+    refs, axis settings, trace styles, computed/fit *definitions*) lives in
+    ``scene_data`` — derived traces are recomputed on load, never stored as
+    point arrays.  Replaces the old unused ``graphics_info`` placeholder
+    (the empty table left inside pre-existing project files is harmless;
+    ``create_all`` adds this one on open).
     """
 
-    __tablename__ = "graphics_info"
+    __tablename__ = "graph_scene"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    execution_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("measurement_execution.id", ondelete="CASCADE"),
-        default=None,
-        index=True,
-    )
-    setup_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("measurement_setup.id", ondelete="CASCADE"),
-        default=None,
-        index=True,
-    )
-    x_var: Mapped[Optional[str]] = mapped_column(default=None)
-    y_var: Mapped[Optional[str]] = mapped_column(default=None)
-    axis_config: Mapped[Optional[str]] = mapped_column(default=None)
+    name: Mapped[str] = mapped_column()
+    position: Mapped[int] = mapped_column(index=True)  # tab order
+    scene_data: Mapped[dict] = mapped_column(JSON, default=dict)
