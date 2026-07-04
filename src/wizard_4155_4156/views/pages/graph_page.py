@@ -233,6 +233,11 @@ class GraphPageView(BasePage):
             specs, rows, cols, active, maximized, scene_token
         )
 
+    def display_cursor(
+        self, slot: int, cursor_index: int, x: float, y: float, text: str
+    ) -> None:
+        self.plot_area.display_cursor(slot, cursor_index, x, y, text)
+
     def reset_plot_view(self, slot_index: int) -> None:
         self.plot_area.reset_view(slot_index)
 

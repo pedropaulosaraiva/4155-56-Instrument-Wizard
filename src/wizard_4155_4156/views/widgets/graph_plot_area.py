@@ -26,9 +26,12 @@ pyqtgraph's automatic SI prefixing is disabled on every axis
 as a pre-computed ``AxisItem.setScale`` factor, so only the tick *text*
 is rescaled — the plotted data is never touched.
 
-Cursors are plain movable vertical lines (they slide freely — no
-snapping on the canvas); a drag emits ``cursor_dragged`` and the
-presenter shows the nearest real data point in the View tab readout.
+Each cursor is a freely sliding vertical line plus a marker and an x/y
+label pinned to the NEAREST real data point (never interpolated): any
+line movement — user drag, creation, scene restore — emits
+``cursor_dragged`` and the presenter answers with ``display_cursor``
+(canvas marker + label) and the View-tab readout, so neither can ever
+show stale values.
 """
 
 from __future__ import annotations
@@ -117,6 +120,18 @@ class PlotRenderSpec:
 
 
 @dataclass
+class _Cursor:
+    """One cursor: draggable line + snapped marker + x/y label.
+
+    The line slides freely; the marker/label are placed by the
+    presenter (``display_cursor``) on the NEAREST real data point."""
+
+    line: pg.InfiniteLine
+    marker: pg.TargetItem
+    label: pg.TextItem
+
+
+@dataclass
 class _SlotState:
     """Runtime registry of one rendered grid cell."""
 
@@ -124,7 +139,7 @@ class _SlotState:
     spec: PlotRenderSpec
     legend: pg.LegendItem
     curves: list = field(default_factory=list)
-    cursor_lines: list = field(default_factory=list)
+    cursors: list[_Cursor] = field(default_factory=list)
     roi_item: pg.LinearRegionItem | None = None
 
 
@@ -254,6 +269,9 @@ class GraphPlotArea(QWidget):
             self._plots[slot] = plot
             self._apply_full(state)
             self._restore_view_state(state)
+            # Let the presenter recompute snapped markers/labels and
+            # the View-tab readout for the (re)created cursors.
+            self._notify_cursors(state)
 
     def _stash_view_states(self) -> None:
         """Remember each slot's zoom/pan + cursor positions by token."""
@@ -262,8 +280,8 @@ class GraphPlotArea(QWidget):
         for slot, state in self._slots.items():
             vb_state = state.plot.getViewBox().getState(copy=True)
             cursor_xs = [
-                self._from_axis(float(line.value()), state.spec.x_log)
-                for line in state.cursor_lines
+                self._from_axis(float(c.line.value()), state.spec.x_log)
+                for c in state.cursors
             ]
             self._view_stash[(self._scene_token, slot)] = (
                 vb_state,
@@ -276,10 +294,10 @@ class GraphPlotArea(QWidget):
             return
         vb_state, cursor_xs = entry
         state.plot.getViewBox().setState(vb_state)
-        for line, x in zip(state.cursor_lines, cursor_xs):
-            line.blockSignals(True)
-            line.setPos(self._to_axis(x, state.spec.x_log))
-            line.blockSignals(False)
+        for cursor, x in zip(state.cursors, cursor_xs):
+            cursor.line.blockSignals(True)
+            cursor.line.setPos(self._to_axis(x, state.spec.x_log))
+            cursor.line.blockSignals(False)
 
     # =========================================================================
     # Full apply (fresh plot)
@@ -365,6 +383,13 @@ class GraphPlotArea(QWidget):
         log_changed = spec.x_log != old.x_log or spec.y_log != old.y_log
         if log_changed:
             plot.setLogMode(x=spec.x_log, y=spec.y_log)
+            # Cursor lines live in axis coordinates — re-place them so
+            # they keep their *linear* position across the log switch.
+            for cursor in state.cursors:
+                linear = self._from_axis(float(cursor.line.value()), old.x_log)
+                cursor.line.blockSignals(True)
+                cursor.line.setPos(self._to_axis(linear, spec.x_log))
+                cursor.line.blockSignals(False)
 
         # Ranges are only touched when their *configuration* changed —
         # a plain repaint never clobbers the user's zoom/pan.
@@ -376,11 +401,16 @@ class GraphPlotArea(QWidget):
         if spec.mouse_mode != old.mouse_mode or spec.active != old.active:
             self._apply_interaction(state)
 
-        if spec.traces != old.traces:
+        traces_changed = spec.traces != old.traces
+        if traces_changed:
             self._draw_curves(state)
 
         self._sync_roi(state, spec.roi)
-        self._sync_cursors(state, spec.cursors)
+        cursors_changed = self._sync_cursors(state, spec.cursors)
+        if cursors_changed or traces_changed or log_changed:
+            # Stale snapped text is refreshed for EVERY cursor (e.g.
+            # adding a second cursor also recomputes the Δ readout).
+            self._notify_cursors(state)
 
     # =========================================================================
     # Curves
@@ -471,44 +501,97 @@ class GraphPlotArea(QWidget):
         return color
 
     # =========================================================================
-    # Cursors (plain movable lines — positions persist across repaints)
+    # Cursors (line + snapped marker + x/y label; positions persist
+    # across repaints, labels recomputed by the presenter)
     # =========================================================================
+
+    def display_cursor(
+        self,
+        slot: int,
+        cursor_index: int,
+        x: float,
+        y: float,
+        text: str,
+    ) -> None:
+        """Place a cursor's marker + label on the snapped data point
+        the presenter resolved (the line itself is never moved)."""
+        state = self._slots.get(slot)
+        if state is None or cursor_index >= len(state.cursors):
+            return
+        cursor = state.cursors[cursor_index]
+        px = self._to_axis(x, state.spec.x_log)
+        py = self._to_axis(y, state.spec.y_log)
+        cursor.marker.setPos(px, py)
+        cursor.label.setText(text)
+        cursor.label.setPos(px, py)
 
     def _sync_cursors(
         self,
         state: _SlotState,
         defaults: list[float],
         force: bool = False,
-    ) -> None:
+    ) -> bool:
+        """Match cursor count to the spec; True when items changed."""
         wanted = len(defaults)
+        changed = False
         if force:
-            for line in state.cursor_lines:
-                state.plot.removeItem(line)
-            state.cursor_lines.clear()
-        while len(state.cursor_lines) > wanted:
-            state.plot.removeItem(state.cursor_lines.pop())
-        while len(state.cursor_lines) < wanted:
-            index = len(state.cursor_lines)
-            state.cursor_lines.append(
+            for cursor in state.cursors:
+                self._remove_cursor(state, cursor)
+            state.cursors.clear()
+            changed = True
+        while len(state.cursors) > wanted:
+            self._remove_cursor(state, state.cursors.pop())
+            changed = True
+        while len(state.cursors) < wanted:
+            index = len(state.cursors)
+            state.cursors.append(
                 self._create_cursor(state, index, defaults[index])
             )
+            changed = True
+        return changed
 
-    def _create_cursor(self, state: _SlotState, cursor_index: int, x: float):
+    @staticmethod
+    def _remove_cursor(state: _SlotState, cursor: _Cursor) -> None:
+        for item in (cursor.line, cursor.marker, cursor.label):
+            state.plot.removeItem(item)
+
+    def _create_cursor(
+        self, state: _SlotState, cursor_index: int, x: float
+    ) -> _Cursor:
         colors = (P.GRAPH_CURSOR, P.GRAPH_CURSOR_ALT)
         color = colors[cursor_index % len(colors)]
+        pos = self._to_axis(x, state.spec.x_log)
         line = pg.InfiniteLine(
-            pos=self._to_axis(x, state.spec.x_log),
+            pos=pos,
             angle=90,
             movable=True,
             pen=pg.mkPen(color, width=2),
             hoverPen=pg.mkPen(P.ACCENT_HOVER, width=3),
         )
-        state.plot.addItem(line)
+        marker = pg.TargetItem(
+            pos=(pos, 0.0),
+            size=9,
+            movable=False,
+            pen=pg.mkPen(color),
+        )
+        label = pg.TextItem(color=P.TEXT_PRIMARY, anchor=(0, 1.2))
+        for item in (line, marker, label):
+            state.plot.addItem(item)
         slot = state.spec.index
         line.sigPositionChanged.connect(
             lambda _line, s=slot, i=cursor_index: self._on_cursor_moved(s, i)
         )
-        return line
+        return _Cursor(line=line, marker=marker, label=label)
+
+    def _notify_cursors(self, state: _SlotState) -> None:
+        """Report every cursor's line position so the presenter can
+        recompute the snapped markers/labels and the tab readout."""
+        for index, cursor in enumerate(state.cursors):
+            self.cursor_dragged.emit(
+                state.spec.index,
+                index,
+                self._from_axis(float(cursor.line.value()), state.spec.x_log),
+            )
 
     # =========================================================================
     # Log-coordinate conversions (pyqtgraph items live in log10 space
@@ -561,9 +644,9 @@ class GraphPlotArea(QWidget):
 
     def _on_cursor_moved(self, slot: int, cursor_index: int) -> None:
         state = self._slots.get(slot)
-        if state is None or cursor_index >= len(state.cursor_lines):
+        if state is None or cursor_index >= len(state.cursors):
             return
-        line = state.cursor_lines[cursor_index]
+        line = state.cursors[cursor_index].line
         self.cursor_dragged.emit(
             slot,
             cursor_index,

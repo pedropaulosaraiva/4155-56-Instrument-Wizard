@@ -744,8 +744,10 @@ class GraphPresenter(QObject):
     def _on_cursor_dragged(
         self, slot: int, cursor_index: int, x: float
     ) -> None:
-        """A cursor line slid — show the NEAREST data point (readout
-        only; the line itself is free, it never snaps or interpolates)."""
+        """A cursor line moved (user drag, creation or scene restore):
+        place the marker/label on the NEAREST data point and refresh
+        the View-tab readout.  The line itself slides freely — only the
+        marker snaps, and it never interpolates."""
         plot = self._scene.plots[slot]
         source = (
             plot.trace_by_id(plot.cursor_source_id)
@@ -761,7 +763,17 @@ class GraphPresenter(QObject):
         except ValueError:
             return
         self._cursor_points[(slot, cursor_index)] = (sx, sy)
-        self._view.display_cursor_readout(self._readout_text(slot))
+        self._view.display_cursor(
+            slot,
+            cursor_index,
+            sx,
+            sy,
+            tr_ui(TXT.GRAPH_CURSOR_READOUT).format(x=_fmt(sx), y=_fmt(sy)),
+        )
+        # The tab readout mirrors the ACTIVE plot (clicking a cursor to
+        # drag it activates its plot first, so drags always qualify).
+        if slot == self._scene.active_index:
+            self._view.display_cursor_readout(self._readout_text(slot))
 
     def _readout_text(self, slot: int) -> str:
         points = {
