@@ -9,6 +9,16 @@ DTOs defined here (``PlotRenderSpec`` / ``TraceRenderSpec``) and calls
 live on the view side so this module never imports from ``models/``
 (presenters may import views — never the reverse).
 
+Stateful rendering (zoom/pan/cursors survive repaints)
+------------------------------------------------------
+``display_scene`` does NOT rebuild the grid on every call.  Plots are
+updated **in place** (titles, labels, scales, traces, cursors…) so the
+user's zoom/pan state and cursor positions are untouched by style or
+config edits.  A full rebuild happens only when the grid geometry or
+the scene changes — and even then each scene's per-plot view state
+(``ViewBox.getState`` + cursor positions) is stashed by scene token and
+restored when the scene comes back.
+
 Engineering multipliers
 -----------------------
 pyqtgraph's automatic SI prefixing is disabled on every axis
@@ -16,9 +26,9 @@ pyqtgraph's automatic SI prefixing is disabled on every axis
 as a pre-computed ``AxisItem.setScale`` factor, so only the tick *text*
 is rescaled — the plotted data is never touched.
 
-Cursors snap: a drag emits ``cursor_dragged`` and the presenter answers
-with ``display_cursor`` positioned on the nearest real data point —
-never interpolated.
+Cursors are plain movable vertical lines (they slide freely — no
+snapping on the canvas); a drag emits ``cursor_dragged`` and the
+presenter shows the nearest real data point in the View tab readout.
 """
 
 from __future__ import annotations
@@ -103,7 +113,19 @@ class PlotRenderSpec:
     active: bool = False
     traces: list[TraceRenderSpec] = field(default_factory=list)
     roi: tuple[float, float] | None = None  # visible when not None
-    cursors: list[float] = field(default_factory=list)  # initial x's
+    cursors: list[float] = field(default_factory=list)  # default x's
+
+
+@dataclass
+class _SlotState:
+    """Runtime registry of one rendered grid cell."""
+
+    plot: pg.PlotItem
+    spec: PlotRenderSpec
+    legend: pg.LegendItem
+    curves: list = field(default_factory=list)
+    cursor_lines: list = field(default_factory=list)
+    roi_item: pg.LinearRegionItem | None = None
 
 
 # =============================================================================
@@ -115,8 +137,8 @@ class GraphPlotArea(QWidget):
     """pg.GraphicsLayoutWidget wrapper rendering one scene's plot grid."""
 
     plot_activated = Signal(int)  # slot index clicked
-    roi_region_changed = Signal(float, float)  # linear-domain (lo, hi)
-    cursor_dragged = Signal(int, float)  # (cursor_index, linear x)
+    roi_region_changed = Signal(int, float, float)  # (slot, lo, hi)
+    cursor_dragged = Signal(int, int, float)  # (slot, cursor, linear x)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -127,12 +149,12 @@ class GraphPlotArea(QWidget):
         self._glw = pg.GraphicsLayoutWidget()
         layout.addWidget(self._glw)
 
-        self._plots: dict[int, pg.PlotItem] = {}
-        self._cursors: dict[int, tuple] = {}  # cursor idx → (line, marker)
-        self._cursor_label: pg.TextItem | None = None
-        self._roi_item: pg.LinearRegionItem | None = None
-        self._active_index = 0
-        self._active_log_x = False
+        self._slots: dict[int, _SlotState] = {}
+        self._plots: dict[int, pg.PlotItem] = {}  # slot → PlotItem
+        self._scene_token: int | None = None
+        self._layout_key: tuple | None = None
+        #: (scene token, slot) → (ViewBox state, cursor linear x's).
+        self._view_stash: dict[tuple, tuple[dict, list[float]]] = {}
 
         self._glw.scene().sigMouseClicked.connect(self._on_scene_clicked)
 
@@ -147,14 +169,64 @@ class GraphPlotArea(QWidget):
         cols: int,
         active_index: int,
         maximized: bool,
+        scene_token: int,
     ) -> None:
-        """Full rebuild of the grid from the render specs."""
+        """Render the scene — in place when the geometry is unchanged."""
+        layout_key = (
+            rows,
+            cols,
+            maximized,
+            active_index if maximized else None,
+        )
+        if scene_token != self._scene_token or layout_key != self._layout_key:
+            self._rebuild(
+                specs,
+                rows,
+                cols,
+                active_index,
+                maximized,
+                scene_token,
+                layout_key,
+            )
+            return
+        for spec in specs:
+            state = self._slots.get(spec.index)
+            if state is not None:
+                self._update_slot(state, spec)
+
+    def reset_view(self, slot_index: int) -> None:
+        state = self._slots.get(slot_index)
+        if state is not None:
+            state.plot.autoRange()
+
+    def export_plot_png(self, slot_index: int, path: str) -> bool:
+        """Render one plot to a PNG file (pyqtgraph ImageExporter)."""
+        state = self._slots.get(slot_index)
+        if state is None:
+            return False
+        ImageExporter(state.plot).export(path)
+        return True
+
+    # =========================================================================
+    # Full rebuild (geometry / scene change) with view-state stash
+    # =========================================================================
+
+    def _rebuild(
+        self,
+        specs: list[PlotRenderSpec],
+        rows: int,
+        cols: int,
+        active_index: int,
+        maximized: bool,
+        scene_token: int,
+        layout_key: tuple,
+    ) -> None:
+        self._stash_view_states()
         self._glw.clear()
+        self._slots.clear()
         self._plots.clear()
-        self._cursors.clear()
-        self._cursor_label = None
-        self._roi_item = None
-        self._active_index = active_index
+        self._scene_token = scene_token
+        self._layout_key = layout_key
 
         by_index = {spec.index: spec for spec in specs}
         if maximized and active_index in by_index:
@@ -171,58 +243,64 @@ class GraphPlotArea(QWidget):
             if spec is None:
                 continue
             plot = self._glw.addPlot(row=row, col=col)
+            legend = plot.addLegend(
+                offset=(10, 10),
+                labelTextColor=P.TEXT_SECONDARY,
+                brush=pg.mkBrush(P.BG_PANEL),
+                pen=pg.mkPen(P.BORDER),
+            )
+            state = _SlotState(plot=plot, spec=spec, legend=legend)
+            self._slots[slot] = state
             self._plots[slot] = plot
-            self._render_plot(plot, spec)
+            self._apply_full(state)
+            self._restore_view_state(state)
 
-    def display_cursor(
-        self,
-        cursor_index: int,
-        x: float,
-        y: float,
-        text: str,
-    ) -> None:
-        """Snap a cursor onto the data point the presenter resolved."""
-        entry = self._cursors.get(cursor_index)
+    def _stash_view_states(self) -> None:
+        """Remember each slot's zoom/pan + cursor positions by token."""
+        if self._scene_token is None:
+            return
+        for slot, state in self._slots.items():
+            vb_state = state.plot.getViewBox().getState(copy=True)
+            cursor_xs = [
+                self._from_axis(float(line.value()), state.spec.x_log)
+                for line in state.cursor_lines
+            ]
+            self._view_stash[(self._scene_token, slot)] = (
+                vb_state,
+                cursor_xs,
+            )
+
+    def _restore_view_state(self, state: _SlotState) -> None:
+        entry = self._view_stash.get((self._scene_token, state.spec.index))
         if entry is None:
             return
-        line, marker = entry
-        pos_x = self._to_axis_x(x)
-        line.blockSignals(True)
-        line.setPos(pos_x)
-        line.blockSignals(False)
-        plot = self._plots.get(self._active_index)
-        marker.setPos(pos_x, self._to_axis_y(y))
-        if self._cursor_label is not None and plot is not None:
-            self._cursor_label.setText(text)
-            self._cursor_label.setPos(pos_x, self._to_axis_y(y))
-
-    def reset_view(self, slot_index: int) -> None:
-        plot = self._plots.get(slot_index)
-        if plot is not None:
-            plot.autoRange()
-
-    def export_plot_png(self, slot_index: int, path: str) -> bool:
-        """Render one plot to a PNG file (pyqtgraph ImageExporter)."""
-        plot = self._plots.get(slot_index)
-        if plot is None:
-            return False
-        ImageExporter(plot).export(path)
-        return True
+        vb_state, cursor_xs = entry
+        state.plot.getViewBox().setState(vb_state)
+        for line, x in zip(state.cursor_lines, cursor_xs):
+            line.blockSignals(True)
+            line.setPos(self._to_axis(x, state.spec.x_log))
+            line.blockSignals(False)
 
     # =========================================================================
-    # Rendering helpers
+    # Full apply (fresh plot)
     # =========================================================================
 
-    def _render_plot(self, plot: pg.PlotItem, spec: PlotRenderSpec) -> None:
-        self._setup_axes(plot, spec)
-        self._draw_traces(plot, spec)
-        self._apply_ranges(plot, spec)
-        self._apply_interaction(plot, spec)
-        if spec.active:
-            self._attach_roi(plot, spec)
-            self._attach_cursors(plot, spec)
+    def _apply_full(self, state: _SlotState) -> None:
+        spec = state.spec
+        plot = state.plot
+        self._apply_axes(state)
+        plot.setLogMode(x=spec.x_log, y=spec.y_log)
+        plot.showGrid(x=True, y=True, alpha=P.GRAPH_GRID_ALPHA)
+        self._draw_curves(state)
+        self._apply_range(state, "x", spec.x_range)
+        self._apply_range(state, "y", spec.y_range)
+        self._apply_interaction(state)
+        self._sync_roi(state, spec.roi, force=True)
+        self._sync_cursors(state, spec.cursors, force=True)
 
-    def _setup_axes(self, plot: pg.PlotItem, spec: PlotRenderSpec) -> None:
+    def _apply_axes(self, state: _SlotState) -> None:
+        spec = state.spec
+        plot = state.plot
         for side, scale in (
             ("bottom", spec.x_scale),
             ("left", spec.y_scale),
@@ -232,24 +310,92 @@ class GraphPlotArea(QWidget):
             axis.setScale(scale)
         plot.setLabel("bottom", spec.x_label or None)
         plot.setLabel("left", spec.y_label or None)
-        if spec.title:
-            plot.setTitle(spec.title)
-        plot.setLogMode(x=spec.x_log, y=spec.y_log)
-        plot.showGrid(x=True, y=True, alpha=P.GRAPH_GRID_ALPHA)
+        plot.setTitle(spec.title or None)
 
-    def _draw_traces(self, plot: pg.PlotItem, spec: PlotRenderSpec) -> None:
-        visible = [t for t in spec.traces if t.visible]
-        if len(visible) > 1:
-            plot.addLegend(
-                offset=(10, 10),
-                labelTextColor=P.TEXT_SECONDARY,
-                brush=pg.mkBrush(P.BG_PANEL),
-                pen=pg.mkPen(P.BORDER),
+    def _apply_range(
+        self,
+        state: _SlotState,
+        axis: str,
+        bounds: tuple[float, float] | None,
+    ) -> None:
+        vb = state.plot.getViewBox()
+        log = state.spec.x_log if axis == "x" else state.spec.y_log
+        if bounds is None:
+            vb.enableAutoRange(
+                axis=pg.ViewBox.XAxis if axis == "x" else pg.ViewBox.YAxis
             )
-        for trace in visible:
+            return
+        lo, hi = self._axis_bounds(bounds, log)
+        if axis == "x":
+            vb.setXRange(lo, hi, padding=0)
+        else:
+            vb.setYRange(lo, hi, padding=0)
+
+    def _apply_interaction(self, state: _SlotState) -> None:
+        vb = state.plot.getViewBox()
+        vb.setMouseMode(
+            pg.ViewBox.RectMode
+            if state.spec.mouse_mode == "zoom"
+            else pg.ViewBox.PanMode
+        )
+        vb.setBorder(
+            pg.mkPen(P.ACCENT, width=2)
+            if state.spec.active
+            else pg.mkPen(P.BORDER, width=1)
+        )
+
+    # =========================================================================
+    # In-place update (no zoom/pan/cursor loss)
+    # =========================================================================
+
+    def _update_slot(self, state: _SlotState, spec: PlotRenderSpec) -> None:
+        old = state.spec
+        state.spec = spec
+        plot = state.plot
+
+        if (
+            spec.title != old.title
+            or spec.x_label != old.x_label
+            or spec.y_label != old.y_label
+            or spec.x_scale != old.x_scale
+            or spec.y_scale != old.y_scale
+        ):
+            self._apply_axes(state)
+
+        log_changed = spec.x_log != old.x_log or spec.y_log != old.y_log
+        if log_changed:
+            plot.setLogMode(x=spec.x_log, y=spec.y_log)
+
+        # Ranges are only touched when their *configuration* changed —
+        # a plain repaint never clobbers the user's zoom/pan.
+        if log_changed or spec.x_range != old.x_range:
+            self._apply_range(state, "x", spec.x_range)
+        if log_changed or spec.y_range != old.y_range:
+            self._apply_range(state, "y", spec.y_range)
+
+        if spec.mouse_mode != old.mouse_mode or spec.active != old.active:
+            self._apply_interaction(state)
+
+        if spec.traces != old.traces:
+            self._draw_curves(state)
+
+        self._sync_roi(state, spec.roi)
+        self._sync_cursors(state, spec.cursors)
+
+    # =========================================================================
+    # Curves
+    # =========================================================================
+
+    def _draw_curves(self, state: _SlotState) -> None:
+        for curve in state.curves:
+            state.plot.removeItem(curve)  # also drops its legend entry
+        state.curves.clear()
+        for trace in state.spec.traces:
+            if not trace.visible:
+                continue
             pen = self._make_pen(trace)
             symbol = _MARKERS.get(trace.marker)
-            plot.plot(
+            item = state.plot.plot(
                 trace.x,
                 trace.y,
                 pen=pen,
@@ -260,6 +406,7 @@ class GraphPlotArea(QWidget):
                 symbolBrush=pg.mkBrush(self._color(trace)),
                 connect="finite",  # break lines at nan — never bridge
             )
+            state.curves.append(item)
 
     @staticmethod
     def _color(trace: TraceRenderSpec):
@@ -273,79 +420,110 @@ class GraphPlotArea(QWidget):
             return None
         return pg.mkPen(self._color(trace), width=trace.width, style=style)
 
-    def _apply_ranges(self, plot: pg.PlotItem, spec: PlotRenderSpec) -> None:
-        vb = plot.getViewBox()
-        if spec.x_range is None:
-            vb.enableAutoRange(axis=pg.ViewBox.XAxis)
-        else:
-            lo, hi = self._axis_bounds(spec.x_range, spec.x_log)
-            vb.setXRange(lo, hi, padding=0)
-        if spec.y_range is None:
-            vb.enableAutoRange(axis=pg.ViewBox.YAxis)
-        else:
-            lo, hi = self._axis_bounds(spec.y_range, spec.y_log)
-            vb.setYRange(lo, hi, padding=0)
+    # =========================================================================
+    # ROI (kept across repaints; recreated only on enable/disable)
+    # =========================================================================
 
-    def _apply_interaction(
-        self, plot: pg.PlotItem, spec: PlotRenderSpec
+    def _sync_roi(
+        self,
+        state: _SlotState,
+        roi: tuple[float, float] | None,
+        force: bool = False,
     ) -> None:
-        vb = plot.getViewBox()
-        vb.setMouseMode(
-            pg.ViewBox.RectMode
-            if spec.mouse_mode == "zoom"
-            else pg.ViewBox.PanMode
-        )
-        vb.setBorder(
-            pg.mkPen(P.ACCENT, width=2)
-            if spec.active
-            else pg.mkPen(P.BORDER, width=1)
-        )
-        if spec.active:
-            self._active_log_x = spec.x_log
-
-    def _attach_roi(self, plot: pg.PlotItem, spec: PlotRenderSpec) -> None:
-        if spec.roi is None:
+        if roi is None:
+            if state.roi_item is not None:
+                state.plot.removeItem(state.roi_item)
+                state.roi_item = None
             return
-        lo, hi = self._axis_bounds(spec.roi, spec.x_log)
-        roi = pg.LinearRegionItem(
-            values=(lo, hi),
-            orientation="vertical",
-            brush=pg.mkBrush(self._roi_brush_color()),
-            pen=pg.mkPen(P.ACCENT),
-        )
-        roi.setZValue(-10)
-        plot.addItem(roi)
-        roi.sigRegionChangeFinished.connect(self._on_roi_changed)
-        self._roi_item = roi
+        bounds = self._axis_bounds(roi, state.spec.x_log)
+        if state.roi_item is None or force:
+            if state.roi_item is not None:
+                state.plot.removeItem(state.roi_item)
+            item = pg.LinearRegionItem(
+                values=bounds,
+                orientation="vertical",
+                brush=pg.mkBrush(self._roi_brush_color()),
+                pen=pg.mkPen(P.ACCENT),
+            )
+            item.setZValue(-10)
+            state.plot.addItem(item)
+            slot = state.spec.index
+            item.sigRegionChangeFinished.connect(
+                lambda _item, s=slot: self._on_roi_changed(s)
+            )
+            state.roi_item = item
+            return
+        # Same item — only nudge it when the stored region differs
+        # (e.g. restored from persistence), signals blocked.
+        current = state.roi_item.getRegion()
+        if not all(
+            math.isclose(a, b, rel_tol=1e-12, abs_tol=1e-12)
+            for a, b in zip(current, bounds)
+        ):
+            state.roi_item.blockSignals(True)
+            state.roi_item.setRegion(bounds)
+            state.roi_item.blockSignals(False)
 
-    def _attach_cursors(self, plot: pg.PlotItem, spec: PlotRenderSpec) -> None:
+    @staticmethod
+    def _roi_brush_color():
+        color = pg.mkColor(P.GRAPH_ROI)
+        color.setAlphaF(0.35)
+        return color
+
+    # =========================================================================
+    # Cursors (plain movable lines — positions persist across repaints)
+    # =========================================================================
+
+    def _sync_cursors(
+        self,
+        state: _SlotState,
+        defaults: list[float],
+        force: bool = False,
+    ) -> None:
+        wanted = len(defaults)
+        if force:
+            for line in state.cursor_lines:
+                state.plot.removeItem(line)
+            state.cursor_lines.clear()
+        while len(state.cursor_lines) > wanted:
+            state.plot.removeItem(state.cursor_lines.pop())
+        while len(state.cursor_lines) < wanted:
+            index = len(state.cursor_lines)
+            state.cursor_lines.append(
+                self._create_cursor(state, index, defaults[index])
+            )
+
+    def _create_cursor(self, state: _SlotState, cursor_index: int, x: float):
         colors = (P.GRAPH_CURSOR, P.GRAPH_CURSOR_ALT)
-        for cursor_index, x in enumerate(spec.cursors):
-            pen = pg.mkPen(colors[cursor_index % len(colors)], width=1)
-            line = pg.InfiniteLine(
-                pos=self._to_axis_x(x),
-                angle=90,
-                movable=True,
-                pen=pen,
-                hoverPen=pg.mkPen(P.ACCENT_HOVER, width=2),
-            )
-            marker = pg.TargetItem(
-                pos=(self._to_axis_x(x), 0.0),
-                size=9,
-                movable=False,
-                pen=pen,
-            )
-            plot.addItem(line)
-            plot.addItem(marker)
-            line.sigPositionChanged.connect(
-                lambda _line, idx=cursor_index: self._on_cursor_moved(idx)
-            )
-            self._cursors[cursor_index] = (line, marker)
-        if spec.cursors:
-            self._cursor_label = pg.TextItem(
-                color=P.TEXT_PRIMARY, anchor=(0, 1.2)
-            )
-            plot.addItem(self._cursor_label)
+        color = colors[cursor_index % len(colors)]
+        line = pg.InfiniteLine(
+            pos=self._to_axis(x, state.spec.x_log),
+            angle=90,
+            movable=True,
+            pen=pg.mkPen(color, width=2),
+            hoverPen=pg.mkPen(P.ACCENT_HOVER, width=3),
+        )
+        state.plot.addItem(line)
+        slot = state.spec.index
+        line.sigPositionChanged.connect(
+            lambda _line, s=slot, i=cursor_index: self._on_cursor_moved(s, i)
+        )
+        return line
+
+    # =========================================================================
+    # Log-coordinate conversions (pyqtgraph items live in log10 space
+    # when the axis is in log mode; signals always carry linear values)
+    # =========================================================================
+
+    @staticmethod
+    def _to_axis(x: float, log: bool) -> float:
+        if log:
+            return math.log10(x) if x > 0 else 0.0
+        return x
+
+    @staticmethod
+    def _from_axis(pos: float, log: bool) -> float:
+        return 10.0**pos if log else pos
 
     @staticmethod
     def _axis_bounds(
@@ -359,55 +537,35 @@ class GraphPlotArea(QWidget):
         safe_hi = math.log10(hi) if hi > 0 else 0.0
         return safe_lo, safe_hi
 
-    @staticmethod
-    def _roi_brush_color():
-        color = pg.mkColor(P.GRAPH_ROI)
-        color.setAlphaF(0.35)
-        return color
-
-    # =========================================================================
-    # Log-coordinate conversions (pyqtgraph items live in log10 space
-    # when the axis is in log mode; signals always carry linear values)
-    # =========================================================================
-
-    def _to_axis_x(self, x: float) -> float:
-        if self._active_log_x:
-            return math.log10(x) if x > 0 else 0.0
-        return x
-
-    def _to_axis_y(self, y: float) -> float:
-        plot = self._plots.get(self._active_index)
-        if plot is not None and plot.getAxis("left").logMode:
-            return math.log10(y) if y > 0 else 0.0
-        return y
-
-    def _from_axis_x(self, pos: float) -> float:
-        return 10.0**pos if self._active_log_x else pos
-
     # =========================================================================
     # Internal event handlers → signals
     # =========================================================================
 
     def _on_scene_clicked(self, event) -> None:
         pos = event.scenePos()
-        for slot, plot in self._plots.items():
-            if plot.sceneBoundingRect().contains(pos):
+        for slot, state in self._slots.items():
+            if state.plot.sceneBoundingRect().contains(pos):
                 self.plot_activated.emit(slot)
                 return
 
-    def _on_roi_changed(self) -> None:
-        if self._roi_item is None:
+    def _on_roi_changed(self, slot: int) -> None:
+        state = self._slots.get(slot)
+        if state is None or state.roi_item is None:
             return
-        lo, hi = self._roi_item.getRegion()
+        lo, hi = state.roi_item.getRegion()
         self.roi_region_changed.emit(
-            self._from_axis_x(float(lo)), self._from_axis_x(float(hi))
+            slot,
+            self._from_axis(float(lo), state.spec.x_log),
+            self._from_axis(float(hi), state.spec.x_log),
         )
 
-    def _on_cursor_moved(self, cursor_index: int) -> None:
-        entry = self._cursors.get(cursor_index)
-        if entry is None:
+    def _on_cursor_moved(self, slot: int, cursor_index: int) -> None:
+        state = self._slots.get(slot)
+        if state is None or cursor_index >= len(state.cursor_lines):
             return
-        line, _marker = entry
+        line = state.cursor_lines[cursor_index]
         self.cursor_dragged.emit(
-            cursor_index, self._from_axis_x(float(line.value()))
+            slot,
+            cursor_index,
+            self._from_axis(float(line.value()), state.spec.x_log),
         )

@@ -108,12 +108,18 @@ class GraphPresenter(QObject):
 
         self._scenes: list[SceneConfig] = [self._default_scene(1)]
         self._scene_index = 0
+        # Monotonic tokens identify scenes across their lifetime so the
+        # plot area can stash/restore per-scene zoom & cursor positions
+        # (list indices shift when scenes close — tokens never do).
+        self._token_seq = 1
+        self._scene_tokens: list[int] = [0]
 
         # Runtime caches (never persisted).
         self._data_cache: dict[int, dict[str, list[float]]] = {}
         self._var_names: dict[int, list[str]] = {}
         self._exec_labels: dict[int, str] = {}
-        self._cursor_points: dict[int, tuple[float, float]] = {}
+        #: (slot, cursor index) → last nearest data point (readout).
+        self._cursor_points: dict[tuple[int, int], tuple[float, float]] = {}
         self._pending_renders: set[str] = set()
 
         self._save_timer = QTimer(self)
@@ -246,8 +252,14 @@ class GraphPresenter(QObject):
     # Persistence
     # =========================================================================
 
+    def _new_token(self) -> int:
+        token = self._token_seq
+        self._token_seq += 1
+        return token
+
     def _load_scenes(self) -> None:
         self._scenes = [self._default_scene(1)]
+        self._scene_tokens = [self._new_token()]
         self._scene_index = 0
         db = self._projects.current_db
         if db is None:
@@ -257,6 +269,7 @@ class GraphPresenter(QObject):
         if not rows:
             return
         self._scenes = [SceneConfig.from_dict(row.scene_data) for row in rows]
+        self._scene_tokens = [self._new_token() for _ in self._scenes]
         valid_ids = self._all_execution_ids()
         for scene in self._scenes:
             for plot in scene.plots:
@@ -390,6 +403,7 @@ class GraphPresenter(QObject):
 
     def _on_scene_add(self) -> None:
         self._scenes.append(self._default_scene(len(self._scenes) + 1))
+        self._scene_tokens.append(self._new_token())
         self._scene_index = len(self._scenes) - 1
         self._schedule_save()
         self._render_all()
@@ -405,6 +419,7 @@ class GraphPresenter(QObject):
         if answer != QMessageBox.StandardButton.Yes:
             return
         self._scenes.pop(index)
+        self._scene_tokens.pop(index)
         self._scene_index = min(self._scene_index, len(self._scenes) - 1)
         self._schedule_save()
         self._render_all()
@@ -412,6 +427,9 @@ class GraphPresenter(QObject):
     def _on_scene_changed(self, index: int) -> None:
         if 0 <= index < len(self._scenes) and index != self._scene_index:
             self._scene_index = index
+            # Readout memory is per (slot, cursor) — slots collide
+            # between scenes, so drop it (cursor *positions* survive in
+            # the plot area's per-scene stash).
             self._cursor_points.clear()
             self._render_body()
 
@@ -428,7 +446,6 @@ class GraphPresenter(QObject):
     def _on_plot_activated(self, slot: int) -> None:
         if slot != self._scene.active_index:
             self._scene.active_index = slot
-            self._cursor_points.clear()
             self._schedule_save()
             self._render_body()
 
@@ -549,16 +566,20 @@ class GraphPresenter(QObject):
         plot.cursor_mode = mode
         if plot.cursor_source_id is None and plot.traces:
             plot.cursor_source_id = plot.traces[0].id
-        self._cursor_points.clear()
+        self._drop_readout(self._scene.active_index)
         self._schedule_save()
         self._render_plot_area()
         self._view.display_cursor_readout("")
 
     def _on_cursor_source(self, trace_id: str) -> None:
         self._plot.cursor_source_id = trace_id
-        self._cursor_points.clear()
+        self._drop_readout(self._scene.active_index)
         self._schedule_save()
         self._view.display_cursor_readout("")
+
+    def _drop_readout(self, slot: int) -> None:
+        for key in [k for k in self._cursor_points if k[0] == slot]:
+            del self._cursor_points[key]
 
     def _on_roi_enabled(self, on: bool) -> None:
         plot = self._plot
@@ -579,9 +600,9 @@ class GraphPresenter(QObject):
                 return lo + 0.25 * span, hi - 0.25 * span
         return 0.0, 1.0
 
-    def _on_roi_region(self, lo: float, hi: float) -> None:
+    def _on_roi_region(self, slot: int, lo: float, hi: float) -> None:
         # No re-render — the item is already where the user dragged it.
-        self._plot.roi = (lo, hi)
+        self._scene.plots[slot].roi = (lo, hi)
         self._schedule_save()
 
     def _on_plot_title(self, title: str) -> None:
@@ -720,8 +741,12 @@ class GraphPresenter(QObject):
     # View-signal handlers — cursors / export
     # =========================================================================
 
-    def _on_cursor_dragged(self, cursor_index: int, x: float) -> None:
-        plot = self._plot
+    def _on_cursor_dragged(
+        self, slot: int, cursor_index: int, x: float
+    ) -> None:
+        """A cursor line slid — show the NEAREST data point (readout
+        only; the line itself is free, it never snaps or interpolates)."""
+        plot = self._scene.plots[slot]
         source = (
             plot.trace_by_id(plot.cursor_source_id)
             if plot.cursor_source_id
@@ -735,21 +760,21 @@ class GraphPresenter(QObject):
             _idx, sx, sy = nearest_point(source.x, source.y, x)
         except ValueError:
             return
-        self._cursor_points[cursor_index] = (sx, sy)
-        text = tr_ui(TXT.GRAPH_CURSOR_READOUT).format(x=_fmt(sx), y=_fmt(sy))
-        self._view.display_cursor(cursor_index, sx, sy, text)
-        self._view.display_cursor_readout(self._readout_text())
+        self._cursor_points[(slot, cursor_index)] = (sx, sy)
+        self._view.display_cursor_readout(self._readout_text(slot))
 
-    def _readout_text(self) -> str:
+    def _readout_text(self, slot: int) -> str:
+        points = {
+            idx: xy
+            for (s, idx), xy in self._cursor_points.items()
+            if s == slot
+        }
         parts = [
             f"c{idx + 1}: "
             + tr_ui(TXT.GRAPH_CURSOR_READOUT).format(x=_fmt(x), y=_fmt(y))
-            for idx, (x, y) in sorted(self._cursor_points.items())
+            for idx, (x, y) in sorted(points.items())
         ]
-        both = (
-            self._cursor_points.get(0),
-            self._cursor_points.get(1),
-        )
+        both = (points.get(0), points.get(1))
         if all(p is not None for p in both):
             (x0, y0), (x1, y1) = both
             dx, dy = x1 - x0, y1 - y0
@@ -970,6 +995,9 @@ class GraphPresenter(QObject):
             plot.cursor_source_id,
             plot.roi_enabled,
         )
+        self._view.display_cursor_readout(
+            self._readout_text(self._scene.active_index)
+        )
         self._view.display_labels(
             plot.title, plot.axis_x.label, plot.axis_y.label
         )
@@ -1040,6 +1068,7 @@ class GraphPresenter(QObject):
             scene.cols,
             scene.active_index,
             scene.maximized,
+            self._scene_tokens[self._scene_index],
         )
 
     def _plot_spec(
@@ -1075,8 +1104,8 @@ class GraphPresenter(QObject):
                 )
                 for t in plot.traces
             ],
-            roi=(plot.roi if active and plot.roi_enabled else None),
-            cursors=self._cursor_positions(plot) if active else [],
+            roi=(plot.roi if plot.roi_enabled else None),
+            cursors=self._cursor_positions(plot),
         )
 
     @staticmethod
@@ -1101,13 +1130,11 @@ class GraphPresenter(QObject):
         return (cfg.min_val, cfg.max_val)
 
     def _cursor_positions(self, plot: PlotConfig) -> list[float]:
+        """Default x positions for NEWLY created cursor lines only —
+        existing lines keep their live position in the plot area."""
         count = {"off": 0, "single": 1, "dual": 2}.get(plot.cursor_mode, 0)
         if count == 0:
             return []
         lo, hi = self._default_roi(plot)  # finite x span anchors
         span = hi - lo
-        defaults = [lo + span * 0.5, lo + span * 0.9]
-        return [
-            self._cursor_points.get(i, (defaults[i], 0.0))[0]
-            for i in range(count)
-        ]
+        return [lo + span * 0.5, lo + span * 0.9][:count]

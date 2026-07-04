@@ -60,8 +60,8 @@ class GraphPageView(BasePage):
 
     # ── Plot area ────────────────────────────────────────────────────────────
     plot_activated = Signal(int)
-    roi_region_changed = Signal(float, float)
-    cursor_dragged = Signal(int, float)
+    roi_region_changed = Signal(int, float, float)  # (slot, lo, hi)
+    cursor_dragged = Signal(int, int, float)  # (slot, cursor, x)
 
     # ── Data tab ─────────────────────────────────────────────────────────────
     execution_check_changed = Signal(int, bool)
@@ -221,14 +221,17 @@ class GraphPageView(BasePage):
     # ── Plot area ────────────────────────────────────────────────────────────
 
     def display_scene(
-        self, specs, rows: int, cols: int, active: int, maximized: bool
+        self,
+        specs,
+        rows: int,
+        cols: int,
+        active: int,
+        maximized: bool,
+        scene_token: int,
     ) -> None:
-        self.plot_area.display_scene(specs, rows, cols, active, maximized)
-
-    def display_cursor(
-        self, cursor_index: int, x: float, y: float, text: str
-    ) -> None:
-        self.plot_area.display_cursor(cursor_index, x, y, text)
+        self.plot_area.display_scene(
+            specs, rows, cols, active, maximized, scene_token
+        )
 
     def reset_plot_view(self, slot_index: int) -> None:
         self.plot_area.reset_view(slot_index)
