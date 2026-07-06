@@ -179,7 +179,22 @@ class QuickActionsPanel(QFrame):
         self._apply_styles()
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        # Content lives in a scroll area so that on short windows the panel
+        # grows a scrollbar instead of clipping its fixed-height buttons.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("background-color: transparent; border: none;")
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+
+        container = QWidget()
+        container.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(container)
         layout.setContentsMargins(20, 24, 20, 24)
         layout.setSpacing(24)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -226,6 +241,9 @@ class QuickActionsPanel(QFrame):
         version.setStyleSheet(version_label_stylesheet())
         version.setAlignment(Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(version)
+
+        scroll.setWidget(container)
+        outer.addWidget(scroll)
 
     @staticmethod
     def _make_primary_btn(icon: str, title: str, desc: str) -> QPushButton:

@@ -26,7 +26,7 @@ Responsibilities
 """
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -85,7 +85,17 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Wizard 4155/4156 — Semiconductor Analyzer")
-        self.setMinimumSize(1300, 760)
+        # Clamp the design minimum to the primary screen so the window (and
+        # its layouts) never exceeds the logical desktop on small / high-DPI
+        # displays (e.g. Full HD at 150% scaling → 1280×720 logical).
+        available = QGuiApplication.primaryScreen().availableGeometry()
+        self.setMinimumSize(
+            min(P.WINDOW_MIN_WIDTH, available.width()),
+            min(
+                P.WINDOW_MIN_HEIGHT,
+                available.height() - P.WINDOW_FRAME_ALLOWANCE,
+            ),
+        )
 
         # ── Core models ──────────────────────────────────────────────────────
         self._recent_manager = RecentProjectsManager()

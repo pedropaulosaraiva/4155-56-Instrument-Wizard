@@ -113,6 +113,9 @@ class _Palette:
     RADIUS_PILL: str = "14px"
     # TODO: int values bellow go to Qt layout math,
     # while the str values are for QSS strings so this shouldn't be mixed
+    WINDOW_MIN_WIDTH: int = 1300  # px — MainWindow design minimum width
+    WINDOW_MIN_HEIGHT: int = 760  # px — MainWindow design minimum height
+    WINDOW_FRAME_ALLOWANCE: int = 32  # px — OS title bar / frame headroom
     TOP_BAR_HEIGHT: int = 84  # px — ConnectionTopBar fixed height
     CARD_WIDTH: int = 220  # px — ProjectCard fixed width
     CARD_HEIGHT: int = 180  # px — ProjectCard fixed height
