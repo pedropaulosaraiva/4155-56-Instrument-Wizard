@@ -627,6 +627,15 @@ def global_option_checkbox_stylesheet() -> str:
         }}
         QCheckBox::indicator:unchecked {{ background-color: {P.BG_DEEP}; }}
         QCheckBox::indicator:hover {{ border-color: {P.ACCENT_HOVER}; }}
+        QCheckBox:disabled {{ color: {P.TEXT_DISABLED}; }}
+        QCheckBox::indicator:disabled {{
+            background-color: {P.BG_ELEVATED};
+            border-color: {P.BG_ELEVATED};
+        }}
+        QCheckBox::indicator:checked:disabled {{
+            background-color: {P.ACCENT_MUTED};
+            border-color: {P.ACCENT_MUTED};
+        }}
     """
 
 
@@ -775,7 +784,23 @@ def unit_card_combo_stylesheet() -> str:
     """
 
 
-def unit_card_line_edit_stylesheet() -> str:
+def unit_card_line_edit_stylesheet(dim_disabled: bool = False) -> str:
+    """``dim_disabled`` recolors the disabled state (panel bg, softer
+    text) so inactive fields visibly recede — opt-in to keep the other
+    config pages pixel-identical."""
+    if dim_disabled:
+        disabled_rule = f"""
+        QLineEdit:disabled {{
+            background-color: {P.BG_PANEL};
+            color: {P.TEXT_DISABLED_SOFT};
+            border-color: {P.BG_ELEVATED};
+        }}"""
+    else:
+        disabled_rule = f"""
+        QLineEdit:disabled {{
+            color: {P.TEXT_DISABLED};
+            border-color: {P.BG_ELEVATED};
+        }}"""
     return f"""
         QLineEdit {{
             background-color: {P.BG_INPUT};
@@ -786,11 +811,7 @@ def unit_card_line_edit_stylesheet() -> str:
             font-size: {P.FONT_SIZE_SM};
             font-family: {P.FONT_FAMILY_MONO};
         }}
-        QLineEdit:focus {{ border-color: {P.ACCENT}; }}
-        QLineEdit:disabled {{
-            color: {P.TEXT_DISABLED};
-            border-color: {P.BG_ELEVATED};
-        }}
+        QLineEdit:focus {{ border-color: {P.ACCENT}; }}{disabled_rule}
     """
 
 
@@ -955,6 +976,11 @@ def segmented_btn_checked_stylesheet(compact: bool = False) -> str:
             font-weight: bold;
             border-radius: 0;
         }}
+        QPushButton:disabled {{
+            background-color: {P.ACCENT_MUTED};
+            border-color: {P.ACCENT_MUTED};
+            color: {P.TEXT_MUTED};
+        }}
     """
 
 
@@ -972,6 +998,11 @@ def segmented_btn_unchecked_stylesheet(compact: bool = False) -> str:
         QPushButton:hover {{
             background-color: {P.BG_ELEVATED};
             color: {P.TEXT_WHITE};
+        }}
+        QPushButton:disabled {{
+            background-color: {P.BG_DEEP};
+            border-color: {P.BG_ELEVATED};
+            color: {P.TEXT_DISABLED};
         }}
     """
 
@@ -1733,6 +1764,7 @@ def graph_scene_tabbar_stylesheet() -> str:
             background-color: {P.BG_PANEL};
             color: {P.TEXT_SECONDARY};
             border: 1px solid {P.BORDER};
+            border-top: 2px solid {P.BORDER};
             border-bottom: none;
             border-top-left-radius: {P.RADIUS_SM};
             border-top-right-radius: {P.RADIUS_SM};
@@ -1742,6 +1774,7 @@ def graph_scene_tabbar_stylesheet() -> str:
         QTabBar::tab:selected {{
             background-color: {P.ACCENT_MUTED};
             color: {P.TEXT_WHITE};
+            border-top-color: {P.ACCENT};
         }}
         QTabBar::tab:hover:!selected {{
             background-color: {P.BG_ELEVATED};
@@ -1771,8 +1804,14 @@ def graph_add_scene_button_stylesheet() -> str:
     """
 
 
-def graph_sidebar_stylesheet() -> str:
-    """The right sidebar: permanent Data / View / Analysis tabs."""
+def graph_sidebar_stylesheet(active_accent: str | None = None) -> str:
+    """The right sidebar: permanent Data / Plot / Tools / Analysis tabs.
+
+    ``active_accent`` colors the selected tab's top marker and text with
+    the active tab's hue family; ``GraphSidebar`` regenerates the QSS on
+    every tab switch (per-tab colors can't live in one static QSS)."""
+    accent = active_accent or P.ACCENT
+    selected_text = active_accent or P.TEXT_WHITE
     return f"""
         QTabWidget::pane {{
             background-color: {P.BG_PANEL};
@@ -1784,6 +1823,7 @@ def graph_sidebar_stylesheet() -> str:
             background-color: {P.BG_DEEP};
             color: {P.TEXT_SECONDARY};
             border: 1px solid {P.BORDER};
+            border-top: 2px solid {P.BORDER};
             border-bottom: none;
             border-top-left-radius: {P.RADIUS_SM};
             border-top-right-radius: {P.RADIUS_SM};
@@ -1793,7 +1833,8 @@ def graph_sidebar_stylesheet() -> str:
         }}
         QTabBar::tab:selected {{
             background-color: {P.BG_PANEL};
-            color: {P.TEXT_WHITE};
+            color: {selected_text};
+            border-top-color: {accent};
             font-weight: bold;
         }}
         QTabBar::tab:hover:!selected {{
@@ -1913,7 +1954,7 @@ def graph_dataset_tree_stylesheet() -> str:
             color: {P.TEXT_WHITE};
         }}
         QTreeWidget::item:disabled {{
-            color: {P.TEXT_DISABLED};
+            color: {P.TEXT_DISABLED_SOFT};
         }}
         {_graph_thin_vscrollbar_qss()}
     """
@@ -1978,6 +2019,6 @@ def graph_analysis_message_stylesheet() -> str:
 def graph_cursor_readout_stylesheet() -> str:
     """Monospace cursor x/y (and Δ) readout label in the View tab."""
     return (
-        f"QLabel {{ color: {P.STATUS_INFO}; font-size: {P.FONT_SIZE_XS}; "
+        f"QLabel {{ color: {P.STATUS_INFO}; font-size: {P.FONT_SIZE_SM}; "
         f"font-family: {P.FONT_FAMILY_MONO}; background: transparent; }}"
     )

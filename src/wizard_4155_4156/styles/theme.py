@@ -37,6 +37,7 @@ class _Palette:
     TEXT_SECONDARY: str = "#cccccc"
     TEXT_MUTED: str = "#858585"
     TEXT_DISABLED: str = "#656565"
+    TEXT_DISABLED_SOFT: str = "#8a8a8a"  # disabled text on darkest bgs
     TEXT_WHITE: str = "#ffffff"
 
     # ── Semantic status ──────────────────────────────────────────────────────
@@ -69,7 +70,7 @@ class _Palette:
         "#b5cea8",  # sage
         "#ce9178",  # copper
     )
-    GRAPH_GRID_ALPHA: float = 0.12  # pyqtgraph showGrid alpha (data > grid)
+    GRAPH_GRID_ALPHA: float = 0.22  # pyqtgraph showGrid alpha (data > grid)
     GRAPH_SIDEBAR_WIDTH: int = 340  # px — scene sidebar default splitter size
     GRAPH_SIDEBAR_MIN_WIDTH: int = 280  # px — splitter lower bound
     GRAPH_SIDEBAR_MAX_WIDTH: int = 560  # px — splitter upper bound
@@ -80,6 +81,12 @@ class _Palette:
     GRAPH_ROI: str = "#094771"  # ROI region fill base (ACCENT_MUTED)
     GRAPH_ROI_ALPHA: float = 0.15  # ROI fill opacity (range hint, not a veil)
     GRAPH_FIT_COLOR: str = "#ffffff"  # default fit-trace color
+    # Sidebar tab hue families (section headers, separators, selected-tab
+    # marker) — one hue per sidebar tab: Data / Plot / Tools / Analysis.
+    GRAPH_TAB_DATA: str = "#4ec9b0"  # teal (same hue as STATUS_OK)
+    GRAPH_TAB_PLOT: str = "#0098ff"  # blue (same hue as ACCENT_HOVER)
+    GRAPH_TAB_TOOLS: str = "#dcdcaa"  # amber (same hue as STATUS_WARN)
+    GRAPH_TAB_ANALYSIS: str = "#c586c0"  # purple (same hue as FUNC_VARD)
 
     # ── Navigation bar ───────────────────────────────────────────────────────
     NAV_ACTIVE_BG: str = "#094771"

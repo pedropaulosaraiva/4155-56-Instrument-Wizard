@@ -328,6 +328,7 @@ class SciDoubleEdit(QWidget):
         max_v: float,
         unit: str = "",
         disallow_zero: bool = False,
+        dim_when_disabled: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -340,7 +341,9 @@ class SciDoubleEdit(QWidget):
         h.setSpacing(4)
 
         self._edit = QLineEdit()
-        self._edit.setStyleSheet(unit_card_line_edit_stylesheet())
+        self._edit.setStyleSheet(
+            unit_card_line_edit_stylesheet(dim_disabled=dim_when_disabled)
+        )
 
         # Use SciDoubleValidator with wide bounds to accept all float values
         self._validator = SciDoubleValidator(-1e300, 1e300, self._edit)

@@ -41,6 +41,7 @@ from wizard_4155_4156.styles.stylesheets import (
     unit_card_combo_stylesheet,
     unit_card_line_edit_stylesheet,
 )
+from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.widgets.config_sections import (
     SciDoubleEdit,
     SectionFrame,
@@ -94,7 +95,9 @@ class _AxisSection:
     """The X-axis or Y-axis SectionFrame (built once per axis)."""
 
     def __init__(self, owner: "GraphPlotTab", axis: str, title: str):
-        self.section = SectionFrame(title, flat=True)
+        self.section = SectionFrame(
+            title, flat=True, accent=P.GRAPH_TAB_PLOT
+        )
         body = self.section.body()
 
         self.var_combo = combo([])
@@ -111,8 +114,12 @@ class _AxisSection:
         body.addWidget(self.auto_chk)
         body.addWidget(self.log_chk)
 
-        self.min_edit = SciDoubleEdit(0.0, -_BOUND_LIMIT, _BOUND_LIMIT)
-        self.max_edit = SciDoubleEdit(1.0, -_BOUND_LIMIT, _BOUND_LIMIT)
+        self.min_edit = SciDoubleEdit(
+            0.0, -_BOUND_LIMIT, _BOUND_LIMIT, dim_when_disabled=True
+        )
+        self.max_edit = SciDoubleEdit(
+            1.0, -_BOUND_LIMIT, _BOUND_LIMIT, dim_when_disabled=True
+        )
         body.addWidget(
             form_row(tr_ui(TXT.GRAPH_LBL_MIN), self.min_edit, _LABEL_WIDTH)
         )
@@ -300,7 +307,9 @@ class GraphPlotTab(QWidget):
     # ── Build helpers ───────────────────────────────────────────────────────
 
     def _build_labels_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_LABELS), flat=True)
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_LABELS), flat=True, accent=P.GRAPH_TAB_PLOT
+        )
         body = section.body()
 
         self._title_edit = QLineEdit()
@@ -334,7 +343,9 @@ class GraphPlotTab(QWidget):
         return section
 
     def _build_traces_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_TRACES), flat=True)
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_TRACES), flat=True, accent=P.GRAPH_TAB_PLOT
+        )
         self._traces_box = QVBoxLayout()
         self._traces_box.setSpacing(6)
         section.body().addLayout(self._traces_box)

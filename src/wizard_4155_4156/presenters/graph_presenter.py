@@ -625,6 +625,7 @@ class GraphPresenter(QObject):
         self._render_plot_area()
         if prop == "color":
             self._render_view_tab()
+            self._render_data_tab()  # tree swatches follow trace recolors
 
     def _on_trace_renamed(self, trace_id: str, name: str) -> None:
         trace = self._plot.trace_by_id(trace_id)
@@ -988,7 +989,13 @@ class GraphPresenter(QObject):
                         enabled = variables_compatible(
                             signature, self._variables_of(row.id)
                         )
-                    executions.append((row.id, row.name, checked, enabled))
+                    trace = (
+                        plot.trace_by_id(f"exec:{row.id}") if checked else None
+                    )
+                    color = trace.style.color if trace is not None else None
+                    executions.append(
+                        (row.id, row.name, checked, enabled, color)
+                    )
                 if executions:
                     groups.append(
                         (

@@ -63,12 +63,25 @@ class GraphSidebar(QWidget):
         self.tools_tab = GraphToolsTab()
         self.analysis_tab = GraphAnalysisTab()
 
+        self._tab_accents = (
+            P.GRAPH_TAB_DATA,
+            P.GRAPH_TAB_PLOT,
+            P.GRAPH_TAB_TOOLS,
+            P.GRAPH_TAB_ANALYSIS,
+        )
         tabs = QTabWidget()
-        tabs.setStyleSheet(graph_sidebar_stylesheet())
+        tabs.setStyleSheet(graph_sidebar_stylesheet(self._tab_accents[0]))
         tabs.addTab(_scrollable(self.data_tab), tr_ui(TXT.GRAPH_TAB_DATA))
         tabs.addTab(_scrollable(self.plot_tab), tr_ui(TXT.GRAPH_TAB_PLOT))
         tabs.addTab(_scrollable(self.tools_tab), tr_ui(TXT.GRAPH_TAB_TOOLS))
         tabs.addTab(
             _scrollable(self.analysis_tab), tr_ui(TXT.GRAPH_TAB_ANALYSIS)
         )
+        tabs.currentChanged.connect(self._on_tab_changed)
+        self._tabs = tabs
         layout.addWidget(tabs)
+
+    def _on_tab_changed(self, index: int) -> None:
+        """Re-tint the selected-tab marker with the active tab's hue."""
+        accent = self._tab_accents[index % len(self._tab_accents)]
+        self._tabs.setStyleSheet(graph_sidebar_stylesheet(accent))

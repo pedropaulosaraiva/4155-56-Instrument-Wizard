@@ -30,6 +30,7 @@ from wizard_4155_4156.styles.stylesheets import (
     graph_cursor_readout_stylesheet,
     runs_secondary_button_stylesheet,
 )
+from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.widgets.config_sections import (
     SectionFrame,
     SegmentedGroup,
@@ -75,7 +76,9 @@ class GraphToolsTab(QWidget):
     # ── Build helpers ───────────────────────────────────────────────────────
 
     def _build_view_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_VIEW), flat=True)
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_VIEW), flat=True, accent=P.GRAPH_TAB_TOOLS
+        )
         body = section.body()
 
         self._reset_btn = QPushButton(tr_ui(TXT.GRAPH_BTN_RESET_VIEW))
@@ -99,7 +102,9 @@ class GraphToolsTab(QWidget):
         return section
 
     def _build_cursors_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_CURSORS), flat=True)
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_CURSORS), flat=True, accent=P.GRAPH_TAB_TOOLS
+        )
         body = section.body()
 
         self._cursor_group = SegmentedGroup(
@@ -138,7 +143,9 @@ class GraphToolsTab(QWidget):
         return section
 
     def _build_roi_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_ROI), flat=True)
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_ROI), flat=True, accent=P.GRAPH_TAB_TOOLS
+        )
         self._roi_chk = QCheckBox(tr_ui(TXT.GRAPH_CHK_ROI))
         self._roi_chk.setStyleSheet(global_option_checkbox_stylesheet())
         self._roi_chk.toggled.connect(self.roi_enabled_changed)
@@ -146,7 +153,9 @@ class GraphToolsTab(QWidget):
         return section
 
     def _build_export_section(self) -> SectionFrame:
-        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_EXPORT), flat=True)
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_EXPORT), flat=True, accent=P.GRAPH_TAB_TOOLS
+        )
         export_row = QWidget()
         h = QHBoxLayout(export_row)
         h.setContentsMargins(0, 0, 0, 0)
