@@ -36,7 +36,6 @@ from wizard_4155_4156.styles.stylesheets import (
     unit_card_combo_stylesheet,
 )
 from wizard_4155_4156.views.widgets.config_sections import (
-    GRAPH_SECTION_MARGINS,
     SectionFrame,
     SegmentedGroup,
     form_row,
@@ -161,10 +160,7 @@ class GraphAnalysisTab(QWidget):
     # ── Build helpers ───────────────────────────────────────────────────────
 
     def _build_fit_section(self) -> SectionFrame:
-        section = SectionFrame(
-            tr_ui(TXT.GRAPH_SEC_CURVE_FIT),
-            body_margins=GRAPH_SECTION_MARGINS,
-        )
+        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_CURVE_FIT), flat=True)
         body = section.body()
 
         self._fit_trace = _data_combo()
@@ -210,10 +206,7 @@ class GraphAnalysisTab(QWidget):
         return section
 
     def _build_math_section(self) -> SectionFrame:
-        section = SectionFrame(
-            tr_ui(TXT.GRAPH_SEC_TRACE_MATH),
-            body_margins=GRAPH_SECTION_MARGINS,
-        )
+        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_TRACE_MATH), flat=True)
         body = section.body()
 
         # Placeholder segmented group; rebuilt by set_operations().

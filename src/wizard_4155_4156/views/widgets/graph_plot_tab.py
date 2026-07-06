@@ -1,14 +1,14 @@
 """
-views/widgets/graph_view_tab.py
+views/widgets/graph_plot_tab.py
 -------------------------------
-"View" sidebar tab — visualization of the ACTIVE plot: tools (reset
-view, mouse mode, cursors, ROI, export) and per-trace styling rows
-(visibility, color, name, line style, marker), plus title/axis labels.
+"Plot" sidebar tab — everything about how the ACTIVE plot presents its
+data: per-axis settings (variable, autoscale, log, manual min/max,
+engineering multiplier), title/axis labels, and per-trace styling rows
+(visibility, color, name, line style, marker).
 
-Passive view: emits ``*_requested``/``*_changed`` signals with trace ids
-(stable strings) as payloads; state arrives through ``display_*``.
-Trace rows are rebuilt from a spec list so future style columns (width,
-opacity…) can be appended without restructuring.
+Passive view: emits ``*_changed``/``*_committed`` signals; state arrives
+through ``display_*`` methods.  The ``axis`` argument in axis signals is
+``"x"`` or ``"y"``.  Trace payloads use the stable string trace ids.
 """
 
 from __future__ import annotations
@@ -33,24 +33,28 @@ from wizard_4155_4156.gui_text.general_text import (
 )
 from wizard_4155_4156.gui_text.general_text import tr_ui
 from wizard_4155_4156.styles.stylesheets import (
+    form_label_stylesheet,
     global_option_checkbox_stylesheet,
     graph_color_swatch_stylesheet,
-    graph_cursor_readout_stylesheet,
     graph_trace_row_stylesheet,
-    runs_secondary_button_stylesheet,
     table_empty_label_stylesheet,
     unit_card_combo_stylesheet,
     unit_card_line_edit_stylesheet,
 )
 from wizard_4155_4156.views.widgets.config_sections import (
-    GRAPH_SECTION_MARGINS,
+    SciDoubleEdit,
     SectionFrame,
     SegmentedGroup,
     combo,
     form_row,
 )
 
+#: Multiplier selector options — MUST mirror the values of
+#: ``models/graph/config.MULTIPLIERS`` (the presenter parses them back).
+_MULTIPLIER_OPTIONS = ["p", "n", "µ", "m", "1", "k", "M", "G"]
+
 _LABEL_WIDTH = 90
+_BOUND_LIMIT = 1e300
 
 #: (logical id, UI label) — logical ids match models/graph/trace.py.
 _LINE_STYLE_OPTIONS: list[tuple[str, TXT]] = [
@@ -66,16 +70,6 @@ _MARKER_OPTIONS: list[tuple[str, TXT]] = [
     ("triangle", TXT.GRAPH_MARKER_TRIANGLE),
     ("cross", TXT.GRAPH_MARKER_CROSS),
 ]
-
-_MOUSE_LABELS = {  # SegmentedGroup label ↔ logical id
-    "pan": TXT.GRAPH_MOUSE_PAN,
-    "zoom": TXT.GRAPH_MOUSE_ZOOM,
-}
-_CURSOR_LABELS = {
-    "off": TXT.GRAPH_CURSOR_OFF,
-    "single": TXT.GRAPH_CURSOR_SINGLE,
-    "dual": TXT.GRAPH_CURSOR_DUAL,
-}
 
 
 def _id_combo(options: list[tuple[str, TXT]]) -> QComboBox:
@@ -96,15 +90,121 @@ def _id_combo(options: list[tuple[str, TXT]]) -> QComboBox:
     return box
 
 
+class _AxisSection:
+    """The X-axis or Y-axis SectionFrame (built once per axis)."""
+
+    def __init__(self, owner: "GraphPlotTab", axis: str, title: str):
+        self.section = SectionFrame(title, flat=True)
+        body = self.section.body()
+
+        self.var_combo = combo([])
+        body.addWidget(
+            form_row(
+                tr_ui(TXT.GRAPH_LBL_VARIABLE), self.var_combo, _LABEL_WIDTH
+            )
+        )
+
+        self.auto_chk = QCheckBox(tr_ui(TXT.GRAPH_CHK_AUTOSCALE))
+        self.auto_chk.setStyleSheet(global_option_checkbox_stylesheet())
+        self.log_chk = QCheckBox(tr_ui(TXT.GRAPH_CHK_LOG))
+        self.log_chk.setStyleSheet(global_option_checkbox_stylesheet())
+        body.addWidget(self.auto_chk)
+        body.addWidget(self.log_chk)
+
+        self.min_edit = SciDoubleEdit(0.0, -_BOUND_LIMIT, _BOUND_LIMIT)
+        self.max_edit = SciDoubleEdit(1.0, -_BOUND_LIMIT, _BOUND_LIMIT)
+        body.addWidget(
+            form_row(tr_ui(TXT.GRAPH_LBL_MIN), self.min_edit, _LABEL_WIDTH)
+        )
+        body.addWidget(
+            form_row(tr_ui(TXT.GRAPH_LBL_MAX), self.max_edit, _LABEL_WIDTH)
+        )
+
+        # Stacked full-width row — the only layout where 8 segments fit
+        # the narrow sidebar (a form_row would leave them ~150px).
+        mult_lbl = QLabel(tr_ui(TXT.GRAPH_LBL_MULTIPLIER))
+        mult_lbl.setStyleSheet(form_label_stylesheet())
+        body.addWidget(mult_lbl)
+        self.mult_group = SegmentedGroup(
+            _MULTIPLIER_OPTIONS, "1", compact=True
+        )
+        body.addWidget(self.mult_group)
+
+        self.var_combo.currentTextChanged.connect(
+            lambda name: owner._on_variable_changed(axis, name)
+        )
+        self.auto_chk.toggled.connect(
+            lambda on: owner.axis_autoscale_changed.emit(axis, on)
+        )
+        self.log_chk.toggled.connect(
+            lambda on: owner.axis_log_changed.emit(axis, on)
+        )
+        self.min_edit.value_committed.connect(
+            lambda v: owner.axis_min_committed.emit(axis, v)
+        )
+        self.max_edit.value_committed.connect(
+            lambda v: owner.axis_max_committed.emit(axis, v)
+        )
+        self.mult_group.selection_changed.connect(
+            lambda label: owner.axis_multiplier_changed.emit(axis, label)
+        )
+
+    def display(self, cfg: dict) -> None:
+        """Push one axis state (keys mirror models AxisConfig fields)."""
+        for widget in (
+            self.var_combo,
+            self.auto_chk,
+            self.log_chk,
+        ):
+            widget.blockSignals(True)
+        idx = self.var_combo.findText(cfg.get("variable") or "")
+        self.var_combo.setCurrentIndex(idx)
+        self.auto_chk.setChecked(bool(cfg.get("auto_scale", True)))
+        self.log_chk.setChecked(bool(cfg.get("log", False)))
+        for widget in (
+            self.var_combo,
+            self.auto_chk,
+            self.log_chk,
+        ):
+            widget.blockSignals(False)
+
+        if cfg.get("min_val") is not None:
+            self.min_edit.set_value(float(cfg["min_val"]))
+        if cfg.get("max_val") is not None:
+            self.max_edit.set_value(float(cfg["max_val"]))
+        self.mult_group.set_value(cfg.get("multiplier", "1"))
+
+        manual = not cfg.get("auto_scale", True)
+        self.min_edit.setEnabled(manual)
+        self.max_edit.setEnabled(manual)
+        # setScale conflicts with log ticks → multiplier locked on log.
+        self.mult_group.setEnabled(not cfg.get("log", False))
+
+    def set_variables(self, options: list[str]) -> None:
+        current = self.var_combo.currentText()
+        self.var_combo.blockSignals(True)
+        self.var_combo.clear()
+        for opt in options:
+            self.var_combo.addItem(opt, opt)
+            self.var_combo.setItemData(
+                self.var_combo.count() - 1,
+                opt,
+                Qt.ItemDataRole.ToolTipRole,
+            )
+        idx = self.var_combo.findText(current)
+        self.var_combo.setCurrentIndex(idx)
+        self.var_combo.blockSignals(False)
+
+
 class _TraceRow(QFrame):
     """Two-line styling row — the name owns the full first line so it
     stays readable in the narrow sidebar:
 
-    [visible] [color] [name……………………]
+    [visible] [swatch] [name………………]
     [line style combo] [marker combo]
     """
 
-    def __init__(self, owner: "GraphViewTab", spec: dict) -> None:
+    def __init__(self, owner: "GraphPlotTab", spec: dict) -> None:
         super().__init__()
         self.setObjectName("trace_row")
         self.setStyleSheet(graph_trace_row_stylesheet())
@@ -165,15 +265,16 @@ class _TraceRow(QFrame):
         bottom.addWidget(marker, stretch=1)
 
 
-class GraphViewTab(QWidget):
-    """Tools / labels / per-trace styling of the active plot."""
+class GraphPlotTab(QWidget):
+    """Axes / labels / per-trace styling of the active plot."""
 
-    reset_view_requested = Signal()
-    mouse_mode_changed = Signal(str)  # "pan" | "zoom"
-    cursor_mode_changed = Signal(str)  # "off" | "single" | "dual"
-    cursor_source_changed = Signal(str)  # trace id
-    roi_enabled_changed = Signal(bool)
-    export_requested = Signal(str)  # "png" | "csv"
+    x_variable_changed = Signal(str)
+    y_variable_changed = Signal(str)
+    axis_autoscale_changed = Signal(str, bool)  # (axis, on)
+    axis_log_changed = Signal(str, bool)
+    axis_min_committed = Signal(str, float)
+    axis_max_committed = Signal(str, float)
+    axis_multiplier_changed = Signal(str, str)  # (axis, label)
     plot_title_committed = Signal(str)
     axis_label_committed = Signal(str, str)  # (axis, text)
     trace_visibility_changed = Signal(str, bool)
@@ -188,100 +289,18 @@ class GraphViewTab(QWidget):
         root.setContentsMargins(10, 10, 10, 10)
         root.setSpacing(14)
 
-        root.addWidget(self._build_tools_section())
+        self._axis_x = _AxisSection(self, "x", tr_ui(TXT.GRAPH_SEC_AXIS_X))
+        self._axis_y = _AxisSection(self, "y", tr_ui(TXT.GRAPH_SEC_AXIS_Y))
+        root.addWidget(self._axis_x.section)
+        root.addWidget(self._axis_y.section)
         root.addWidget(self._build_labels_section())
         root.addWidget(self._build_traces_section())
         root.addStretch(1)
 
     # ── Build helpers ───────────────────────────────────────────────────────
 
-    def _build_tools_section(self) -> SectionFrame:
-        section = SectionFrame(
-            tr_ui(TXT.GRAPH_SEC_TOOLS),
-            body_margins=GRAPH_SECTION_MARGINS,
-        )
-        body = section.body()
-
-        self._reset_btn = QPushButton(tr_ui(TXT.GRAPH_BTN_RESET_VIEW))
-        self._reset_btn.setStyleSheet(runs_secondary_button_stylesheet())
-        self._reset_btn.clicked.connect(self.reset_view_requested)
-        body.addWidget(self._reset_btn)
-
-        self._mouse_group = SegmentedGroup(
-            [tr_ui(t) for t in _MOUSE_LABELS.values()], compact=True
-        )
-        body.addWidget(
-            form_row(
-                tr_ui(TXT.GRAPH_LBL_MOUSE), self._mouse_group, _LABEL_WIDTH
-            )
-        )
-        self._mouse_group.selection_changed.connect(
-            lambda label: self.mouse_mode_changed.emit(
-                self._label_to_id(_MOUSE_LABELS, label)
-            )
-        )
-
-        self._cursor_group = SegmentedGroup(
-            [tr_ui(t) for t in _CURSOR_LABELS.values()], compact=True
-        )
-        body.addWidget(
-            form_row(
-                tr_ui(TXT.GRAPH_LBL_CURSORS),
-                self._cursor_group,
-                _LABEL_WIDTH,
-            )
-        )
-        self._cursor_group.selection_changed.connect(
-            lambda label: self.cursor_mode_changed.emit(
-                self._label_to_id(_CURSOR_LABELS, label)
-            )
-        )
-
-        self._cursor_source = combo([])
-        body.addWidget(
-            form_row(
-                tr_ui(TXT.GRAPH_LBL_CURSOR_SOURCE),
-                self._cursor_source,
-                _LABEL_WIDTH,
-            )
-        )
-        self._cursor_source.currentIndexChanged.connect(
-            self._on_cursor_source_changed
-        )
-
-        self._readout = QLabel("")
-        self._readout.setStyleSheet(graph_cursor_readout_stylesheet())
-        self._readout.setWordWrap(True)
-        self._readout.setVisible(False)  # shown only with cursor text
-        body.addWidget(self._readout)
-
-        self._roi_chk = QCheckBox(tr_ui(TXT.GRAPH_CHK_ROI))
-        self._roi_chk.setStyleSheet(global_option_checkbox_stylesheet())
-        self._roi_chk.toggled.connect(self.roi_enabled_changed)
-        body.addWidget(self._roi_chk)
-
-        export_row = QWidget()
-        h = QHBoxLayout(export_row)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.setSpacing(8)
-        for kind, text in (
-            ("png", TXT.GRAPH_BTN_EXPORT_PNG),
-            ("csv", TXT.GRAPH_BTN_EXPORT_CSV),
-        ):
-            btn = QPushButton(tr_ui(text))
-            btn.setStyleSheet(runs_secondary_button_stylesheet())
-            btn.clicked.connect(
-                lambda _c=False, k=kind: self.export_requested.emit(k)
-            )
-            h.addWidget(btn)
-        body.addWidget(export_row)
-        return section
-
     def _build_labels_section(self) -> SectionFrame:
-        section = SectionFrame(
-            tr_ui(TXT.GRAPH_SEC_LABELS),
-            body_margins=GRAPH_SECTION_MARGINS,
-        )
+        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_LABELS), flat=True)
         body = section.body()
 
         self._title_edit = QLineEdit()
@@ -315,10 +334,7 @@ class GraphViewTab(QWidget):
         return section
 
     def _build_traces_section(self) -> SectionFrame:
-        section = SectionFrame(
-            tr_ui(TXT.GRAPH_SEC_TRACES),
-            body_margins=GRAPH_SECTION_MARGINS,
-        )
+        section = SectionFrame(tr_ui(TXT.GRAPH_SEC_TRACES), flat=True)
         self._traces_box = QVBoxLayout()
         self._traces_box.setSpacing(6)
         section.body().addLayout(self._traces_box)
@@ -330,27 +346,18 @@ class GraphViewTab(QWidget):
 
     # ── Public display API ──────────────────────────────────────────────────
 
-    def display_tools(
-        self,
-        mouse_mode: str,
-        cursor_mode: str,
-        cursor_source_id: str | None,
-        roi_enabled: bool,
+    def display_variables(
+        self, options: list[str], x_var: str | None, y_var: str | None
     ) -> None:
-        self._mouse_group.set_value(
-            tr_ui(_MOUSE_LABELS.get(mouse_mode, TXT.GRAPH_MOUSE_PAN))
-        )
-        self._cursor_group.set_value(
-            tr_ui(_CURSOR_LABELS.get(cursor_mode, TXT.GRAPH_CURSOR_OFF))
-        )
-        self._roi_chk.blockSignals(True)
-        self._roi_chk.setChecked(roi_enabled)
-        self._roi_chk.blockSignals(False)
-        if cursor_source_id is not None:
-            self._cursor_source.blockSignals(True)
-            idx = self._cursor_source.findData(cursor_source_id)
-            self._cursor_source.setCurrentIndex(idx)
-            self._cursor_source.blockSignals(False)
+        self._axis_x.set_variables(options)
+        self._axis_y.set_variables(options)
+        self._axis_x.display({"variable": x_var, **self._axis_state("x")})
+        self._axis_y.display({"variable": y_var, **self._axis_state("y")})
+
+    def display_axis(self, axis: str, cfg: dict) -> None:
+        """cfg keys: variable, auto_scale, log, min_val, max_val,
+        multiplier."""
+        (self._axis_x if axis == "x" else self._axis_y).display(cfg)
 
     def display_labels(self, title: str, x_label: str, y_label: str) -> None:
         for edit, text in (
@@ -361,24 +368,6 @@ class GraphViewTab(QWidget):
             edit.blockSignals(True)
             edit.setText(text)
             edit.blockSignals(False)
-
-    def display_trace_options(
-        self, options: list[tuple[str, str]], current: str | None
-    ) -> None:
-        """Cursor-source combo entries: (trace id, display name)."""
-        self._cursor_source.blockSignals(True)
-        self._cursor_source.clear()
-        for trace_id, name in options:
-            self._cursor_source.addItem(name, trace_id)
-            self._cursor_source.setItemData(
-                self._cursor_source.count() - 1,
-                name,
-                Qt.ItemDataRole.ToolTipRole,
-            )
-        if current is not None:
-            idx = self._cursor_source.findData(current)
-            self._cursor_source.setCurrentIndex(idx)
-        self._cursor_source.blockSignals(False)
 
     def display_traces(self, specs: list[dict]) -> None:
         """Rebuild trace rows.  Spec keys: id, name, color, visible,
@@ -391,23 +380,26 @@ class GraphViewTab(QWidget):
             self._traces_box.addWidget(_TraceRow(self, spec))
         self._traces_empty.setVisible(not specs)
 
-    def display_cursor_readout(self, text: str) -> None:
-        self._readout.setText(text)
-        self._readout.setVisible(bool(text))
-
     # ── Internals ───────────────────────────────────────────────────────────
 
-    @staticmethod
-    def _label_to_id(mapping: dict, label: str) -> str:
-        for logical_id, text in mapping.items():
-            if tr_ui(text) == label:
-                return logical_id
-        return next(iter(mapping))
+    def _axis_state(self, axis: str) -> dict:
+        """Current widget state (used to re-display on variable refresh)."""
+        section = self._axis_x if axis == "x" else self._axis_y
+        return {
+            "auto_scale": section.auto_chk.isChecked(),
+            "log": section.log_chk.isChecked(),
+            "min_val": section.min_edit.get_value(),
+            "max_val": section.max_edit.get_value(),
+            "multiplier": section.mult_group.current_value(),
+        }
 
-    def _on_cursor_source_changed(self, index: int) -> None:
-        trace_id = self._cursor_source.itemData(index)
-        if trace_id is not None:
-            self.cursor_source_changed.emit(trace_id)
+    def _on_variable_changed(self, axis: str, name: str) -> None:
+        if not name:
+            return
+        if axis == "x":
+            self.x_variable_changed.emit(name)
+        else:
+            self.y_variable_changed.emit(name)
 
     def _pick_color(self, trace_id: str, current: str) -> None:
         color = QColorDialog.getColor(QColor(current), self)

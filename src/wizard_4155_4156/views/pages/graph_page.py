@@ -6,12 +6,12 @@ The Graphs page: scene tabs on top, one shared scene body below.
 Layout (per design sketch)
 --------------------------
 ┌────────────────────────────────────────────────────────────┐
-│ [Scene 1][Scene 2][Scene 3]                  [+]           │
-├──────────────────────────────────────┬───┬────────────────┤
-│                                      │ ‹ │  Data|View|Anal│
-│        GraphPlotArea (grid of        │   │  (GraphSidebar)│
-│        1×1 … 3×3 plots)              │   │                │
-└──────────────────────────────────────┴───┴────────────────┘
+│ [Scene 1][Scene 2] [+]        Grid: [1]×[1] [x] Maximize   │
+├──────────────────────────────────────╫───┬────────────────┤
+│                                      ║ ‹ │ Data|Plot|Tools│
+│        GraphPlotArea (grid of        ║   │ |Analysis      │
+│        1×1 … 3×3 plots)   (splitter ─╫─) │ (GraphSidebar) │
+└──────────────────────────────────────╨───┴────────────────┘
 
 There is ONE plot area + sidebar pair for all scenes — the presenter
 owns every scene's state and re-renders the body when the tab changes.
@@ -25,8 +25,10 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QInputDialog,
+    QLabel,
     QSplitter,
     QTabBar,
     QToolButton,
@@ -39,6 +41,8 @@ from wizard_4155_4156.gui_text.general_text import (
 )
 from wizard_4155_4156.gui_text.general_text import tr_ui
 from wizard_4155_4156.styles.stylesheets import (
+    form_label_stylesheet,
+    global_option_checkbox_stylesheet,
     graph_add_scene_button_stylesheet,
     graph_body_splitter_stylesheet,
     graph_page_stylesheet,
@@ -48,6 +52,7 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
+from wizard_4155_4156.views.widgets.config_sections import spinbox
 from wizard_4155_4156.views.widgets.graph_plot_area import GraphPlotArea
 from wizard_4155_4156.views.widgets.graph_sidebar import GraphSidebar
 
@@ -141,7 +146,35 @@ class GraphPageView(BasePage):
         add_btn.clicked.connect(self.scene_add_requested)
         h.addWidget(add_btn)
         h.addStretch(1)
+
+        # Scene-scoped grid controls live up here with the scene tabs —
+        # not in the sidebar, whose tabs configure the ACTIVE plot only.
+        grid_lbl = QLabel(tr_ui(TXT.GRAPH_LBL_GRID))
+        grid_lbl.setStyleSheet(form_label_stylesheet())
+        h.addWidget(grid_lbl)
+        self._rows_spin = spinbox(1, 3, 1)
+        self._rows_spin.setToolTip(tr_ui(TXT.GRAPH_TT_GRID_ROWS))
+        h.addWidget(self._rows_spin)
+        times_lbl = QLabel("×")
+        times_lbl.setStyleSheet(form_label_stylesheet())
+        h.addWidget(times_lbl)
+        self._cols_spin = spinbox(1, 3, 1)
+        self._cols_spin.setToolTip(tr_ui(TXT.GRAPH_TT_GRID_COLS))
+        h.addWidget(self._cols_spin)
+        h.addSpacing(12)
+        self._maximize_chk = QCheckBox(tr_ui(TXT.GRAPH_CHK_MAXIMIZE))
+        self._maximize_chk.setStyleSheet(global_option_checkbox_stylesheet())
+        h.addWidget(self._maximize_chk)
+
+        self._rows_spin.valueChanged.connect(self._emit_grid)
+        self._cols_spin.valueChanged.connect(self._emit_grid)
+        self._maximize_chk.toggled.connect(self.maximize_toggled)
         return bar
+
+    def _emit_grid(self) -> None:
+        self.grid_layout_changed.emit(
+            self._rows_spin.value(), self._cols_spin.value()
+        )
 
     #: Width of the collapse strip inside the splitter's right pane
     #: (toggle button + layout spacing) — kept when the sidebar hides.
@@ -194,30 +227,30 @@ class GraphPageView(BasePage):
 
         data = self.sidebar.data_tab
         data.execution_check_changed.connect(self.execution_check_changed)
-        data.grid_layout_changed.connect(self.grid_layout_changed)
-        data.maximize_toggled.connect(self.maximize_toggled)
-        data.x_variable_changed.connect(self.x_variable_changed)
-        data.y_variable_changed.connect(self.y_variable_changed)
-        data.axis_autoscale_changed.connect(self.axis_autoscale_changed)
-        data.axis_log_changed.connect(self.axis_log_changed)
-        data.axis_min_committed.connect(self.axis_min_committed)
-        data.axis_max_committed.connect(self.axis_max_committed)
-        data.axis_multiplier_changed.connect(self.axis_multiplier_changed)
 
-        view = self.sidebar.view_tab
-        view.reset_view_requested.connect(self.reset_view_requested)
-        view.mouse_mode_changed.connect(self.mouse_mode_changed)
-        view.cursor_mode_changed.connect(self.cursor_mode_changed)
-        view.cursor_source_changed.connect(self.cursor_source_changed)
-        view.roi_enabled_changed.connect(self.roi_enabled_changed)
-        view.export_requested.connect(self.export_requested)
-        view.plot_title_committed.connect(self.plot_title_committed)
-        view.axis_label_committed.connect(self.axis_label_committed)
-        view.trace_visibility_changed.connect(self.trace_visibility_changed)
-        view.trace_color_changed.connect(self.trace_color_changed)
-        view.trace_renamed.connect(self.trace_renamed)
-        view.trace_line_style_changed.connect(self.trace_line_style_changed)
-        view.trace_marker_changed.connect(self.trace_marker_changed)
+        plot = self.sidebar.plot_tab
+        plot.x_variable_changed.connect(self.x_variable_changed)
+        plot.y_variable_changed.connect(self.y_variable_changed)
+        plot.axis_autoscale_changed.connect(self.axis_autoscale_changed)
+        plot.axis_log_changed.connect(self.axis_log_changed)
+        plot.axis_min_committed.connect(self.axis_min_committed)
+        plot.axis_max_committed.connect(self.axis_max_committed)
+        plot.axis_multiplier_changed.connect(self.axis_multiplier_changed)
+        plot.plot_title_committed.connect(self.plot_title_committed)
+        plot.axis_label_committed.connect(self.axis_label_committed)
+        plot.trace_visibility_changed.connect(self.trace_visibility_changed)
+        plot.trace_color_changed.connect(self.trace_color_changed)
+        plot.trace_renamed.connect(self.trace_renamed)
+        plot.trace_line_style_changed.connect(self.trace_line_style_changed)
+        plot.trace_marker_changed.connect(self.trace_marker_changed)
+
+        tools = self.sidebar.tools_tab
+        tools.reset_view_requested.connect(self.reset_view_requested)
+        tools.mouse_mode_changed.connect(self.mouse_mode_changed)
+        tools.cursor_mode_changed.connect(self.cursor_mode_changed)
+        tools.cursor_source_changed.connect(self.cursor_source_changed)
+        tools.roi_enabled_changed.connect(self.roi_enabled_changed)
+        tools.export_requested.connect(self.export_requested)
 
         analysis = self.sidebar.analysis_tab
         analysis.fit_requested.connect(self.fit_requested)
@@ -294,35 +327,45 @@ class GraphPageView(BasePage):
     def display_datasets(self, groups) -> None:
         self.sidebar.data_tab.display_datasets(groups)
 
-    def display_variables(self, options, x_var, y_var) -> None:
-        self.sidebar.data_tab.display_variables(options, x_var, y_var)
-
-    def display_axis(self, axis: str, cfg: dict) -> None:
-        self.sidebar.data_tab.display_axis(axis, cfg)
+    # ── Scene bar (grid controls) ────────────────────────────────────────────
 
     def display_grid(self, rows: int, cols: int, maximized: bool) -> None:
-        self.sidebar.data_tab.display_grid(rows, cols, maximized)
+        for widget in (self._rows_spin, self._cols_spin, self._maximize_chk):
+            widget.blockSignals(True)
+        self._rows_spin.setValue(rows)
+        self._cols_spin.setValue(cols)
+        self._maximize_chk.setChecked(maximized)
+        for widget in (self._rows_spin, self._cols_spin, self._maximize_chk):
+            widget.blockSignals(False)
 
-    # ── View tab ─────────────────────────────────────────────────────────────
+    # ── Plot tab ─────────────────────────────────────────────────────────────
+
+    def display_variables(self, options, x_var, y_var) -> None:
+        self.sidebar.plot_tab.display_variables(options, x_var, y_var)
+
+    def display_axis(self, axis: str, cfg: dict) -> None:
+        self.sidebar.plot_tab.display_axis(axis, cfg)
+
+    def display_labels(self, title, x_label, y_label) -> None:
+        self.sidebar.plot_tab.display_labels(title, x_label, y_label)
+
+    def display_traces(self, specs: list[dict]) -> None:
+        self.sidebar.plot_tab.display_traces(specs)
+
+    # ── Tools tab ────────────────────────────────────────────────────────────
 
     def display_tools(
         self, mouse_mode, cursor_mode, cursor_source_id, roi_enabled
     ) -> None:
-        self.sidebar.view_tab.display_tools(
+        self.sidebar.tools_tab.display_tools(
             mouse_mode, cursor_mode, cursor_source_id, roi_enabled
         )
 
-    def display_labels(self, title, x_label, y_label) -> None:
-        self.sidebar.view_tab.display_labels(title, x_label, y_label)
-
-    def display_traces(self, specs: list[dict]) -> None:
-        self.sidebar.view_tab.display_traces(specs)
-
     def display_cursor_trace_options(self, options, current) -> None:
-        self.sidebar.view_tab.display_trace_options(options, current)
+        self.sidebar.tools_tab.display_trace_options(options, current)
 
     def display_cursor_readout(self, text: str) -> None:
-        self.sidebar.view_tab.display_cursor_readout(text)
+        self.sidebar.tools_tab.display_cursor_readout(text)
 
     # ── Analysis tab ─────────────────────────────────────────────────────────
 

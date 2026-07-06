@@ -630,9 +630,14 @@ def global_option_checkbox_stylesheet() -> str:
     """
 
 
-def unit_group_header_stylesheet(accent: str | None = None) -> str:
+def unit_group_header_stylesheet(
+    accent: str | None = None, muted: bool = False
+) -> str:
+    """``muted`` dims the title one step — used by flat sidebar sections
+    so chrome recedes behind the plot content."""
+    color = accent or (P.TEXT_MUTED if muted else P.TEXT_SECONDARY)
     return (
-        f"color: {accent or P.TEXT_SECONDARY}; font-size: {P.FONT_SIZE_XS}; "
+        f"color: {color}; font-size: {P.FONT_SIZE_XS}; "
         f"font-weight: bold; letter-spacing: 2px; background: transparent;"
     )
 
@@ -874,6 +879,17 @@ def section_card_stylesheet(accent: str | None = None) -> str:
         QFrame#section_card:hover {{
             border-color: {hover_color};
         }}
+    """
+
+
+def flat_section_card_stylesheet() -> str:
+    """Chrome-free SectionFrame body — no card, no border.  Used in the
+    Graphs sidebar so settings read as secondary to the plots."""
+    return """
+        QFrame#section_card {
+            background: transparent;
+            border: none;
+        }
     """
 
 

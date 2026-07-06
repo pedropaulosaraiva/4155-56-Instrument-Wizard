@@ -147,15 +147,17 @@ class CommandWizardText(StrEnum):
     GRAPH_TT_RENAME_HINT = "Double-click to rename this scene"
     # Sidebar tabs
     GRAPH_TAB_DATA = "Data"
-    GRAPH_TAB_VIEW = "View"
+    GRAPH_TAB_PLOT = "Plot"
+    GRAPH_TAB_TOOLS = "Tools"
     GRAPH_TAB_ANALYSIS = "Analysis"
     # Data tab
     GRAPH_SEC_DATASETS = "Datasets"
     GRAPH_SEC_LAYOUT = "Grid layout"
     GRAPH_SEC_AXIS_X = "X axis"
     GRAPH_SEC_AXIS_Y = "Y axis"
-    GRAPH_LBL_ROWS = "Rows:"
-    GRAPH_LBL_COLS = "Columns:"
+    GRAPH_LBL_GRID = "Grid:"
+    GRAPH_TT_GRID_ROWS = "Grid rows"
+    GRAPH_TT_GRID_COLS = "Grid columns"
     GRAPH_CHK_MAXIMIZE = "Maximize active plot"
     GRAPH_LBL_VARIABLE = "Variable:"
     GRAPH_CHK_AUTOSCALE = "Auto scale"
@@ -168,8 +170,11 @@ class CommandWizardText(StrEnum):
         "This execution's variables differ from the ones already "
         "plotted, so it cannot share this plot."
     )
-    # View tab
-    GRAPH_SEC_TOOLS = "Tools"
+    # Plot / Tools tabs
+    GRAPH_SEC_VIEW = "View"
+    GRAPH_SEC_CURSORS = "Cursors"
+    GRAPH_SEC_ROI = "Region of interest"
+    GRAPH_SEC_EXPORT = "Export"
     GRAPH_SEC_LABELS = "Labels"
     GRAPH_SEC_TRACES = "Traces"
     GRAPH_BTN_RESET_VIEW = "Reset view"

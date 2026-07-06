@@ -69,7 +69,7 @@ class _Palette:
         "#b5cea8",  # sage
         "#ce9178",  # copper
     )
-    GRAPH_GRID_ALPHA: float = 0.25  # pyqtgraph showGrid alpha
+    GRAPH_GRID_ALPHA: float = 0.12  # pyqtgraph showGrid alpha (data > grid)
     GRAPH_SIDEBAR_WIDTH: int = 340  # px — scene sidebar default splitter size
     GRAPH_SIDEBAR_MIN_WIDTH: int = 280  # px — splitter lower bound
     GRAPH_SIDEBAR_MAX_WIDTH: int = 560  # px — splitter upper bound
@@ -78,6 +78,7 @@ class _Palette:
     GRAPH_CURSOR: str = "#f48771"  # cursor line/marker (coral)
     GRAPH_CURSOR_ALT: str = "#dcdcaa"  # second cursor (amber)
     GRAPH_ROI: str = "#094771"  # ROI region fill base (ACCENT_MUTED)
+    GRAPH_ROI_ALPHA: float = 0.15  # ROI fill opacity (range hint, not a veil)
     GRAPH_FIT_COLOR: str = "#ffffff"  # default fit-trace color
 
     # ── Navigation bar ───────────────────────────────────────────────────────

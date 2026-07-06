@@ -64,6 +64,7 @@ class SectionHeader(QWidget):
         *,
         accent: str | None = None,
         doc_topic: DocTopic | None = None,
+        muted: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -72,7 +73,7 @@ class SectionHeader(QWidget):
         row.setSpacing(12)
 
         label = QLabel(title.upper())
-        label.setStyleSheet(unit_group_header_stylesheet(accent))
+        label.setStyleSheet(unit_group_header_stylesheet(accent, muted))
         row.addWidget(label)
 
         separator = QFrame()

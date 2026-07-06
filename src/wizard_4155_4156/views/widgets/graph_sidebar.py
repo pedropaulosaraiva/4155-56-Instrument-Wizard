@@ -2,11 +2,12 @@
 views/widgets/graph_sidebar.py
 ------------------------------
 The collapsible right sidebar of a Graphs-page scene: a QTabWidget with
-the three permanent tabs (Data / View / Analysis), each vertically
-scrollable.
+the four permanent tabs (Data / Plot / Tools / Analysis), each
+vertically scrollable.
 
-The tabs are exposed as ``data_tab`` / ``view_tab`` / ``analysis_tab``;
-``GraphPageView`` chains their signals up to its own page-level surface.
+The tabs are exposed as ``data_tab`` / ``plot_tab`` / ``tools_tab`` /
+``analysis_tab``; ``GraphPageView`` chains their signals up to its own
+page-level surface.
 """
 
 from __future__ import annotations
@@ -32,7 +33,8 @@ from wizard_4155_4156.views.widgets.graph_analysis_tab import (
     GraphAnalysisTab,
 )
 from wizard_4155_4156.views.widgets.graph_data_tab import GraphDataTab
-from wizard_4155_4156.views.widgets.graph_view_tab import GraphViewTab
+from wizard_4155_4156.views.widgets.graph_plot_tab import GraphPlotTab
+from wizard_4155_4156.views.widgets.graph_tools_tab import GraphToolsTab
 
 
 def _scrollable(widget: QWidget) -> QScrollArea:
@@ -57,13 +59,15 @@ class GraphSidebar(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.data_tab = GraphDataTab()
-        self.view_tab = GraphViewTab()
+        self.plot_tab = GraphPlotTab()
+        self.tools_tab = GraphToolsTab()
         self.analysis_tab = GraphAnalysisTab()
 
         tabs = QTabWidget()
         tabs.setStyleSheet(graph_sidebar_stylesheet())
         tabs.addTab(_scrollable(self.data_tab), tr_ui(TXT.GRAPH_TAB_DATA))
-        tabs.addTab(_scrollable(self.view_tab), tr_ui(TXT.GRAPH_TAB_VIEW))
+        tabs.addTab(_scrollable(self.plot_tab), tr_ui(TXT.GRAPH_TAB_PLOT))
+        tabs.addTab(_scrollable(self.tools_tab), tr_ui(TXT.GRAPH_TAB_TOOLS))
         tabs.addTab(
             _scrollable(self.analysis_tab), tr_ui(TXT.GRAPH_TAB_ANALYSIS)
         )

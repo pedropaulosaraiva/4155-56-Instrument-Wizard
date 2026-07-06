@@ -67,6 +67,7 @@ from wizard_4155_4156.models.sweep_config import (
 from wizard_4155_4156.styles.stylesheets import (
     channel_row_badge_stylesheet,
     export_btn_stylesheet,
+    flat_section_card_stylesheet,
     form_label_stylesheet,
     section_card_stylesheet,
     segmented_btn_checked_stylesheet,
@@ -84,9 +85,6 @@ from wizard_4155_4156.views.widgets.doc_tooltip import SectionHeader
 _SCI_DISPLAY_LOWER = 0.01
 _SCI_DISPLAY_UPPER = 1e5
 _MAX_SCI_PARTS = 2
-
-#: Tighter SectionFrame card margins for the narrow Graphs sidebar.
-GRAPH_SECTION_MARGINS = (12, 12, 12, 12)
 
 # ── Shared helpers ──────────────────────────────────────────────
 
@@ -504,21 +502,31 @@ class SectionFrame(QFrame):
         accent: str | None = None,
         doc_topic: DocTopic | None = None,
         body_margins: Tuple[int, int, int, int] | None = None,
+        flat: bool = False,
     ) -> None:
+        """``flat`` drops the card chrome (background/border) and dims
+        the header — for sidebars where settings must visually recede."""
         super().__init__(parent)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(8)
 
-        header = SectionHeader(title, accent=accent, doc_topic=doc_topic)
+        header = SectionHeader(
+            title, accent=accent, doc_topic=doc_topic, muted=flat
+        )
         header.doc_requested.connect(self.doc_requested)
         root.addWidget(header)
 
         self._card = QFrame()
         self._card.setObjectName("section_card")
-        self._card.setStyleSheet(section_card_stylesheet(accent))
+        self._card.setStyleSheet(
+            flat_section_card_stylesheet()
+            if flat
+            else section_card_stylesheet(accent)
+        )
         self._body = QVBoxLayout(self._card)
-        self._body.setContentsMargins(*(body_margins or (16, 14, 16, 14)))
+        default_margins = (4, 4, 4, 6) if flat else (16, 14, 16, 14)
+        self._body.setContentsMargins(*(body_margins or default_margins))
         self._body.setSpacing(10)
         root.addWidget(self._card)
 

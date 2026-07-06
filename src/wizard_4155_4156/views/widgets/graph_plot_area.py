@@ -497,7 +497,7 @@ class GraphPlotArea(QWidget):
     @staticmethod
     def _roi_brush_color():
         color = pg.mkColor(P.GRAPH_ROI)
-        color.setAlphaF(0.35)
+        color.setAlphaF(P.GRAPH_ROI_ALPHA)
         return color
 
     # =========================================================================
