@@ -62,6 +62,22 @@ def _configure_pyqtgraph() -> None:
     _PG_CONFIGURED = True
 
 
+class _StableAxisItem(pg.AxisItem):
+    """AxisItem whose tick scale is exactly the ``setScale`` factor.
+
+    Stock ``enableAutoSIPrefix(False)`` still recomputes
+    ``autoSIPrefixScale`` from the current range while the label is
+    visible, silently multiplying the tick text — pin it to 1 instead."""
+
+    def updateAutoSIPrefix(self) -> None:
+        if self.autoSIPrefix:
+            super().updateAutoSIPrefix()
+            return
+        self.autoSIPrefixScale = 1.0
+        self.labelUnitPrefix = ""
+        self._updateLabel()  # invalidates the tick picture + repaints
+
+
 _LINE_STYLES = {
     "solid": Qt.PenStyle.SolidLine,
     "dash": Qt.PenStyle.DashLine,
@@ -257,7 +273,14 @@ class GraphPlotArea(QWidget):
             spec = by_index.get(slot)
             if spec is None:
                 continue
-            plot = self._glw.addPlot(row=row, col=col)
+            plot = self._glw.addPlot(
+                row=row,
+                col=col,
+                axisItems={
+                    "bottom": _StableAxisItem("bottom"),
+                    "left": _StableAxisItem("left"),
+                },
+            )
             legend = plot.addLegend(
                 offset=(10, 10),
                 labelTextColor=P.TEXT_SECONDARY,

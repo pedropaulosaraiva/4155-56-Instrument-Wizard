@@ -476,6 +476,7 @@ class GraphPresenter(QObject):
         elif not checked and exec_id in plot.selected_exec_ids:
             plot.selected_exec_ids.remove(exec_id)
         self._rebuild_data_traces(plot)
+        self._refresh_auto_bounds()
         self._schedule_save()
         self._render_body()
 
@@ -496,6 +497,7 @@ class GraphPresenter(QObject):
         else:
             plot.y_var = name
         self._rebuild_data_traces(plot)
+        self._refresh_auto_bounds()
         self._schedule_save()
         self._render_body()
 
@@ -520,6 +522,14 @@ class GraphPresenter(QObject):
             cfg.min_val, cfg.max_val = min(finite), max(finite)
         else:
             cfg.min_val, cfg.max_val = 0.0, 1.0
+
+    def _refresh_auto_bounds(self) -> None:
+        """Data traces changed: re-seed the informational Min/Max of
+        every auto-scaled axis (manual bounds stay user-owned)."""
+        for axis in ("x", "y"):
+            cfg = self._axis(axis)
+            if cfg.auto_scale:
+                self._seed_manual_range(axis, cfg)
 
     def _on_axis_log(self, axis: str, on: bool) -> None:
         cfg = self._axis(axis)

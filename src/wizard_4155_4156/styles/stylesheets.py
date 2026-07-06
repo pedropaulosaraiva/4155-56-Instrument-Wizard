@@ -10,7 +10,40 @@ Rules:
     - Strings are kept as f-strings so PALETTE changes propagate globally.
 """
 
+import tempfile
+from pathlib import Path
+
 from wizard_4155_4156.styles.theme import PALETTE as P
+
+# ── QSS image assets ─────────────────────────────────────────────────────────
+# Once a subcontrol (e.g. QSpinBox::up-button) is styled, Qt stops
+# drawing its native arrow and QSS can only restore it via ``image:
+# url(file)``.  To keep colors sourced from PALETTE (no hex duplicated
+# into checked-in assets), tiny SVG triangles are generated on demand
+# into the user temp dir and cached per (direction, color).
+
+_ARROW_POINTS = {"up": "0,5 8,5 4,1", "down": "0,1 8,1 4,5"}
+_arrow_cache: dict[tuple[str, str], str] = {}
+
+
+def _arrow_url(direction: str, color: str) -> str:
+    """Filesystem path (QSS url form) of an 8×6 SVG triangle."""
+    key = (direction, color)
+    path = _arrow_cache.get(key)
+    if path is None:
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            'width="8" height="6">'
+            f'<polygon points="{_ARROW_POINTS[direction]}" '
+            f'fill="{color}"/></svg>'
+        )
+        file = Path(tempfile.gettempdir()) / (
+            f"wiz4155_arrow_{direction}_{color.lstrip('#')}.svg"
+        )
+        file.write_text(svg, encoding="utf-8")
+        path = _arrow_cache[key] = file.as_posix()
+    return path
+
 
 # ── Application-wide ─────────────────────────────────────────────────────────
 
@@ -1056,6 +1089,25 @@ def sweep_spinbox_stylesheet() -> str:
             width: 16px;
             border: none;
             background: {P.BG_ELEVATED};
+        }}
+        QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
+            background: {P.BORDER};
+        }}
+        /* Styling the buttons discards Qt's native arrows — restore
+           them from the generated PALETTE-colored SVG triangles. */
+        QSpinBox::up-arrow {{
+            image: url({_arrow_url("up", P.TEXT_SECONDARY)});
+            width: 8px; height: 6px;
+        }}
+        QSpinBox::down-arrow {{
+            image: url({_arrow_url("down", P.TEXT_SECONDARY)});
+            width: 8px; height: 6px;
+        }}
+        QSpinBox::up-arrow:disabled, QSpinBox::up-arrow:off {{
+            image: url({_arrow_url("up", P.TEXT_DISABLED)});
+        }}
+        QSpinBox::down-arrow:disabled, QSpinBox::down-arrow:off {{
+            image: url({_arrow_url("down", P.TEXT_DISABLED)});
         }}
         QSpinBox:disabled {{
             color: {P.TEXT_DISABLED};
