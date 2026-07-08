@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+deployment/
 develop-eggs/
 dist/
 downloads/
@@ -31,6 +32,8 @@ MANIFEST
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+# pyside6-deploy config (keep despite *.spec above)
+!pysidedeploy.spec
 
 # Installer logs
 pip-log.txt

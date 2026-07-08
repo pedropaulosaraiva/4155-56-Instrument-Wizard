@@ -13,13 +13,21 @@ without executing sys.exit().
 """
 
 import sys
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.main_window import MainWindow
+
+
+def _app_version() -> str:
+    try:
+        return version("wizard_4155_4156")
+    except PackageNotFoundError:
+        # Frozen build (Nuitka): package metadata is not bundled.
+        return "0.1.0"
 
 
 def build_palette() -> QPalette:
@@ -47,7 +55,7 @@ def run() -> int:
     app.setStyle("Fusion")
     app.setPalette(build_palette())
     app.setApplicationName("Wizard 4155/4156")
-    app.setApplicationVersion(version("wizard_4155_4156"))
+    app.setApplicationVersion(_app_version())
 
     window = MainWindow()
     window.show()

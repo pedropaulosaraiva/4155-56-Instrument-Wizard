@@ -237,7 +237,7 @@ class QuickActionsPanel(QFrame):
 
         layout.addStretch()
 
-        version = QLabel("v1.0.0 — Wizard 4155/4156")
+        version = QLabel("v0.1.0 — Wizard 4155/4156")
         version.setStyleSheet(version_label_stylesheet())
         version.setAlignment(Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(version)
