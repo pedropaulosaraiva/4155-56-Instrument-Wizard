@@ -60,7 +60,7 @@ class CommandWizardText(StrEnum):
     CFG_STATUS_NOT_READY = "Not Ready"
     CFG_INFO_INDEXES = "Total measurement indexes"
     CFG_INFO_POINTS = "Total measurement points"
-    CFG_INFO_EXEC_TIME = "Minimum execution time"
+    CFG_INFO_EXEC_TIME = "Minimum runtime"
     CFG_INFO_STATUS = "Current setup status"
     CFG_MODAL_TITLE = "Measurement status"
     CFG_COL_CRITICAL = "Critical"

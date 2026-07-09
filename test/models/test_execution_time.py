@@ -329,9 +329,20 @@ def test_sampling_measurement_stats():
 
 
 def test_format_execution_interval():
-    assert format_execution_interval(None) == "indeterminate"
-    assert format_execution_interval((1.5, 1.5)) == "~1.5 s"
-    assert format_execution_interval((12.0, 48.0)) == "~12–48 s"
+    assert format_execution_interval(None) == "> indeterminate"
+    assert format_execution_interval((1.5, 1.5)) == "> 1.5 s"
+    assert format_execution_interval((12.0, 48.0)) == "> 12 - 48 s"
+
+
+def test_format_execution_interval_adaptive_scale():
+    # Sub-second collapses to milliseconds.
+    assert format_execution_interval((0.001, 0.001)) == "> 1 ms"
+    # Equal bounds in a larger unit (36000 s == 10 h).
+    assert format_execution_interval((36000.0, 36000.0)) == "> 10 h"
+    # Same-scale interval keeps a single trailing unit.
+    assert format_execution_interval((90.0, 150.0)) == "> 1.5 - 2.5 min"
+    # Bounds in different scales each keep their own unit.
+    assert format_execution_interval((0.8, 2.0)) == "> 800 ms - 2 s"
 
 
 def test_format_execution_time_interval():

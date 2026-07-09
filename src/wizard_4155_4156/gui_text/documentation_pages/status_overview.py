@@ -16,7 +16,7 @@ an **ⓘ** icon linking to its own documentation page:
 |--------|--------|-------------------|
 | **Critical** | red | Blocking errors. While any are present the setup **cannot be saved or exported**, and the card reads *Not Ready*. |
 | **Warnings** | amber | Non-blocking advisories — things that are allowed but worth checking. They never block saving. |
-| **Information** | blue | Live statistics: how many indexes and points the setup produces, and an estimate of its execution time. |
+| **Information** | blue | Live statistics: how many indexes and points the setup produces, and an estimate of its runtime. |
 
 ## Card behaviour
 

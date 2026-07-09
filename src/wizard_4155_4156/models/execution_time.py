@@ -236,17 +236,65 @@ def format_execution_time(result: Optional[Tuple[float, float]]) -> str:
     return f"est. {_fmt_seconds(lo)}–{_fmt_seconds(hi)} s"
 
 
+# Adaptive time-scale units: (label, seconds-per-unit, exclusive upper bound in
+# seconds).  "d"/"y" are included as a precaution for extreme setups.
+_MINUTE: float = 60.0
+_HOUR: float = 3600.0
+_DAY: float = 86_400.0
+_YEAR: float = 365.0 * _DAY
+_TIME_UNITS: List[Tuple[str, float, float]] = [
+    ("ms", 1e-3, 1.0),
+    ("s", 1.0, _MINUTE),
+    ("min", _MINUTE, _HOUR),
+    ("h", _HOUR, _DAY),
+    ("d", _DAY, _YEAR),
+    ("y", _YEAR, math.inf),
+]
+
+
+def _scale_time(value: float) -> Tuple[float, str]:
+    """(magnitude, unit) for a duration in seconds, picking the largest unit
+    that keeps the magnitude readable (ms for sub-second, up to years)."""
+    for label, factor, upper in _TIME_UNITS:
+        if abs(value) < upper:
+            return value / factor, label
+    return value / _YEAR, "y"
+
+
+#: At/above this magnitude, drop the fractional part (3 sig figs render as an
+#: integer there anyway) and use a thousands separator.
+_INT_MAGNITUDE: float = 100.0
+
+
+def _fmt_magnitude(magnitude: float) -> str:
+    if magnitude >= _INT_MAGNITUDE:
+        return f"{magnitude:,.0f}"
+    return f"{magnitude:.3g}"
+
+
 def format_execution_interval(
     result: Optional[Tuple[float, float]],
 ) -> str:
-    """Execution-time interval for the widget: ``~lo–hi s`` (``~v s`` when the
-    bounds coincide), or 'indeterminate' when None."""
+    """Minimum-runtime estimate for display, scaled to the most readable time
+    unit: ``> lo - hi UNIT`` (``> v UNIT`` when the bounds coincide).  When the
+    two bounds land in different scales each keeps its own unit
+    (``> 800 ms - 2 s``).  Returns ``> indeterminate`` when None."""
     if result is None:
-        return "indeterminate"
+        return "> indeterminate"
     lo, hi = result
     if math.isclose(lo, hi, rel_tol=1e-9):
-        return f"~{_fmt_seconds(hi)} s"
-    return f"~{_fmt_seconds(lo)}–{_fmt_seconds(hi)} s"
+        magnitude, unit = _scale_time(hi)
+        return f"> {_fmt_magnitude(magnitude)} {unit}"
+    lo_mag, lo_unit = _scale_time(lo)
+    hi_mag, hi_unit = _scale_time(hi)
+    if lo_unit == hi_unit:
+        return (
+            f"> {_fmt_magnitude(lo_mag)} - {_fmt_magnitude(hi_mag)} {hi_unit}"
+        )
+    return (
+        f"> {_fmt_magnitude(lo_mag)} {lo_unit} - "
+        f"{_fmt_magnitude(hi_mag)} {hi_unit}"
+    )
 
 
 # ── Measurement statistics (status widget) ───────────────────────────────────

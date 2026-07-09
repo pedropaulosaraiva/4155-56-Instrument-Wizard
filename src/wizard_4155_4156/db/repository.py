@@ -25,6 +25,7 @@ from wizard_4155_4156.db.schema import (
     MeasurementExecution,
     MeasurementSetup,
 )
+from wizard_4155_4156.models.execution_time import format_execution_interval
 
 #: Friendly labels for the ``setup_type`` discriminator.
 SETUP_TYPE_LABELS: dict[str, str] = {
@@ -50,6 +51,9 @@ class SetupRow:
     description: str
     author: str
     organization: str
+    #: Preformatted minimum-runtime label, e.g. "> 1.08 - 2.89 s" / "> 10 h" /
+    #: "> indeterminate" (also shown for setups saved before runtime capture).
+    runtime_label: str
 
 
 @dataclass(frozen=True)
@@ -76,6 +80,13 @@ class GraphSceneRow:
 
 
 def _to_setup_row(setup: MeasurementSetup) -> SetupRow:
+    # Both bounds present ⇒ a real interval; otherwise indeterminate (also the
+    # case for setups saved before runtime capture existed).
+    runtime = (
+        (setup.runtime_min, setup.runtime_max)
+        if setup.runtime_min is not None and setup.runtime_max is not None
+        else None
+    )
     return SetupRow(
         id=setup.id,
         name=setup.name,
@@ -88,6 +99,7 @@ def _to_setup_row(setup: MeasurementSetup) -> SetupRow:
         description=setup.description or "",
         author=setup.author or "",
         organization=setup.organization or "",
+        runtime_label=format_execution_interval(runtime),
     )
 
 

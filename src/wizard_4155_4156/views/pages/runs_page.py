@@ -351,7 +351,7 @@ class RunsPageView(BasePage):
     def _make_setup_item(row: SetupRow) -> QListWidgetItem:
         created = row.creation_date.strftime("%d/%m/%Y")
         label = (
-            f"{row.name}\n"
+            f"{row.name}    {row.runtime_label}\n"
             f"   {row.type_label} · {row.instrument_model} · "
             f"{row.execution_count} run(s) · created {created}"
         )

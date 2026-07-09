@@ -27,7 +27,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from PySide6.QtCore import QObject
 
@@ -143,6 +143,16 @@ class SamplingConfigPresenter(QObject):
                 "Sampling config invalid:\n" + "\n".join(errors.values())
             )
         return self._build_json()
+
+    def get_runtime_bounds(self) -> Optional[Tuple[float, float]]:
+        """Estimated minimum-runtime interval (seconds), or None when
+        indeterminate — persisted alongside a saved setup."""
+        return sampling_measurement_stats(
+            self._config,
+            self._ctx["active_channels"],
+            self._ctx["instrument_model"],
+            self._line_frequency_hz,
+        ).exec_time
 
     # ── Channel context (derived once from the static snapshot) ────────────
 

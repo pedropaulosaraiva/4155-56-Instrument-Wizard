@@ -15,7 +15,7 @@ never block saving.
 |-----|---------|
 | **Total measurement indexes** | The number of measurement *steps* the instrument performs — one index per source step (Sweep/QSCV) or per sample (Sampling). |
 | **Total measurement points** | The number of stored data values: **indexes × number of measured display variables**. |
-| **Minimum execution time** | An estimate of the total run time, shown as a single value or a `~min–max` range (or *indeterminate*, see below). |
+| **Minimum runtime** | An estimate of the total run time, scaled to a readable unit (ms / s / min / h) and shown as `> value` or a `> min - max` range (or `> indeterminate`, see below). |
 | **Current setup status** | *Ready to Save* when no critical errors remain, otherwise *Not Ready*. |
 
 ### Indexes
@@ -34,7 +34,7 @@ An *index* is one point in the measurement series.
 when it is **enabled and its measured variable is selected for display**. A VMU in
 DVOLT mode contributes a single stored value.
 
-### Estimated execution time
+### Estimated runtime
 
 The estimate follows the instrument's measurement model:
 
@@ -49,7 +49,7 @@ The estimate follows the instrument's measurement model:
 
 ## Why it is only an estimate
 
-The figure that drives execution time — the **measurement interval** — is itself
+The figure that drives the runtime — the **measurement interval** — is itself
 estimated, and two real-world contributions are deliberately left out.
 
 First, the underlying identity:
@@ -64,7 +64,7 @@ bookkeeping — none of which this estimate tries to predict.
   instrument may switch measurement ranges between points, and each switch costs
   time that cannot be known in advance. Because the run-time current range is
   unknown, the effective integration time is reported as a `min–max` interval
-  spanning the fastest and slowest possible ranges — which is why execution time
+  spanning the fastest and slowest possible ranges — which is why the runtime
   is often shown as a range rather than a single value.
 - **Stabilization / wait time is not counted (Sweep and QSCV).** After each source
   step the instrument waits for the measurement to settle before it integrates.
@@ -93,5 +93,5 @@ yield different times on different channels.
 > and effectively **doubles** the integration time. It applies to voltage
 > measurements and to current measurements on the 10 nA range or greater.
 
-> Source: *Agilent 4155C/4156C User's Guide Vol.2* — Measurement Time / Integration Time, plus the setup's execution-time model.
+> Source: *Agilent 4155C/4156C User's Guide Vol.2* — Measurement Time / Integration Time, plus the setup's runtime model.
 """.strip()

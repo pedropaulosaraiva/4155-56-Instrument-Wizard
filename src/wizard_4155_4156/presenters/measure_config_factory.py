@@ -108,6 +108,18 @@ class MeasureConfigFactory(QObject):
             raise ValueError(tr_ui(CommandWizardText.MEAS_NO_CONFIG))
         return self._presenter.get_instrument_model()
 
+    def get_runtime_bounds(self):
+        """
+        Estimated minimum-runtime interval (seconds) of the active config, or
+        None when indeterminate — captured alongside a saved setup.
+
+        Raises ValueError when no page has been generated yet (same contract as
+        get_json / get_instrument_model).
+        """
+        if self._presenter is None:
+            raise ValueError(tr_ui(CommandWizardText.MEAS_NO_CONFIG))
+        return self._presenter.get_runtime_bounds()
+
     def generate(self) -> BasePage | None:
         """
         Build a fresh page/presenter pair for the measurement mode

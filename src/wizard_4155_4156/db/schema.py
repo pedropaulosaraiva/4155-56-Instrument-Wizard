@@ -65,6 +65,12 @@ class MeasurementSetup(Base):
     interlock_open: Mapped[bool] = mapped_column(default=True)
     common_to_ground: Mapped[bool] = mapped_column(default=True)
 
+    # Estimated minimum-runtime interval (seconds) captured at save time so the
+    # Runs page can show "> lo - hi" without recomputing.  Both NULL means
+    # indeterminate (also the state for setups saved before this was added).
+    runtime_min: Mapped[Optional[float]] = mapped_column(default=None)
+    runtime_max: Mapped[Optional[float]] = mapped_column(default=None)
+
     # The canonical measurement-config dict, stored verbatim.
     setup_data: Mapped[dict] = mapped_column(JSON, default=dict)
 

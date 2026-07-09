@@ -197,6 +197,15 @@ class RunsPresenter(QObject):
         except ValueError as exc:
             return f"No valid measurement config to save: {exc}"
 
+        # Estimated minimum-runtime interval (seconds), captured so the Runs
+        # page can show it without recomputing.  None ⇒ indeterminate.
+        try:
+            runtime = self._config_provider.get_runtime_bounds()
+        except ValueError:
+            runtime = None
+        runtime_min = runtime[0] if runtime else None
+        runtime_max = runtime[1] if runtime else None
+
         settings = self._settings.get()
         new_id: Optional[int] = None
         try:
@@ -212,6 +221,8 @@ class RunsPresenter(QObject):
                     # The setup records the instrument defined on the Channels
                     # page (behind the live config), not a global default.
                     instrument_model=self._config_provider.get_instrument_model(),
+                    runtime_min=runtime_min,
+                    runtime_max=runtime_max,
                 )
                 SetupRepository.add(s, setup)
                 new_id = setup.id

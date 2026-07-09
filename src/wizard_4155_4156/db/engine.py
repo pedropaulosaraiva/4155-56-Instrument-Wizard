@@ -41,6 +41,39 @@ def _enable_sqlite_fk(dbapi_connection, _connection_record) -> None:
     cursor.close()
 
 
+#: Columns added to existing tables after their first release.  ``create_all``
+#: only creates missing *tables*, never alters existing ones, so columns added
+#: to an already-shipped table must be back-filled here for old project files.
+#: ``{table: {column: column_type_sql}}`` — additive, idempotent, SQLite-safe.
+_ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "measurement_setup": {
+        "runtime_min": "FLOAT",
+        "runtime_max": "FLOAT",
+    },
+}
+
+
+def _apply_additive_migrations(engine: Engine) -> None:
+    """Add any missing columns from ``_ADDED_COLUMNS`` to existing tables.
+
+    Guarded by ``PRAGMA table_info`` so it is a no-op on fresh databases (where
+    ``create_all`` already built the full schema) and on already-migrated ones.
+    """
+    with engine.begin() as conn:
+        for table, columns in _ADDED_COLUMNS.items():
+            existing = {
+                row[1]
+                for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")
+            }
+            if not existing:
+                continue  # table absent (should not happen after create_all)
+            for name, col_type in columns.items():
+                if name not in existing:
+                    conn.exec_driver_sql(
+                        f"ALTER TABLE {table} ADD COLUMN {name} {col_type}"
+                    )
+
+
 class ProjectDatabase:
     """A single open project database (one SQLite file)."""
 
@@ -52,6 +85,8 @@ class ProjectDatabase:
         event.listen(self._engine, "connect", _enable_sqlite_fk)
         # Idempotent — creates any missing tables, tolerant of existing files.
         Base.metadata.create_all(self._engine)
+        # Back-fill columns added to already-shipped tables (create_all won't).
+        _apply_additive_migrations(self._engine)
         self._Session = sessionmaker(
             bind=self._engine, expire_on_commit=False, future=True
         )

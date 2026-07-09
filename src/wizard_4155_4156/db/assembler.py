@@ -45,8 +45,14 @@ def config_dict_to_setup(
     organization: Optional[str] = None,
     interlock_open: bool = True,
     common_to_ground: bool = True,
+    runtime_min: Optional[float] = None,
+    runtime_max: Optional[float] = None,
 ) -> MeasurementSetup:
-    """Build an (un-persisted) setup row storing the config dict as JSON."""
+    """Build an (un-persisted) setup row storing the config dict as JSON.
+
+    ``runtime_min``/``runtime_max`` are the estimated minimum-runtime interval
+    (seconds) captured at save time; both ``None`` means indeterminate.
+    """
     return MeasurementSetup(
         name=name,
         description=description,
@@ -56,6 +62,8 @@ def config_dict_to_setup(
         setup_type=config.get("mode", "SWEEP"),
         interlock_open=interlock_open,
         common_to_ground=common_to_ground,
+        runtime_min=runtime_min,
+        runtime_max=runtime_max,
         setup_data=copy.deepcopy(dict(config)),
     )
 
