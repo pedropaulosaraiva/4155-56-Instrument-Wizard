@@ -109,7 +109,7 @@ class VSUConfig:
 
 # ── Default first-page layout ────────────────────────────────────────────────
 
-DEFAULT_INSTRUMENT_MODEL: InstrumentModel = InstrumentModel.HP4156B
+DEFAULT_INSTRUMENT_MODEL: InstrumentModel = InstrumentModel.HP4155C
 DEFAULT_MEASUREMENT_MODE: MeasurementMode = MeasurementMode.SWEEP
 
 # (mode, function) per 1-based SMU index.

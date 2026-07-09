@@ -821,7 +821,7 @@ class ChannelsPageView(BasePage):
         self._interlock_cb = QCheckBox(
             tr_ui(CommandWizardText.CHAN_OPT_INTERLOCK_OPEN)
         )
-        self._interlock_cb.setChecked(False)
+        self._interlock_cb.setChecked(True)
         self._interlock_cb.setStyleSheet(global_option_checkbox_stylesheet())
         bp_layout.addWidget(self._interlock_cb)
 
