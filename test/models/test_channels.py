@@ -237,7 +237,7 @@ def test_var1_vard_type_match(var1_mode, mismatch):
 
 def test_default_model_and_mode():
     cfg = ChannelsConfig()
-    assert cfg.instrument_model == InstrumentModel.HP4156B
+    assert cfg.instrument_model == InstrumentModel.HP4155C
     assert cfg.measurement_mode == MeasurementMode.SWEEP
 
 
