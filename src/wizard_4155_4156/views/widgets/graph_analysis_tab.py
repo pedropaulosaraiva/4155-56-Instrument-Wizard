@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -82,7 +83,7 @@ class _RemovableList(QWidget):
 
     remove_requested = Signal(str)  # trace id
 
-    def __init__(self, title: str) -> None:
+    def __init__(self, title: str, copyable: bool = False) -> None:
         super().__init__()
         v = QVBoxLayout(self)
         v.setContentsMargins(0, 0, 0, 0)
@@ -100,8 +101,23 @@ class _RemovableList(QWidget):
         )
         self._list.setMinimumHeight(90)
         self._list.setMaximumHeight(132)
-        self._list.itemSelectionChanged.connect(self._update_remove_enabled)
+        self._list.itemSelectionChanged.connect(self._update_buttons_enabled)
         v.addWidget(self._list)
+
+        buttons = QWidget()
+        h = QHBoxLayout(buttons)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(8)
+
+        self._copy_btn: QPushButton | None = None
+        if copyable:
+            self._copy_btn = QPushButton(tr_ui(TXT.GRAPH_BTN_COPY_FIT))
+            self._copy_btn.setStyleSheet(runs_primary_button_stylesheet())
+            self._copy_btn.setToolTip(tr_ui(TXT.GRAPH_TT_COPY_SELECTED))
+            self._copy_btn.setEnabled(False)  # acts on the selected entry
+            self._copy_btn.clicked.connect(self._on_copy)
+            h.addWidget(self._copy_btn)
+        h.addStretch(1)
 
         self._remove_btn = QPushButton("✕")
         self._remove_btn.setStyleSheet(runs_secondary_button_stylesheet())
@@ -109,7 +125,8 @@ class _RemovableList(QWidget):
         self._remove_btn.setToolTip(tr_ui(TXT.GRAPH_TT_REMOVE_SELECTED))
         self._remove_btn.setEnabled(False)  # acts on the selected entry
         self._remove_btn.clicked.connect(self._on_remove)
-        v.addWidget(self._remove_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        h.addWidget(self._remove_btn)
+        v.addWidget(buttons)
 
     def display(self, entries: list[tuple[str, str]]) -> None:
         """(trace id, display text) rows."""
@@ -119,15 +136,23 @@ class _RemovableList(QWidget):
             item.setData(_TRACE_ID_ROLE, trace_id)
             item.setToolTip(text)
             self._list.addItem(item)
-        self._update_remove_enabled()
+        self._update_buttons_enabled()
 
-    def _update_remove_enabled(self) -> None:
-        self._remove_btn.setEnabled(self._list.currentItem() is not None)
+    def _update_buttons_enabled(self) -> None:
+        has_selection = self._list.currentItem() is not None
+        self._remove_btn.setEnabled(has_selection)
+        if self._copy_btn is not None:
+            self._copy_btn.setEnabled(has_selection)
 
     def _on_remove(self) -> None:
         item = self._list.currentItem()
         if item is not None:
             self.remove_requested.emit(item.data(_TRACE_ID_ROLE))
+
+    def _on_copy(self) -> None:
+        item = self._list.currentItem()
+        if item is not None:
+            QApplication.clipboard().setText(item.text())
 
 
 class GraphAnalysisTab(QWidget):
@@ -205,7 +230,9 @@ class GraphAnalysisTab(QWidget):
         h.addWidget(self._fit_full_btn)
         body.addWidget(buttons)
 
-        self._fits_list = _RemovableList(tr_ui(TXT.GRAPH_FITS_TITLE))
+        self._fits_list = _RemovableList(
+            tr_ui(TXT.GRAPH_FITS_TITLE), copyable=True
+        )
         self._fits_list.remove_requested.connect(self.fit_removed)
         body.addWidget(self._fits_list)
         return section

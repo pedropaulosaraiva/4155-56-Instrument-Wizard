@@ -41,7 +41,7 @@ from wizard_4155_4156.gui_text.general_text import (
     CommandWizardText as TXT,
 )
 from wizard_4155_4156.gui_text.general_text import tr_ui
-from wizard_4155_4156.models.data_export import to_csv
+from wizard_4155_4156.models.data_export import to_csv, to_xlsx_bytes
 from wizard_4155_4156.models.graph.config import (
     AxisConfig,
     Multiplier,
@@ -811,8 +811,18 @@ class GraphPresenter(QObject):
         return "\n".join(parts)
 
     def _on_export(self, kind: str) -> None:
-        plot = self._plot
-        traces = [t for t in plot.traces if t.x]
+        if kind == "png_scene":
+            # Scene-wide guard — any plot in the grid may hold the data.
+            if not any(
+                t.x for p in self._scene.plots for t in p.traces
+            ):
+                self._view.display_analysis_message(
+                    tr_ui(TXT.GRAPH_EXPORT_NO_PLOT)
+                )
+                return
+            self._export_scene_png()
+            return
+        traces = [t for t in self._plot.traces if t.x]
         if not traces:
             self._view.display_analysis_message(
                 tr_ui(TXT.GRAPH_EXPORT_NO_PLOT)
@@ -820,6 +830,8 @@ class GraphPresenter(QObject):
             return
         if kind == "png":
             self._export_png()
+        elif kind == "xlsx":
+            self._export_xlsx(traces)
         else:
             self._export_csv(traces)
 
@@ -833,6 +845,16 @@ class GraphPresenter(QObject):
         if path:
             self._view.export_plot_png(self._scene.active_index, path)
 
+    def _export_scene_png(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self._view,
+            tr_ui(TXT.GRAPH_EXPORT_SCENE_TITLE),
+            "scene.png",
+            "PNG (*.png)",
+        )
+        if path:
+            self._view.export_scene_png(path)
+
     def _export_csv(self, traces: list[Trace]) -> None:
         path, _ = QFileDialog.getSaveFileName(
             self._view,
@@ -845,6 +867,23 @@ class GraphPresenter(QObject):
         try:
             with open(path, "w", encoding="utf-8", newline="") as fh:
                 fh.write(to_csv(traces_to_dataset(traces)))
+        except OSError as exc:
+            self._view.display_analysis_message(
+                tr_ui(TXT.GRAPH_EXPORT_ERROR).format(error=exc)
+            )
+
+    def _export_xlsx(self, traces: list[Trace]) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self._view,
+            tr_ui(TXT.GRAPH_EXPORT_CSV_TITLE),
+            "plot.xlsx",
+            "XLSX (*.xlsx)",
+        )
+        if not path:
+            return
+        try:
+            with open(path, "wb") as fh:
+                fh.write(to_xlsx_bytes(traces_to_dataset(traces)))
         except OSError as exc:
             self._view.display_analysis_message(
                 tr_ui(TXT.GRAPH_EXPORT_ERROR).format(error=exc)

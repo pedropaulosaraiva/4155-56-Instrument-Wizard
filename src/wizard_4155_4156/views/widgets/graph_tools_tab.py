@@ -14,7 +14,6 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
-    QHBoxLayout,
     QLabel,
     QPushButton,
     QVBoxLayout,
@@ -59,7 +58,7 @@ class GraphToolsTab(QWidget):
     cursor_mode_changed = Signal(str)  # "off" | "single" | "dual"
     cursor_source_changed = Signal(str)  # trace id
     roi_enabled_changed = Signal(bool)
-    export_requested = Signal(str)  # "png" | "csv"
+    export_requested = Signal(str)  # "png" | "png_scene" | "csv" | "xlsx"
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -156,21 +155,19 @@ class GraphToolsTab(QWidget):
         section = SectionFrame(
             tr_ui(TXT.GRAPH_SEC_EXPORT), flat=True, accent=P.GRAPH_TAB_TOOLS
         )
-        export_row = QWidget()
-        h = QHBoxLayout(export_row)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.setSpacing(8)
+        # Stacked vertically — four labels don't fit the sidebar in a row.
         for kind, text in (
             ("png", TXT.GRAPH_BTN_EXPORT_PNG),
+            ("png_scene", TXT.GRAPH_BTN_EXPORT_PNG_SCENE),
             ("csv", TXT.GRAPH_BTN_EXPORT_CSV),
+            ("xlsx", TXT.GRAPH_BTN_EXPORT_XLSX),
         ):
             btn = QPushButton(tr_ui(text))
             btn.setStyleSheet(runs_secondary_button_stylesheet())
             btn.clicked.connect(
                 lambda _c=False, k=kind: self.export_requested.emit(k)
             )
-            h.addWidget(btn)
-        section.body().addWidget(export_row)
+            section.body().addWidget(btn)
         return section
 
     # ── Public display API ──────────────────────────────────────────────────

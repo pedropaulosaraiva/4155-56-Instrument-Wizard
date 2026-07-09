@@ -238,6 +238,11 @@ class GraphPlotArea(QWidget):
         ImageExporter(state.plot).export(path)
         return True
 
+    def export_scene_png(self, path: str) -> bool:
+        """Render the whole plot grid (all visible plots) to a PNG file."""
+        ImageExporter(self._glw.scene()).export(path)
+        return True
+
     # =========================================================================
     # Full rebuild (geometry / scene change) with view-state stash
     # =========================================================================

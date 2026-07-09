@@ -187,8 +187,10 @@ class CommandWizardText(StrEnum):
     GRAPH_CURSOR_DUAL = "Dual"
     GRAPH_LBL_CURSOR_SOURCE = "Cursor trace:"
     GRAPH_CHK_ROI = "ROI (fit / extraction window)"
-    GRAPH_BTN_EXPORT_PNG = "Export PNG…"
+    GRAPH_BTN_EXPORT_PNG = "Export PNG (active plot)…"
+    GRAPH_BTN_EXPORT_PNG_SCENE = "Export PNG (entire scene)…"
     GRAPH_BTN_EXPORT_CSV = "Export CSV…"
+    GRAPH_BTN_EXPORT_XLSX = "Export XLSX…"
     GRAPH_LBL_PLOT_TITLE = "Plot title:"
     GRAPH_LBL_X_LABEL = "X label:"
     GRAPH_LBL_Y_LABEL = "Y label:"
@@ -226,6 +228,8 @@ class CommandWizardText(StrEnum):
     GRAPH_FITS_TITLE = "Fits"
     GRAPH_COMPUTED_TITLE = "Computed traces"
     GRAPH_TT_REMOVE_SELECTED = "Remove the selected entry"
+    GRAPH_BTN_COPY_FIT = "Copy"
+    GRAPH_TT_COPY_SELECTED = "Copy selected text"
     GRAPH_ANALYSIS_EMPTY = (
         "Select executions on the Data tab to enable analysis."
     )
@@ -237,6 +241,7 @@ class CommandWizardText(StrEnum):
     )
     # Export
     GRAPH_EXPORT_PNG_TITLE = "Export plot image"
+    GRAPH_EXPORT_SCENE_TITLE = "Export scene image"
     GRAPH_EXPORT_CSV_TITLE = "Export plot data"
     GRAPH_EXPORT_DONE = "Saved {path}"
     GRAPH_EXPORT_ERROR = "Could not save file:\n{error}"

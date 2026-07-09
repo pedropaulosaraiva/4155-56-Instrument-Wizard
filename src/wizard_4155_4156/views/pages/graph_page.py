@@ -322,6 +322,9 @@ class GraphPageView(BasePage):
     def export_plot_png(self, slot_index: int, path: str) -> bool:
         return self.plot_area.export_plot_png(slot_index, path)
 
+    def export_scene_png(self, path: str) -> bool:
+        return self.plot_area.export_scene_png(path)
+
     # ── Data tab ─────────────────────────────────────────────────────────────
 
     def display_datasets(self, groups) -> None:
