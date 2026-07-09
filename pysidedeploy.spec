@@ -24,7 +24,7 @@ icon = assets\branding\logo.ico
 # python path (placeholder only = the tool always uses the interpreter that
 # launched it, e.g. via `uv run pyside6-deploy`, and re-stamps this value
 # with the local absolute path after each build -- discard that diff)
-python_path = C:\Users\ppgsa\Projects\wizard_bundle\wizard_4155_4156\.venv\Scripts\python.exe
+python_path = .venv\Scripts\python.exe
 
 # python packages to install
 packages = Nuitka==4.1.3

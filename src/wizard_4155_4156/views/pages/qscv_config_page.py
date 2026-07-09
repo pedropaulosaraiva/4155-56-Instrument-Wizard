@@ -139,7 +139,6 @@ class _QscvMeasSetupSection(_SectionFrame):
     cap_int_committed = Signal(float)
     leak_int_committed = Signal(float)
     leak_comp_changed = Signal(bool)
-    zero_cancel_changed = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(
@@ -176,9 +175,6 @@ class _QscvMeasSetupSection(_SectionFrame):
         self._leak_seg = _SegmentedGroup(["OFF", "ON"], "OFF")
         self.body().addWidget(_form_row("Leak Compensation", self._leak_seg))
 
-        self._zero_seg = _SegmentedGroup(["OFF", "ON"], "OFF")
-        self.body().addWidget(_form_row("Zero Cancel", self._zero_seg))
-
         # Resolution as a bottom sub-label (styled like VAR1's "Assigned:").
         self._resolution_lbl = QLabel("")
         self._resolution_lbl.setStyleSheet(
@@ -193,9 +189,6 @@ class _QscvMeasSetupSection(_SectionFrame):
         self._leak_int_edit.value_committed.connect(self.leak_int_committed)
         self._leak_seg.selection_changed.connect(
             lambda v: self.leak_comp_changed.emit(v == "ON")
-        )
-        self._zero_seg.selection_changed.connect(
-            lambda v: self.zero_cancel_changed.emit(v == "ON")
         )
 
     # ── Display API ─────────────────────────────────────────────────────
@@ -238,12 +231,10 @@ class _QscvMeasSetupSection(_SectionFrame):
         cap_time: float,
         leak_time: float,
         leak_comp: bool,
-        zero_cancel: bool,
     ) -> None:
         self._cap_int_edit.set_value(cap_time)
         self._leak_int_edit.set_value(leak_time)
         self._leak_seg.set_value("ON" if leak_comp else "OFF")
-        self._zero_seg.set_value("ON" if zero_cancel else "OFF")
 
     def current_unit(self) -> str:
         return self._unit_combo.currentData() or "DEFAULT"
@@ -445,7 +436,6 @@ class QscvConfigPageView(BasePage):
     cap_int_committed = Signal(float)
     leak_int_committed = Signal(float)
     leak_comp_changed = Signal(bool)
-    zero_cancel_changed = Signal(bool)
 
     # User-function names
     cap_name_changed = Signal(str)
@@ -511,7 +501,6 @@ class QscvConfigPageView(BasePage):
             ms.get("cap_time", 0.1),
             ms.get("leak_time", 0.1),
             ms.get("leak_comp", False),
-            ms.get("zero_cancel", False),
         )
         self._names_sec.display_state(ms.get("cname", ""), ms.get("iname", ""))
         self._timing_sec.display_state(
@@ -684,7 +673,6 @@ class QscvConfigPageView(BasePage):
         m.cap_int_committed.connect(self.cap_int_committed)
         m.leak_int_committed.connect(self.leak_int_committed)
         m.leak_comp_changed.connect(self.leak_comp_changed)
-        m.zero_cancel_changed.connect(self.zero_cancel_changed)
 
         t = self._timing_sec
         t.delay_committed.connect(self.delay_committed)

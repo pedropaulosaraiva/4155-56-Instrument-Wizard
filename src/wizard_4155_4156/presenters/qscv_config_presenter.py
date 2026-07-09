@@ -137,7 +137,6 @@ class QscvConfigPresenter(QObject):
         v.cap_name_changed.connect(self._on_cap_name)
         v.leak_name_changed.connect(self._on_leak_name)
         v.leak_comp_changed.connect(self._on_leak_comp)
-        v.zero_cancel_changed.connect(self._on_zero_cancel)
 
         v.delay_committed.connect(self._on_delay)
         v.hold_time_committed.connect(self._on_hold_time)
@@ -263,6 +262,18 @@ class QscvConfigPresenter(QObject):
         }
         channel_vars = [v for v in channel_vars if v not in measured]
 
+        # SMU with COMM mode variables must be excluded from the QSCV display.
+        # The current variable is already dropped above (it is the COMM unit's
+        # measurable variable); this also drops the remaining voltage variable.
+        comm_vars = {
+            name
+            for ch in active
+            if ch.get("unit_type") == "SMU" and ch.get("mode") == "COMM"
+            for name in (ch.get("v_name"), ch.get("i_name"))
+            if name
+        }
+        channel_vars = [v for v in channel_vars if v not in comm_vars]
+
         self._ctx = {
             "instrument_model": instrument_model,
             "interlock_open": bool(ch_cfg.interlock_open),
@@ -386,10 +397,6 @@ class QscvConfigPresenter(QObject):
     def _on_leak_comp(self, enabled: bool) -> None:
         self._config.leak_compensation = enabled
         self._refresh_available_vars()
-        self._update_validation()
-
-    def _on_zero_cancel(self, enabled: bool) -> None:
-        self._config.zero_cancel = enabled
         self._update_validation()
 
     def _on_delay(self, val: float) -> None:
@@ -579,7 +586,6 @@ class QscvConfigPresenter(QObject):
             "sweep_stop": cfg.sweep_stop.value,
             "unit": cfg.measuring_unit,
             "leak_cancel": cfg.leak_compensation,
-            "zero_cancel": cfg.zero_cancel,
             "var1": {
                 "mode": cfg.var1.mode.value,
                 "start": cfg.var1.start,
@@ -612,7 +618,6 @@ class QscvConfigPresenter(QObject):
                 "cname": cfg.cap_name,
                 "iname": cfg.leak_name,
                 "leak_comp": cfg.leak_compensation,
-                "zero_cancel": cfg.zero_cancel,
             },
             "delay": cfg.delay,
             "hold_time": cfg.hold_time,

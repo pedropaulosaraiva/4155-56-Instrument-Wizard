@@ -264,7 +264,6 @@ class SetupDetailPanel(QWidget):
                 ("Unit", _txt(q.get("unit"))),
                 ("Sweep stop", _txt(q.get("sweep_stop"))),
                 ("Leak cancel", _txt(q.get("leak_cancel"))),
-                ("Zero cancel", _txt(q.get("zero_cancel"))),
             ],
         )
         if "var1" in q:

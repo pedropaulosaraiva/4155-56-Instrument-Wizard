@@ -123,9 +123,14 @@ class SettingsDialog(QDialog):
         buttons = QHBoxLayout()
         buttons.addStretch()
         self._btn_cancel = QPushButton("Cancel")
+        self._btn_cancel.setAutoDefault(False)
         self._btn_cancel.clicked.connect(self.reject)
         self._btn_save = QPushButton("Save")
         self._btn_save.setObjectName("primary")
+        # Save is the dialog default: pressing Enter/Return commits the edits
+        # (accept) instead of firing the first-added button (Cancel → reject).
+        self._btn_save.setAutoDefault(True)
+        self._btn_save.setDefault(True)
         self._btn_save.clicked.connect(self.accept)
         buttons.addWidget(self._btn_cancel)
         buttons.addWidget(self._btn_save)
