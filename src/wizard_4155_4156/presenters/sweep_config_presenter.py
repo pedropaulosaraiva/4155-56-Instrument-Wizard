@@ -135,6 +135,9 @@ class SweepConfigPresenter(QObject):
             "var1_is_vsu": False,
             "var2_is_vsu": False,
             "vard_is_vsu": False,
+            "has_pulse": False,
+            "pulse_channel": None,
+            "pulse_is_voltage": True,
             "interlock_open": False,
             "active_channels": [],
             "available_vars": [],
@@ -157,7 +160,7 @@ class SweepConfigPresenter(QObject):
 
     def get_json(self) -> dict:
         """Build and return the JSON dict.  Raises ValueError if invalid."""
-        errors = self._run_validation()
+        errors, _warnings = self._run_validation()
         if errors:
             raise ValueError(
                 "Sweep config invalid:\n" + "\n".join(errors.values())
@@ -216,6 +219,11 @@ class SweepConfigPresenter(QObject):
         v.vard_pcomp_committed.connect(self._on_vard_pcomp)
         v.vard_pcomp_enabled_changed.connect(self._on_vard_pcomp_enabled)
 
+        # PULSE
+        v.pulse_period_committed.connect(self._on_pulse_period)
+        v.pulse_width_committed.connect(self._on_pulse_width)
+        v.pulse_base_committed.connect(self._on_pulse_base)
+
         # Channels + vars
         v.smu_standby_changed.connect(self._on_smu_standby)
         v.display_var_toggled.connect(self._on_display_var_toggled)
@@ -262,6 +270,7 @@ class SweepConfigPresenter(QObject):
         var1_is_vsu: bool = False
         var2_is_vsu: bool = False
         vard_is_vsu: bool = False
+        pulsed_smus: List[Tuple[str, bool]] = []  # (ch_id, is_voltage)
 
         # ── SMUs ──────────────────────────────────────────────────────
         for idx, smu in ch_cfg.smu.items():
@@ -293,6 +302,9 @@ class SweepConfigPresenter(QObject):
                 var2_ch, var2_is_v, var2_is_vsu = ch_id, is_v, False
             elif fn == "VAR1'":
                 vard_ch, vard_is_vsu = ch_id, False
+
+            if smu.mode.value in ("VPULSE", "IPULSE"):
+                pulsed_smus.append((ch_id, is_v))
 
         # ── VMUs ──────────────────────────────────────────────────────
         for idx, vmu in ch_cfg.vmu.items():
@@ -414,6 +426,15 @@ class SweepConfigPresenter(QObject):
             "var1_is_vsu": var1_is_vsu,
             "var2_is_vsu": var2_is_vsu,
             "vard_is_vsu": vard_is_vsu,
+            # Only one SMU can be a pulse source (Channels page enforces
+            # this); guard defensively against a multi-pulse snapshot.
+            "has_pulse": len(pulsed_smus) == 1,
+            "pulse_channel": (
+                pulsed_smus[0][0] if len(pulsed_smus) == 1 else None
+            ),
+            "pulse_is_voltage": (
+                pulsed_smus[0][1] if len(pulsed_smus) == 1 else True
+            ),
             "interlock_open": bool(ch_cfg.interlock_open),
             "active_channels": active,
             "available_vars": list(dict.fromkeys(available_vars)),
@@ -457,6 +478,14 @@ class SweepConfigPresenter(QObject):
                 ctx["vard_channel"],
                 is_voltage=ctx["var1_is_voltage"],
                 is_vsu=ctx["vard_is_vsu"],
+                interlock_open=interlock_open,
+            )
+
+        self._view.display_pulse_section(ctx["has_pulse"])
+        if ctx["has_pulse"] and ctx["pulse_channel"]:
+            self._view.display_pulse_context(
+                ctx["pulse_channel"],
+                is_voltage=ctx["pulse_is_voltage"],
                 interlock_open=interlock_open,
             )
 
@@ -599,6 +628,18 @@ class SweepConfigPresenter(QObject):
         self._config.vard.power_compliance_enabled = enabled
         self._update_validation()
 
+    def _on_pulse_period(self, val: float) -> None:
+        self._config.pulse.period = val
+        self._update_validation()
+
+    def _on_pulse_width(self, val: float) -> None:
+        self._config.pulse.width = val
+        self._update_validation()
+
+    def _on_pulse_base(self, val: float) -> None:
+        self._config.pulse.base = val
+        self._update_validation()
+
     def _on_smu_standby(self, ch_id: str, on: bool) -> None:
         self._config.channel_standby[ch_id] = on
         self._update_validation()
@@ -621,13 +662,13 @@ class SweepConfigPresenter(QObject):
         self._update_validation()
 
     def _on_export_requested(self) -> None:
-        errors = self._run_validation()
+        errors, _warnings = self._run_validation()
         if not errors:
             result = self._build_json()
             self._view.display_json(json.dumps(result, indent=4))
 
     def _on_save_requested(self, path: str) -> None:
-        errors = self._run_validation()
+        errors, _warnings = self._run_validation()
         if errors:
             return
         result = self._build_json()
@@ -676,14 +717,15 @@ class SweepConfigPresenter(QObject):
 
     # ── Validation (model driven) ──────────────────────────────────────
 
-    def _run_validation(self) -> Dict[str, str]:
+    def _run_validation(self) -> Tuple[Dict[str, str], List[str]]:
         """
         Query input-level validation errors from the view, and combine them
-        with the model's validation constraints.
+        with the model's validation constraints.  Returns ``(errors,
+        warnings)``; warnings are informational and never block.
         """
         errors = self._view.get_input_errors()
 
-        model_errors = SweepConstraints.validate_config(
+        model_errors, warnings = SweepConstraints.validate_config(
             cfg=self._config,
             flags=SweepUnitFlags(
                 has_var1=self._ctx.get("has_var1", False),
@@ -709,10 +751,11 @@ class SweepConfigPresenter(QObject):
         for i, err in enumerate(model_errors):
             errors[f"model_err_{i}"] = err
 
-        return errors
+        return errors, warnings
 
     def _update_validation(self) -> None:
-        criticals = list(self._run_validation().values())
+        errors, warnings = self._run_validation()
+        criticals = list(errors.values())
         stats = sweep_measurement_stats(
             self._config,
             self._ctx["active_channels"],
@@ -720,9 +763,8 @@ class SweepConfigPresenter(QObject):
             self._line_frequency_hz,
         )
         indexes, points, exec_time = measurement_stat_values(stats)
-        # Sweep has no non-blocking warnings yet (reserved for future rules).
         self._view.display_measurement_status(
-            criticals, [], indexes, points, exec_time
+            criticals, warnings, indexes, points, exec_time
         )
 
     # ── JSON builder ───────────────────────────────────────────────────
@@ -845,6 +887,13 @@ class SweepConfigPresenter(QObject):
                 if vd.power_compliance_enabled:
                     sweep_json["vard"]["pcompliance"] = vd.power_compliance
 
+        if self._ctx.get("has_pulse"):
+            sweep_json["pulse"] = {
+                "period": cfg.pulse.period,
+                "width": cfg.pulse.width,
+                "base": cfg.pulse.base,
+            }
+
         if cfg.constants:
             sweep_json["constants"] = copy.deepcopy(cfg.constants)
 
@@ -896,6 +945,11 @@ class SweepConfigPresenter(QObject):
                 "compliance": cfg.vard.compliance,
                 "power_compliance": cfg.vard.power_compliance,
                 "power_compliance_enabled": cfg.vard.power_compliance_enabled,
+            },
+            "pulse": {
+                "period": cfg.pulse.period,
+                "width": cfg.pulse.width,
+                "base": cfg.pulse.base,
             },
             "constants": copy.deepcopy(cfg.constants),
         }

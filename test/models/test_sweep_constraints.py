@@ -7,15 +7,19 @@ Verified against the Agilent 4155C/4156C User's Guide.
 
 import pytest
 
+from wizard_4155_4156.models.config_loader import sweep_config_from_setup
 from wizard_4155_4156.models.sweep_config import (
     COMP_V_ILOCK_MAX,
     RANGE_VALUES_SMU_VOLTAGE,
+    IntegrationMode,
     SweepConfig,
     SweepConstraints,
     SweepUnitFlags,
     VAR1Mode,
     current_compliance_bounds,
     measured_variable,
+    output_range_resolution,
+    pulsed_channel,
     smallest_range_at_least,
     voltage_compliance_bounds,
 )
@@ -59,7 +63,7 @@ def make_config(**overrides):
 CHANNELS_1SMU_V = [smu(1, mode="V", function="VAR1")]
 
 
-def validate(
+def validate_full(
     cfg,
     *,
     flags=None,
@@ -67,6 +71,7 @@ def validate(
     instrument_model="4156C",
     interlock_open=False,
 ):
+    """Full ``(errors, warnings)`` tuple from the model validation."""
     return SweepConstraints.validate_config(
         cfg,
         flags or SweepUnitFlags(has_var1=True, var1_is_voltage=True),
@@ -74,6 +79,12 @@ def validate(
         interlock_open=interlock_open,
         instrument_model=instrument_model,
     )
+
+
+def validate(cfg, **kwargs):
+    """Blocking errors only (most rules under test are errors)."""
+    errors, _warnings = validate_full(cfg, **kwargs)
+    return errors
 
 
 # ── Module-level helpers ─────────────────────────────────────────────────────
@@ -359,3 +370,282 @@ def test_total_points_under_limit_ok():
     cfg.var2.n_of_steps = 7
     errors = validate(cfg, flags=_full_flags())
     assert not any(e.startswith("Total points") for e in errors)
+
+
+# ── Pulse source: channel detection ──────────────────────────────────────────
+
+
+def pulse_channels(mode="VPULSE", function="CONST"):
+    """VAR1 on a plain V-mode SMU1 plus a pulsed SMU2."""
+    return [
+        smu(1, mode="V", function="VAR1"),
+        smu(2, mode=mode, function=function),
+    ]
+
+
+def test_pulsed_channel_detection():
+    assert pulsed_channel(CHANNELS_1SMU_V) is None
+    assert pulsed_channel(pulse_channels())["id"] == "SMU2"
+    two_pulsed = [
+        smu(1, mode="VPULSE", function="VAR1"),
+        smu(2, mode="IPULSE", function="CONST"),
+    ]
+    assert pulsed_channel(two_pulsed) is None  # defensive: max one
+
+
+# ── Pulse source: period / width / base criticals ────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("period", "width", "err_prefix"),
+    [
+        (4e-3, 1e-3, "Pulse Period"),  # below 5 ms
+        (1.5, 1e-3, "Pulse Period"),  # above 1 s
+        (0.5, 4e-4, "Pulse Width"),  # below 0.5 ms
+        (0.5, 0.11, "Pulse Width"),  # above 100 ms
+        (5e-3, 2e-3, "Pulse Period must"),  # period < width + 4 ms
+    ],
+)
+def test_pulse_timing_criticals(period, width, err_prefix):
+    cfg = make_config()
+    cfg.pulse.period, cfg.pulse.width = period, width
+    errors = validate(cfg, channels=pulse_channels())
+    assert any(e.startswith(err_prefix) for e in errors)
+
+
+def test_pulse_defaults_are_valid():
+    errors = validate(make_config(), channels=pulse_channels())
+    assert not any(e.startswith("Pulse") for e in errors)
+
+
+def test_pulse_rules_skipped_without_pulsed_channel():
+    cfg = make_config()
+    cfg.pulse.period = 0.0  # invalid, but no pulse source is configured
+    errors, warnings = validate_full(cfg)
+    assert not any(e.startswith("Pulse") for e in errors)
+    assert warnings == []
+
+
+def test_pulse_base_range_voltage_interlock():
+    cfg = make_config()
+    cfg.pulse.base = 50.0  # fine at ±100 V, invalid at ±40 V (interlock)
+    errors = validate(cfg, channels=pulse_channels("VPULSE"))
+    assert not any(e.startswith("Pulse Base") for e in errors)
+    errors = validate(
+        cfg, channels=pulse_channels("VPULSE"), interlock_open=True
+    )
+    assert any(e.startswith("Pulse Base") for e in errors)
+
+
+def test_pulse_base_range_current():
+    cfg = make_config()
+    cfg.pulse.base = 0.2  # above the ±0.1 A SMU current limit
+    errors = validate(cfg, channels=pulse_channels("IPULSE"))
+    assert any(e.startswith("Pulse Base") for e in errors)
+
+
+# ── Pulse base participates in compliance gating ─────────────────────────────
+
+
+def test_pulse_base_gates_var1_compliance():
+    # VAR1 sweeps only 0–1 V, but a 50 V base on the pulsed VAR1 unit puts
+    # the output in the 100 V range, capping current compliance at 20 mA.
+    channels = [smu(1, mode="VPULSE", function="VAR1")]
+    cfg = make_config()
+    cfg.var1.compliance = 0.05
+    assert not any(
+        e.startswith("VAR1 Compliance")
+        for e in validate(cfg, channels=channels)
+    )
+    cfg.pulse.base = 50.0
+    assert any(
+        e.startswith("VAR1 Compliance")
+        for e in validate(cfg, channels=channels)
+    )
+
+
+def test_pulse_base_gates_constant_compliance():
+    channels = pulse_channels("VPULSE", function="CONST")
+    cfg = make_config()
+    cfg.constants = {"SMU2": {"source": 0.0, "compliance": 0.05}}
+    assert not any(
+        e.startswith("SMU2 Constant Compliance")
+        for e in validate(cfg, channels=channels)
+    )
+    cfg.pulse.base = 50.0  # 100 V range → constant compliance ≤ 20 mA
+    assert any(
+        e.startswith("SMU2 Constant Compliance")
+        for e in validate(cfg, channels=channels)
+    )
+
+
+# ── Pulse-timing feasibility warning (non-blocking) ──────────────────────────
+
+
+def _fast_pulse_config():
+    """Meets all three pulse-width conditions: 1 measured channel (only I1
+    is displayed as a measurement variable), SHORT integration, FIX range."""
+    cfg = make_config()
+    cfg.measurement_setup.integration_mode = IntegrationMode.SHORT
+    cfg.measurement_setup.ranges = {"SMU1": {"mode": "FIX", "value": 0.01}}
+    return cfg
+
+
+def test_pulse_warning_absent_when_fast_conditions_met():
+    _errors, warnings = validate_full(
+        _fast_pulse_config(), channels=pulse_channels()
+    )
+    assert warnings == []
+
+
+@pytest.mark.parametrize("spoiler", ["vars", "integration", "range"])
+def test_pulse_warning_when_conditions_not_met(spoiler):
+    cfg = _fast_pulse_config()
+    if spoiler == "vars":
+        cfg.display_vars = ["V1", "I1", "I2"]  # 2 measured channels
+    elif spoiler == "integration":
+        cfg.measurement_setup.integration_mode = IntegrationMode.MED
+    else:
+        cfg.measurement_setup.ranges = {
+            "SMU1": {"mode": "LIM", "value": 0.01}
+        }
+    _errors, warnings = validate_full(cfg, channels=pulse_channels())
+    assert any("pulse width" in w.lower() for w in warnings)
+
+
+# ── Step size vs output-range resolution ─────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("is_voltage", "is_vsu", "model", "mag", "expected"),
+    [
+        (True, False, "4156C", 30.0, (40.0, 2e-3)),
+        (True, False, "4155C", 1.0, (2.0, 100e-6)),
+        (True, False, "4156C", 150.0, (100.0, 5e-3)),  # clamps to largest
+        (False, False, "4156C", 50e-12, (100e-12, 10e-15)),
+        (False, False, "4155C", 50e-12, (1e-9, 100e-15)),  # no pA ranges
+        (True, True, "4155C", 5.0, (20.0, 1e-3)),  # VSU single range
+    ],
+)
+def test_output_range_resolution(is_voltage, is_vsu, model, mag, expected):
+    assert output_range_resolution(is_voltage, is_vsu, model, mag) == expected
+
+
+@pytest.mark.parametrize(
+    ("start", "stop", "step", "ok"),
+    [
+        (39.9, 40.0, 0.001, False),  # 40 V range → 2 mV resolution
+        (39.9, 40.0, 0.002, True),
+        (1.45, 1.5, 1e-4, True),  # 2 V range → 100 µV
+        (1.45, 1.5, 5e-5, False),
+    ],
+)
+def test_var1_step_resolution_voltage(start, stop, step, ok):
+    cfg = make_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = start, stop, step
+    errors = validate(cfg)
+    res_errs = [e for e in errors if "output resolution" in e]
+    assert bool(res_errs) != ok
+
+
+def test_var1_step_resolution_current_model_dependent():
+    # A 50 pA sweep with 50 fA steps: the 4156 (HRSMU) 100 pA range resolves
+    # 10 fA, while the 4155 (MPSMU) bottoms out at the 1 nA range (100 fA).
+    cfg = make_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 0.0, 50e-12, 5e-14
+    flags = SweepUnitFlags(has_var1=True, var1_is_voltage=False)
+    channels = [smu(1, mode="I", function="VAR1")]
+    assert not any(
+        "output resolution" in e
+        for e in validate(
+            cfg, flags=flags, channels=channels, instrument_model="4156C"
+        )
+    )
+    assert any(
+        "output resolution" in e
+        for e in validate(
+            cfg, flags=flags, channels=channels, instrument_model="4155C"
+        )
+    )
+
+
+def test_var1_step_resolution_vsu():
+    cfg = make_config()
+    flags = SweepUnitFlags(
+        has_var1=True, var1_is_voltage=True, var1_is_vsu=True
+    )
+    channels = [vsu(1, function="VAR1")]
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 19.9, 20.0, 5e-4
+    errors = validate(cfg, flags=flags, channels=channels)
+    assert any("output resolution" in e for e in errors)
+    cfg.var1.step = 1e-3
+    errors = validate(cfg, flags=flags, channels=channels)
+    assert not any("output resolution" in e for e in errors)
+
+
+def test_var2_step_resolution_uses_last_value():
+    # Last value = 39 + 99 × 1 mV ≈ 39.1 V → 40 V range → 2 mV resolution.
+    cfg = make_config()
+    cfg.var2.start, cfg.var2.step, cfg.var2.n_of_steps = 39.0, 0.001, 100
+    channels = [smu(1, mode="V", function="VAR2")]
+    errors = validate(cfg, flags=var2_flags(True), channels=channels)
+    assert any(
+        e.startswith("VAR2 Step") and "output resolution" in e
+        for e in errors
+    )
+
+
+def test_vard_effective_step_resolution():
+    # Effective step = 0.1 × 0.01 = 1 mV; outputs span ~39–39.01 V → 40 V
+    # range (2 mV resolution) → critical.  ratio == 0 is exempt.
+    cfg = make_config()
+    cfg.vard.ratio, cfg.vard.offset = 0.01, 39.0
+    flags = SweepUnitFlags(
+        has_var1=True, has_vard=True, var1_is_voltage=True
+    )
+    channels = [
+        smu(1, mode="V", function="VAR1"),
+        smu(2, mode="V", function="VAR1'"),
+    ]
+    errors = validate(cfg, flags=flags, channels=channels)
+    assert any(e.startswith("VARD Effective Step") for e in errors)
+    cfg.vard.ratio = 0.0
+    errors = validate(cfg, flags=flags, channels=channels)
+    assert not any(e.startswith("VARD Effective Step") for e in errors)
+
+
+def test_pulse_base_extends_resolution_range():
+    # A 0–0.1 V sweep with 200 µV steps sits in the 2 V range (100 µV), but
+    # a 39 V pulse base pushes the output range to 40 V (2 mV resolution).
+    channels = [smu(1, mode="VPULSE", function="VAR1")]
+    cfg = make_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 0.0, 0.1, 2e-4
+    assert not any(
+        "output resolution" in e for e in validate(cfg, channels=channels)
+    )
+    cfg.pulse.base = 39.0
+    assert any(
+        "output resolution" in e for e in validate(cfg, channels=channels)
+    )
+
+
+# ── Config-loader round-trip ─────────────────────────────────────────────────
+
+
+def test_sweep_config_from_setup_restores_pulse():
+    setup = {
+        "sweep_setup": {
+            "pulse": {"period": 0.05, "width": 0.002, "base": 1.5},
+        },
+    }
+    cfg = sweep_config_from_setup(setup)
+    assert cfg.pulse.period == pytest.approx(0.05)
+    assert cfg.pulse.width == pytest.approx(0.002)
+    assert cfg.pulse.base == pytest.approx(1.5)
+
+
+def test_sweep_config_from_setup_defaults_without_pulse():
+    cfg = sweep_config_from_setup({"sweep_setup": {}})
+    assert cfg.pulse.period == pytest.approx(10e-3)
+    assert cfg.pulse.width == pytest.approx(1e-3)
+    assert cfg.pulse.base == 0.0

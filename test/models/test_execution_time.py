@@ -188,6 +188,27 @@ def test_sweep_execution_time_includes_delay():
     assert lo == pytest.approx(0.5 + (0.01 + 0.04) * 11)
 
 
+def test_sweep_execution_time_pulsed_uses_period_and_ignores_delay():
+    # Pulse sweep: each index is one pulse period; the delay is ignored.
+    cfg = _sweep_cfg()
+    cfg.delay = 0.01
+    cfg.pulse.period = 20e-3
+    lo, hi = sweep_execution_time_range(
+        cfg, [_smu(function="VAR1", mode="VPULSE")], "4155C", 50
+    )
+    assert lo == hi == pytest.approx(0.5 + 0.02 * _VAR1_POINTS)
+
+
+def test_sweep_execution_time_pulsed_constant_source():
+    # The pulse source may be a CONST unit; the period still paces the sweep.
+    cfg = _sweep_cfg()
+    cfg.pulse.period = 50e-3
+    channels = [_smu(1, function="VAR1"), _smu(2, function="CONST",
+                                               mode="IPULSE")]
+    lo, hi = sweep_execution_time_range(cfg, channels, "4155C", 50)
+    assert lo == hi == pytest.approx(0.5 + 0.05 * _VAR1_POINTS)
+
+
 # ── QSCV ─────────────────────────────────────────────────────────────────────
 
 

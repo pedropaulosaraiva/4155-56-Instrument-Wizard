@@ -196,6 +196,11 @@ def sweep_config_from_setup(config: Mapping[str, Any]) -> SweepConfig:
         cfg.vard.offset = v.get("offset", cfg.vard.offset)
         cfg.vard.ratio = v.get("ratio", cfg.vard.ratio)
         _load_compliance(cfg.vard, v)
+    if "pulse" in ss:
+        p = ss["pulse"]
+        cfg.pulse.period = p.get("period", cfg.pulse.period)
+        cfg.pulse.width = p.get("width", cfg.pulse.width)
+        cfg.pulse.base = p.get("base", cfg.pulse.base)
 
     cfg.constants = copy.deepcopy(ss.get("constants", {}))
     cfg.display_vars = list(config.get("display_vars", []))

@@ -140,6 +140,14 @@ PCOMP_MAX: float = 2.0  # W (all power compliances limited to 2W by equipment)
 RATIO_MIN: float = -1000.0
 RATIO_MAX: float = 1000.0
 
+# SMU pulse source (mode VPULSE/IPULSE) — MEASURE: SWEEP SETUP pulse block.
+# Bounds mirror MeasureSweepCommandBuilder (SCPI pulse builders).
+PULSE_PERIOD_MIN: float = 5e-3  # 5 ms
+PULSE_PERIOD_MAX: float = 1.0  # 1 s
+PULSE_WIDTH_MIN: float = 5e-4  # 0.5 ms
+PULSE_WIDTH_MAX: float = 0.1  # 100 ms
+PULSE_PERIOD_WIDTH_MARGIN: float = 4e-3  # period ≥ width + 4 ms
+
 # Point counts
 VAR1_POINTS_MIN: int = 1
 VAR1_POINTS_MAX: int = 1001
@@ -201,6 +209,37 @@ RANGE_VALUES_VMU_DVOL: Tuple[Tuple[str, float], ...] = (
     ("2 V", 2.0),
 )
 
+# Output setting resolution per output range: (range value, resolution).
+# The instrument selects the lowest output range covering the max |output|,
+# and the sweep step cannot be finer than that range's resolution.
+# SMU voltage ranges — identical for HRSMU (4156) and MPSMU (4155).
+RESOLUTION_SMU_VOLTAGE: Tuple[Tuple[float, float], ...] = (
+    (2.0, 100e-6),
+    (20.0, 1e-3),
+    (40.0, 2e-3),
+    (100.0, 5e-3),
+)
+# HRSMU (4156) current ranges.
+RESOLUTION_HRSMU_CURRENT: Tuple[Tuple[float, float], ...] = (
+    (10e-12, 10e-15),
+    (100e-12, 10e-15),
+    (1e-9, 100e-15),
+    (10e-9, 1e-12),
+    (100e-9, 10e-12),
+    (1e-6, 100e-12),
+    (10e-6, 1e-9),
+    (100e-6, 10e-9),
+    (1e-3, 100e-9),
+    (10e-3, 1e-6),
+    (100e-3, 10e-6),
+)
+# MPSMU (4155) current ranges — no 10 pA / 100 pA ranges.
+RESOLUTION_MPSMU_CURRENT: Tuple[Tuple[float, float], ...] = (
+    RESOLUTION_HRSMU_CURRENT[2:]
+)
+# VSU: single ±20 V output range.
+VSU_OUTPUT_RESOLUTION: float = 1e-3  # 1 mV
+
 
 # ── Per-section dataclasses ─────────────────────────────────────────────
 
@@ -248,6 +287,15 @@ class VARDConfig:
 
 
 @dataclass
+class PulseConfig:
+    """SMU pulse-source parameters (mode VPULSE/IPULSE, sweep mode only)."""
+
+    period: float = 10e-3  # s — 5 ms – 1 s
+    width: float = 1e-3  # s — 0.5 ms – 100 ms
+    base: float = 0.0  # V or A, per the pulsed channel's mode
+
+
+@dataclass
 class SweepConfig:
     """Complete snapshot of the Sweep configuration page."""
 
@@ -260,6 +308,7 @@ class SweepConfig:
     var1: VAR1Config = field(default_factory=VAR1Config)
     var2: VAR2Config = field(default_factory=VAR2Config)
     vard: VARDConfig = field(default_factory=VARDConfig)
+    pulse: PulseConfig = field(default_factory=PulseConfig)
     channel_standby: Dict[str, bool] = field(default_factory=dict)
     display_vars: List[str] = field(default_factory=list)
     constants: Dict[str, Dict[str, float]] = field(default_factory=dict)
@@ -352,6 +401,52 @@ def smallest_range_at_least(
         if r_val >= target:
             return r_val
     return None
+
+
+PULSE_SMU_MODES: Tuple[str, ...] = ("VPULSE", "IPULSE")
+
+
+def pulsed_channel(active_channels: List[dict]) -> Optional[Dict[str, Any]]:
+    """
+    The single enabled SMU acting as pulse source, or None.
+
+    Only one SMU may be a pulse source (enforced on the Channels page);
+    defensively returns None when more than one slips through.
+    """
+    pulsed = [
+        ch
+        for ch in active_channels or []
+        if ch.get("unit_type") == "SMU" and ch.get("mode") in PULSE_SMU_MODES
+    ]
+    return pulsed[0] if len(pulsed) == 1 else None
+
+
+def output_range_resolution(
+    is_voltage: bool,
+    is_vsu: bool,
+    instrument_model: str,
+    max_magnitude: float,
+) -> Tuple[float, float]:
+    """
+    ``(output range, output resolution)`` of the lowest output range that
+    covers ``max_magnitude``; clamps to the largest range when the magnitude
+    exceeds every range.
+    """
+    if is_vsu:
+        return VSU_VOLTAGE_MAX, VSU_OUTPUT_RESOLUTION
+    if is_voltage:
+        table = RESOLUTION_SMU_VOLTAGE
+    else:
+        table = (
+            RESOLUTION_HRSMU_CURRENT
+            if _is_4156(instrument_model)
+            else RESOLUTION_MPSMU_CURRENT
+        )
+    mag = abs(max_magnitude)
+    for r_val, res in table:
+        if r_val >= mag:
+            return r_val, res
+    return table[-1]
 
 
 def default_range_config(channel: Dict[str, Any]) -> Dict[str, Any]:
@@ -509,6 +604,7 @@ def validate_constant_sources(
     active_channels: List[dict],
     interlock_open: bool = False,
     instrument_model: str = "4155C",
+    pulse_bases: Optional[Dict[str, float]] = None,
 ) -> List[str]:
     """
     Validate constant-source values and compliances against the hardware
@@ -516,7 +612,8 @@ def validate_constant_sources(
     SamplingConstraints (models/sampling_config.py).
     With the interlock terminal open, SMU voltage limits drop to ±40 V.
     Compliance limits depend on the source magnitude and instrument model
-    (Rules 2/3).
+    (Rules 2/3).  ``pulse_bases`` maps a pulsed CONST unit's id to its pulse
+    base value, which also counts toward the source magnitude.
     """
     errors: List[str] = []
     v_max = VOLTAGE_ILOCK_MAX if interlock_open else VOLTAGE_MAX
@@ -561,6 +658,10 @@ def validate_constant_sources(
             compliance = c_entry.get("compliance")
             if compliance is not None:
                 src_mag = abs(source) if source is not None else 0.0
+                if pulse_bases:
+                    src_mag = max(
+                        src_mag, abs(pulse_bases.get(unit_id, 0.0))
+                    )
                 if mode in ("V", "VPULSE"):
                     c_lo, c_hi = current_compliance_bounds(
                         instrument_model, src_mag, interlock_open
@@ -746,7 +847,10 @@ class SweepConstraints:
         flags: SweepUnitFlags,
         interlock_open: bool,
         instrument_model: str,
+        extra_source_magnitude: float = 0.0,
     ) -> List[str]:
+        """``extra_source_magnitude`` folds a pulse base |value| into the
+        source magnitude that gates the compliance bounds."""
         errors: List[str] = []
         v1 = cfg.var1
         src_min, src_max = SweepConstraints.source_range(
@@ -794,7 +898,11 @@ class SweepConstraints:
                         "VAR1",
                         v1.compliance,
                         flags.var1_is_voltage,
-                        max(abs(v1.start), abs(v1.stop)),
+                        max(
+                            abs(v1.start),
+                            abs(v1.stop),
+                            extra_source_magnitude,
+                        ),
                         instrument_model,
                         interlock_open,
                     )
@@ -928,6 +1036,7 @@ class SweepConstraints:
         flags: SweepUnitFlags,
         interlock_open: bool,
         instrument_model: str,
+        extra_source_magnitude: float = 0.0,
     ) -> List[str]:
         errors: List[str] = []
         v2 = cfg.var2
@@ -978,7 +1087,11 @@ class SweepConstraints:
                         "VAR2",
                         v2.compliance,
                         flags.var2_is_voltage,
-                        max(abs(v2.start), abs(last)),
+                        max(
+                            abs(v2.start),
+                            abs(last),
+                            extra_source_magnitude,
+                        ),
                         instrument_model,
                         interlock_open,
                     )
@@ -1002,6 +1115,7 @@ class SweepConstraints:
         flags: SweepUnitFlags,
         interlock_open: bool,
         instrument_model: str,
+        extra_source_magnitude: float = 0.0,
     ) -> List[str]:
         errors: List[str] = []
         vd = cfg.vard
@@ -1051,7 +1165,7 @@ class SweepConstraints:
                         "VARD",
                         vd.compliance,
                         flags.var1_is_voltage or flags.var1_is_vsu,
-                        vard_mag,
+                        max(vard_mag, extra_source_magnitude),
                         instrument_model,
                         interlock_open,
                     )
@@ -1064,6 +1178,169 @@ class SweepConstraints:
                     f"value (range: {PCOMP_MIN:.3g}"
                     f" – {PCOMP_MAX:.3g})"
                 )
+        return errors
+
+    @staticmethod
+    def _validate_pulse(
+        cfg: SweepConfig,
+        pulse_is_voltage: bool,
+        interlock_open: bool,
+    ) -> List[str]:
+        """SMU pulse-source rules: period/width/base ranges and the
+        period ≥ width + 4 ms hardware timing requirement."""
+        errors: List[str] = []
+        p = cfg.pulse
+        period_ok = PULSE_PERIOD_MIN <= p.period <= PULSE_PERIOD_MAX
+        if not period_ok:
+            errors.append(
+                f"Pulse Period: invalid value "
+                f"(range: {PULSE_PERIOD_MIN:.3g}"
+                f" – {PULSE_PERIOD_MAX:.3g} s)"
+            )
+        width_ok = PULSE_WIDTH_MIN <= p.width <= PULSE_WIDTH_MAX
+        if not width_ok:
+            errors.append(
+                f"Pulse Width: invalid value "
+                f"(range: {PULSE_WIDTH_MIN:.3g}"
+                f" – {PULSE_WIDTH_MAX:.3g} s)"
+            )
+        if (
+            period_ok
+            and width_ok
+            and p.period < p.width + PULSE_PERIOD_WIDTH_MARGIN
+        ):
+            errors.append(
+                f"Pulse Period must be at least Pulse Width + "
+                f"{PULSE_PERIOD_WIDTH_MARGIN:.3g} s"
+            )
+        src_min, src_max = SweepConstraints.source_range(
+            pulse_is_voltage, is_vsu=False, interlock_open=interlock_open
+        )
+        errors.extend(
+            SweepConstraints._validate_source_value(
+                "Pulse Base", p.base, src_min, src_max
+            )
+        )
+        return errors
+
+    @staticmethod
+    def _pulse_warnings(
+        cfg: SweepConfig,
+        active_channels: List[dict],
+    ) -> List[str]:
+        """
+        Non-blocking pulse-timing feasibility warning.
+
+        The instrument only guarantees the programmed pulse width when
+        exactly one channel is measured, integration time is SHORT and the
+        measured channel's ranging is FIXED; otherwise the pulse width may
+        be extended automatically.
+        """
+        ms = cfg.measurement_setup
+        n_meas = count_measured_units(
+            active_channels or [], cfg.display_vars, dvol_weight=1
+        )
+        selected = set(cfg.display_vars)
+        measured_ids = [
+            ch["id"]
+            for ch in active_channels or []
+            if (measured_variable(ch) or None) in selected
+        ]
+        ranging_fixed = all(
+            ms.ranges.get(uid, {}).get("mode") == "FIX"
+            for uid in measured_ids
+        )
+        if (
+            n_meas == 1
+            and ms.integration_mode == IntegrationMode.SHORT
+            and ranging_fixed
+        ):
+            return []
+        return [
+            "Pulse width may be extended automatically by the instrument "
+            "— the programmed width is only guaranteed with exactly 1 "
+            f"measured channel (now {n_meas}), SHORT integration (now "
+            f"{ms.integration_mode.value}) and FIXED ranging on the "
+            "measured channel."
+        ]
+
+    @staticmethod
+    def _validate_step_resolution(
+        cfg: SweepConfig,
+        flags: SweepUnitFlags,
+        instrument_model: str,
+        extras: Dict[str, float],
+        prior_errors: List[str],
+    ) -> List[str]:
+        """
+        Step size must be ≥ the output resolution of the output range
+        covering the unit's max |output value| (pulse base included via
+        ``extras``, keyed by function).  Each check runs only when the
+        section has no prior errors, and log spacings are exempt (no
+        user-entered step).
+        """
+        errors: List[str] = []
+
+        def clean(prefix: str) -> bool:
+            return not any(e.startswith(prefix) for e in prior_errors)
+
+        def check(
+            label: str,
+            step: float,
+            max_mag: float,
+            is_voltage: bool,
+            is_vsu: bool,
+        ) -> None:
+            rng, res = output_range_resolution(
+                is_voltage, is_vsu, instrument_model, max_mag
+            )
+            if abs(step) < res:
+                unit = SweepConstraints.source_unit(is_voltage or is_vsu)
+                errors.append(
+                    f"{label}: {abs(step):.3g} {unit} is below the "
+                    f"output resolution {res:.3g} {unit} of the "
+                    f"{rng:.3g} {unit} output range"
+                )
+
+        v1 = cfg.var1
+        v1_linear = v1.spacing == SweepSpacing.LINEAR
+        if flags.has_var1 and v1_linear and v1.step != 0 and clean("VAR1"):
+            check(
+                "VAR1 Step",
+                v1.step,
+                max(abs(v1.start), abs(v1.stop), extras.get("VAR1", 0.0)),
+                flags.var1_is_voltage,
+                flags.var1_is_vsu,
+            )
+        v2 = cfg.var2
+        if flags.has_var2 and v2.step != 0 and clean("VAR2"):
+            last = v2.start + (v2.n_of_steps - 1) * v2.step
+            check(
+                "VAR2 Step",
+                v2.step,
+                max(abs(v2.start), abs(last), extras.get("VAR2", 0.0)),
+                flags.var2_is_voltage,
+                flags.var2_is_vsu,
+            )
+        vd = cfg.vard
+        if (
+            flags.has_vard
+            and flags.has_var1
+            and v1_linear
+            and v1.step != 0
+            and vd.ratio != 0
+            and clean("VARD")
+            and clean("VAR1")
+        ):
+            out_a = v1.start * vd.ratio + vd.offset
+            out_b = v1.stop * vd.ratio + vd.offset
+            check(
+                "VARD Effective Step (VAR1 Step x Ratio)",
+                v1.step * vd.ratio,
+                max(abs(out_a), abs(out_b), extras.get("VAR1'", 0.0)),
+                flags.var1_is_voltage or flags.var1_is_vsu,
+                flags.vard_is_vsu,
+            )
         return errors
 
     @staticmethod
@@ -1097,10 +1374,13 @@ class SweepConstraints:
         active_channels: List[dict] = None,
         interlock_open: bool = False,
         instrument_model: str = "4155C",
-    ) -> List[str]:
+    ) -> Tuple[List[str], List[str]]:
         """
         Validate the full SweepConfig against hardware constraints.
-        Returns error messages; an empty list means valid.
+
+        Returns ``(errors, warnings)``: errors block JSON generation and
+        saving; warnings (pulse-timing feasibility) are informational and
+        never block.
         """
         errors: List[str] = []
         errors.extend(
@@ -1110,6 +1390,14 @@ class SweepConstraints:
         )
         errors.extend(SweepConstraints._validate_timing(cfg))
 
+        pulse_ch = pulsed_channel(active_channels or [])
+        pulse_fn = pulse_ch.get("function") if pulse_ch else None
+        pulse_base_mag = abs(cfg.pulse.base) if pulse_ch else 0.0
+        extras = {
+            fn: pulse_base_mag if pulse_fn == fn else 0.0
+            for fn in ("VAR1", "VAR2", "VAR1'")
+        }
+
         if flags.has_var1:
             errors.extend(
                 SweepConstraints._validate_var1(
@@ -1117,6 +1405,7 @@ class SweepConstraints:
                     flags,
                     interlock_open,
                     instrument_model,
+                    extras["VAR1"],
                 )
             )
             if not any(e.startswith("VAR1") for e in errors):
@@ -1135,6 +1424,7 @@ class SweepConstraints:
                     flags,
                     interlock_open,
                     instrument_model,
+                    extras["VAR2"],
                 )
             )
         if flags.has_vard:
@@ -1144,6 +1434,26 @@ class SweepConstraints:
                     flags,
                     interlock_open,
                     instrument_model,
+                    extras["VAR1'"],
+                )
+            )
+
+        errors.extend(
+            SweepConstraints._validate_step_resolution(
+                cfg,
+                flags,
+                instrument_model,
+                extras,
+                errors,
+            )
+        )
+
+        if pulse_ch is not None:
+            errors.extend(
+                SweepConstraints._validate_pulse(
+                    cfg,
+                    pulse_ch.get("mode") == "VPULSE",
+                    interlock_open,
                 )
             )
 
@@ -1179,12 +1489,18 @@ class SweepConstraints:
             validate_display_vars(cfg.display_vars, measurement_vars)
         )
 
+        pulse_bases = (
+            {pulse_ch["id"]: cfg.pulse.base}
+            if pulse_ch is not None and pulse_fn == "CONST"
+            else None
+        )
         errors.extend(
             validate_constant_sources(
                 cfg.constants,
                 active_channels,
                 interlock_open,
                 instrument_model,
+                pulse_bases=pulse_bases,
             )
         )
         errors.extend(
@@ -1195,4 +1511,10 @@ class SweepConstraints:
                 instrument_model,
             )
         )
-        return errors
+
+        warnings: List[str] = []
+        if pulse_ch is not None:
+            warnings.extend(
+                SweepConstraints._pulse_warnings(cfg, active_channels or [])
+            )
+        return errors, warnings

@@ -77,6 +77,10 @@ VMU_COUNT: int = 2
 VSU_COUNT: int = 2
 MAX_NAME_LEN: int = 6  # 4155/56 variable-name character limit (hardware)
 MAX_UNITS_PER_SWEEP_FUNCTION: int = 1  # only one unit may carry VAR1/VAR2/VARD
+# Only one SMU may be a pulse source, and only in Sweep mode.
+PULSE_SMU_MODES: frozenset[SMUMode] = frozenset(
+    {SMUMode.VPULSE, SMUMode.IPULSE}
+)
 
 
 # ── Per-unit configuration ───────────────────────────────────────────────────
@@ -330,6 +334,45 @@ class ChannelsConstraints:
         return mode == SMUMode.COMM
 
     @staticmethod
+    def allowed_smu_modes(
+        mode: MeasurementMode,
+        other_smu_is_pulsed: bool,
+    ) -> list[SMUMode]:
+        """
+        SMU output modes selectable for one card.  Pulse modes are a
+        sweep-only feature and only one SMU may be a pulse source, so
+        VPULSE/IPULSE are offered only in Sweep mode while no *other*
+        enabled SMU is already pulsed.
+        """
+        if mode == MeasurementMode.SWEEP and not other_smu_is_pulsed:
+            return [
+                SMUMode.V,
+                SMUMode.I,
+                SMUMode.VPULSE,
+                SMUMode.IPULSE,
+                SMUMode.COMM,
+            ]
+        return [SMUMode.V, SMUMode.I, SMUMode.COMM]
+
+    @staticmethod
+    def depulsed_mode(mode: SMUMode) -> SMUMode:
+        """Non-pulsed equivalent: VPULSE→V, IPULSE→I, others unchanged."""
+        if mode == SMUMode.VPULSE:
+            return SMUMode.V
+        if mode == SMUMode.IPULSE:
+            return SMUMode.I
+        return mode
+
+    @staticmethod
+    def other_smu_pulsed(cfg: ChannelsConfig, index: int) -> bool:
+        """True when any *enabled* SMU other than ``index`` is pulsed."""
+        return any(
+            smu.enabled and smu.mode in PULSE_SMU_MODES
+            for idx, smu in cfg.smu.items()
+            if idx != index
+        )
+
+    @staticmethod
     def clamp_function(
         current: UnitFunction,
         allowed: list[UnitFunction],
@@ -499,6 +542,26 @@ class ChannelsConstraints:
             errors.append(
                 "Differential (DVOLT) mode requires both VMUs in DVOLT, "
                 "or neither"
+            )
+
+        # 1.1.9 / 1.1.10) Pulse-source backstops.  The presenter prevents
+        # both states via combo restriction; these rules keep an invalid
+        # snapshot from ever reaching the measurement-config page.
+        pulsed_count = sum(
+            1
+            for smu in cfg.smu.values()
+            if smu.enabled and smu.mode in PULSE_SMU_MODES
+        )
+        if pulsed_count > 1:
+            errors.append(
+                "Only one SMU may be a pulse source (VPULSE/IPULSE)"
+            )
+        if (
+            pulsed_count > 0
+            and cfg.measurement_mode != MeasurementMode.SWEEP
+        ):
+            errors.append(
+                "Pulse modes (VPULSE/IPULSE) are only available in Sweep mode"
             )
 
         return errors

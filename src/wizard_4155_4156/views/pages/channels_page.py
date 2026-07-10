@@ -307,6 +307,10 @@ class SMUCard(_BaseUnitCard):
         current = self._func_combo.currentData() or ""
         _populate_combo_signal_free(self._func_combo, functions, current)
 
+    def display_available_modes(self, modes: list[str]) -> None:
+        current = self._mode_combo.currentData() or ""
+        _populate_combo_signal_free(self._mode_combo, modes, current)
+
     def display_function_locked(self, locked: bool) -> None:
         """Disable function combo when SMU mode is COMM."""
         self._func_combo.setEnabled(not locked)
@@ -625,6 +629,7 @@ class ChannelsPageView(BasePage):
     display_config(...)                 full page refresh from config snapshot
     display_available_modes(modes)      update mode combo options
     display_smu_functions(idx, fns)     update one SMU's function combo
+    display_smu_modes(idx, modes)       update one SMU's mode combo
     display_smu_function_locked(idx, b) lock/unlock function combo (COMM mode)
     display_vmu_card_usable(idx, bool)  enable/disable one VMU (mode-based)
     display_vsu_functions(idx, fns)     update one VSU's function combo
@@ -712,6 +717,9 @@ class ChannelsPageView(BasePage):
 
     def display_smu_functions(self, index: int, functions: list[str]) -> None:
         self._smu_cards[index].display_available_functions(functions)
+
+    def display_smu_modes(self, index: int, modes: list[str]) -> None:
+        self._smu_cards[index].display_available_modes(modes)
 
     def display_smu_function_locked(self, index: int, locked: bool) -> None:
         self._smu_cards[index].display_function_locked(locked)

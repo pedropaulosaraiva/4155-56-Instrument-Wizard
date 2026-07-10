@@ -50,6 +50,7 @@ class DocTopic(StrEnum):
     SWEEP_VAR1 = "sweep.var1"
     SWEEP_VAR2 = "sweep.var2"
     SWEEP_VARD = "sweep.vard"
+    SWEEP_PULSE = "sweep.pulse"
 
     # ── Sampling Mode ────────────────────────────────────────────────────────
     SAMPLING_OVERVIEW = "sampling.overview"
@@ -115,6 +116,7 @@ DOC_TITLES: dict[DocTopic, str] = {
     DocTopic.SWEEP_VAR1: "VAR1 — Basic Sweep",
     DocTopic.SWEEP_VAR2: "VAR2 — Subordinate Sweep",
     DocTopic.SWEEP_VARD: "VARD — Synchronous Sweep",
+    DocTopic.SWEEP_PULSE: "PULSE — Pulse Source",
     DocTopic.SAMPLING_OVERVIEW: "Sampling Mode",
     DocTopic.SAMPLING_PARAMETERS: "Sampling Parameters",
     DocTopic.STOP_CONDITION: "Stop Condition",
@@ -163,6 +165,7 @@ DOC_TREE: tuple[DocSection, ...] = (
             DocNode("VAR1 — Basic Sweep", DocTopic.SWEEP_VAR1),
             DocNode("VAR2 — Subordinate Sweep", DocTopic.SWEEP_VAR2),
             DocNode("VARD — Synchronous Sweep", DocTopic.SWEEP_VARD),
+            DocNode("PULSE — Pulse Source", DocTopic.SWEEP_PULSE),
         ),
     ),
     DocSection(

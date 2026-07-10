@@ -57,6 +57,7 @@ from wizard_4155_4156.models.sweep_config import (
     SweepConfig,
     SweepConstraints,
     count_measured_units,
+    pulsed_channel,
 )
 
 # ── Sweep ────────────────────────────────────────────────────────────────────
@@ -129,6 +130,12 @@ def sweep_execution_time_range(
     indexes = _sweep_total_indexes(cfg, active_channels)
     if indexes is None:
         return None
+    # Pulse sweep: the delay is ignored and each step is synchronized with
+    # one pulse period, so the execution time is deterministic (a lower
+    # bound when the instrument extends the pulse width automatically).
+    if pulsed_channel(active_channels) is not None:
+        total = cfg.hold_time + cfg.pulse.period * indexes
+        return total, total
     is_4156 = "56" in (instrument_model or "")
     voltage_ranges = _sweep_voltage_ranges_by_unit(cfg, active_channels)
     t_min, t_max = estimated_measurement_time_range(

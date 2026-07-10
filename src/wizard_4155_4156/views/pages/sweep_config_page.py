@@ -48,6 +48,10 @@ from wizard_4155_4156.models.sweep_config import (
     HOLD_TIME_MIN,
     PCOMP_MAX,
     PCOMP_MIN,
+    PULSE_PERIOD_MAX,
+    PULSE_PERIOD_MIN,
+    PULSE_WIDTH_MAX,
+    PULSE_WIDTH_MIN,
     RATIO_MAX,
     RATIO_MIN,
     VAR2_N_OF_STEPS_MAX,
@@ -602,6 +606,86 @@ class _VARDSection(_SectionFrame):
         return errors
 
 
+class _PulseSection(_SectionFrame):
+    period_committed = Signal(float)
+    width_committed = Signal(float)
+    base_committed = Signal(float)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(
+            "PULSE  —  Pulse Source",
+            parent,
+            accent=P.FUNC_PULSE,
+            doc_topic=DocTopic.SWEEP_PULSE,
+        )
+        self._channel_lbl = QLabel("")
+        self._channel_lbl.setStyleSheet(
+            f"color: {P.FUNC_PULSE}; font-size: {P.FONT_SIZE_SM}; "
+            "background: transparent; font-style: italic;"
+        )
+        self.body().addWidget(self._channel_lbl)
+
+        self._period_edit = _SciDoubleEdit(
+            10e-3, PULSE_PERIOD_MIN, PULSE_PERIOD_MAX, "s"
+        )
+        self._period_edit._edit.setToolTip(
+            f"Range: {PULSE_PERIOD_MIN} – {PULSE_PERIOD_MAX} s"
+        )
+        self._width_edit = _SciDoubleEdit(
+            1e-3, PULSE_WIDTH_MIN, PULSE_WIDTH_MAX, "s"
+        )
+        self._width_edit._edit.setToolTip(
+            f"Range: {PULSE_WIDTH_MIN} – {PULSE_WIDTH_MAX} s"
+        )
+        self._base_edit = _SciDoubleEdit(0.0, VOLTAGE_MIN, VOLTAGE_MAX, "V")
+
+        for row in [
+            _form_row("Pulse Period", self._period_edit),
+            _form_row("Pulse Width", self._width_edit),
+            _form_row("Base Value", self._base_edit),
+        ]:
+            self.body().addWidget(row)
+
+        self._period_edit.value_committed.connect(self.period_committed)
+        self._width_edit.value_committed.connect(self.width_committed)
+        self._base_edit.value_committed.connect(self.base_committed)
+
+    def display_state(
+        self, period: float, width: float, base: float
+    ) -> None:
+        self._period_edit.set_value(period)
+        self._width_edit.set_value(width)
+        self._base_edit.set_value(base)
+
+    def display_context(self, channel_label: str) -> None:
+        self._channel_lbl.setText(f"Assigned: {channel_label}")
+
+    def update_ranges(
+        self, is_voltage: bool, interlock_open: bool = False
+    ) -> None:
+        SC = SweepConstraints
+        src_min, src_max = SC.source_range(
+            is_voltage, is_vsu=False, interlock_open=interlock_open
+        )
+        self._base_edit.update_bounds(
+            src_min, src_max, SC.source_unit(is_voltage)
+        )
+
+    def get_input_errors(self) -> Dict[str, str]:
+        errors = {}
+        if self._period_edit.get_value() is None:
+            errors["pulse_period"] = (
+                "Pulse Period: value is empty or invalid"
+            )
+        if self._width_edit.get_value() is None:
+            errors["pulse_width"] = "Pulse Width: value is empty or invalid"
+        if self._base_edit.get_value() is None:
+            errors["pulse_base"] = (
+                "Pulse Base Value: value is empty or invalid"
+            )
+        return errors
+
+
 # ── Main page view ──────────────────────────────────────────────────────
 
 
@@ -648,6 +732,10 @@ class SweepConfigPageView(BasePage):
     vard_comp_committed = Signal(float)
     vard_pcomp_committed = Signal(float)
     vard_pcomp_enabled_changed = Signal(bool)
+
+    pulse_period_committed = Signal(float)
+    pulse_width_committed = Signal(float)
+    pulse_base_committed = Signal(float)
 
     smu_standby_changed = Signal(str, bool)
     display_var_toggled = Signal(str, bool)
@@ -728,6 +816,12 @@ class SweepConfigPageView(BasePage):
             vd.get("power_compliance", 0.01),
             vd.get("power_compliance_enabled", False),
         )
+        pu = snap.get("pulse", {})
+        self._pulse_sec.display_state(
+            pu.get("period", 10e-3),
+            pu.get("width", 1e-3),
+            pu.get("base", 0.0),
+        )
 
     def display_var_sections(
         self, has_var1: bool, has_var2: bool, has_vard: bool
@@ -765,6 +859,18 @@ class SweepConfigPageView(BasePage):
     ) -> None:
         self._vard_sec.update_ranges(is_voltage, is_vsu, interlock_open)
         self._vard_sec.display_context(channel_label)
+
+    def display_pulse_section(self, visible: bool) -> None:
+        self._pulse_sec.setVisible(visible)
+
+    def display_pulse_context(
+        self,
+        channel_label: str,
+        is_voltage: bool,
+        interlock_open: bool = False,
+    ) -> None:
+        self._pulse_sec.update_ranges(is_voltage, interlock_open)
+        self._pulse_sec.display_context(channel_label)
 
     def display_available_vars(
         self, var_names: List[str], selected: List[str]
@@ -830,6 +936,8 @@ class SweepConfigPageView(BasePage):
             errors.update(self._var2_sec.get_input_errors())
         if self._vard_sec.isVisible():
             errors.update(self._vard_sec.get_input_errors())
+        if self._pulse_sec.isVisible():
+            errors.update(self._pulse_sec.get_input_errors())
         return errors
 
     # ── Private — layout ──────────────────────────────────────────────
@@ -882,11 +990,13 @@ class SweepConfigPageView(BasePage):
         self._ranges_sec = _RangesSection()
         self._timing_sec = _SweepTimingSection()
         self._display_vars_sec = _DisplayVarsSection()
+        self._constants_sec = _ConstantsSection()
 
         for w in (
             self._summary_sec,
             self._meas_sec,
             self._ranges_sec,
+            self._constants_sec,
             self._display_vars_sec,
         ):
             left_v.addWidget(w)
@@ -902,13 +1012,14 @@ class SweepConfigPageView(BasePage):
         self._var1_sec = _VAR1Section()
         self._var2_sec = _VAR2Section()
         self._vard_sec = _VARDSection()
-        self._constants_sec = _ConstantsSection()
+        self._pulse_sec = _PulseSection()
+        self._pulse_sec.setVisible(False)
 
         for w in (
             self._var1_sec,
             self._var2_sec,
             self._vard_sec,
-            self._constants_sec,
+            self._pulse_sec,
             self._timing_sec,
         ):
             right_v.addWidget(w)
@@ -958,6 +1069,11 @@ class SweepConfigPageView(BasePage):
         vd.comp_committed.connect(self.vard_comp_committed)
         vd.pcomp_committed.connect(self.vard_pcomp_committed)
         vd.pcomp_enabled_changed.connect(self.vard_pcomp_enabled_changed)
+
+        pu = self._pulse_sec
+        pu.period_committed.connect(self.pulse_period_committed)
+        pu.width_committed.connect(self.pulse_width_committed)
+        pu.base_committed.connect(self.pulse_base_committed)
 
         self._display_vars_sec.var_toggled.connect(self.display_var_toggled)
         self._ranges_sec.range_changed.connect(self.range_changed)

@@ -232,6 +232,86 @@ def test_var1_vard_type_match(var1_mode, mismatch):
     assert (msg in errors) is mismatch
 
 
+# ── Pulse-source rules (mode table + rules 1.1.9 / 1.1.10) ───────────────────
+
+
+@pytest.mark.parametrize(
+    ("mode", "other_pulsed", "expected"),
+    [
+        (
+            MeasurementMode.SWEEP,
+            False,
+            ["V", "I", "VPULSE", "IPULSE", "COMM"],
+        ),
+        (MeasurementMode.SWEEP, True, ["V", "I", "COMM"]),
+        (MeasurementMode.SAMPLING, False, ["V", "I", "COMM"]),
+        (MeasurementMode.QSCV, False, ["V", "I", "COMM"]),
+    ],
+)
+def test_allowed_smu_modes(mode, other_pulsed, expected):
+    modes = ChannelsConstraints.allowed_smu_modes(mode, other_pulsed)
+    assert [m.value for m in modes] == expected
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        (SMUMode.VPULSE, SMUMode.V),
+        (SMUMode.IPULSE, SMUMode.I),
+        (SMUMode.V, SMUMode.V),
+        (SMUMode.I, SMUMode.I),
+        (SMUMode.COMM, SMUMode.COMM),
+    ],
+)
+def test_depulsed_mode(mode, expected):
+    assert ChannelsConstraints.depulsed_mode(mode) is expected
+
+
+def test_other_smu_pulsed():
+    cfg = ChannelsConfig()
+    assert not ChannelsConstraints.other_smu_pulsed(cfg, 1)
+    cfg.smu[2].mode = SMUMode.VPULSE
+    assert ChannelsConstraints.other_smu_pulsed(cfg, 1)
+    assert not ChannelsConstraints.other_smu_pulsed(cfg, 2)  # self excluded
+    cfg.smu[2].enabled = False  # a disabled pulsed SMU does not count
+    assert not ChannelsConstraints.other_smu_pulsed(cfg, 1)
+
+
+def test_two_pulsed_smus_invalid():
+    cfg = ChannelsConfig()
+    cfg.smu[1].mode = SMUMode.VPULSE
+    cfg.smu[4].mode = SMUMode.IPULSE
+    errors = ChannelsConstraints.validate_config(cfg)
+    assert "Only one SMU may be a pulse source (VPULSE/IPULSE)" in errors
+
+
+def test_one_pulsed_smu_valid_in_sweep():
+    cfg = ChannelsConfig()
+    cfg.smu[1].mode = SMUMode.VPULSE
+    errors = ChannelsConstraints.validate_config(cfg)
+    assert not any("pulse" in e.lower() for e in errors)
+
+
+def test_disabled_pulsed_smu_is_ignored():
+    cfg = ChannelsConfig()
+    cfg.smu[1].mode = SMUMode.VPULSE
+    cfg.smu[4].mode = SMUMode.IPULSE
+    cfg.smu[4].enabled = False
+    errors = ChannelsConstraints.validate_config(cfg)
+    assert not any("pulse source" in e for e in errors)
+
+
+def test_pulsed_smu_outside_sweep_invalid():
+    cfg = ChannelsConfig()
+    cfg.measurement_mode = MeasurementMode.SAMPLING
+    cfg.smu[1].mode = SMUMode.VPULSE
+    errors = ChannelsConstraints.validate_config(cfg)
+    assert (
+        "Pulse modes (VPULSE/IPULSE) are only available in Sweep mode"
+        in errors
+    )
+
+
 # ── ChannelsConfig defaults (first-page layout) ──────────────────────────────
 
 

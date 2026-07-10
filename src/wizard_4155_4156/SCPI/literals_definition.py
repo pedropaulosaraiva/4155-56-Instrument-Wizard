@@ -2,7 +2,7 @@ from typing import Final, Literal, get_args
 
 ModeType = Literal["SWEEP", "SAMP", "QSCV"]
 BoolType = Literal["OFF", "ON"]
-SMUModeType = Literal["COMM", "I", "V", "VPUL", "IPUL"]
+SMUModeType = Literal["COMM", "I", "V", "VPULSE", "IPULSE"]
 VUModeType = Literal["V", "DVOL"]
 FunctionType = Literal["CONS", "VAR1", "VAR2", "VARD"]
 

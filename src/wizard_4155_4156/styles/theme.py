@@ -52,6 +52,7 @@ class _Palette:
     FUNC_VAR1: str = "#4ec9b0"  # teal (same hue as STATUS_OK)
     FUNC_VAR2: str = "#dcdcaa"  # amber (same hue as STATUS_WARN)
     FUNC_VARD: str = "#c586c0"  # purple
+    FUNC_PULSE: str = "#d19a66"  # orange (SMU pulse source)
 
     # ── Unit-type colors (channels page group accents) ───────────────────────
     UNIT_SMU: str = "#0098ff"  # blue (same hue as ACCENT_HOVER)

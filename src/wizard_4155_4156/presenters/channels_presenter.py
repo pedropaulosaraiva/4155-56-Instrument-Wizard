@@ -43,6 +43,7 @@ import copy
 from PySide6.QtCore import QObject, Signal
 
 from wizard_4155_4156.models.channels import (
+    PULSE_SMU_MODES,
     ChannelsConfig,
     ChannelsConstraints,
     InstrumentModel,
@@ -107,6 +108,12 @@ class ChannelsPresenter(QObject):
 
         self._config.measurement_mode = new_mode
 
+        # Pulse modes exist only in Sweep — depulse every SMU on the way out
+        # (VPULSE→V, IPULSE→I) before the combos lose the pulse options.
+        if new_mode != MeasurementMode.SWEEP:
+            for smu in self._config.smu.values():
+                smu.mode = ChannelsConstraints.depulsed_mode(smu.mode)
+
         # Clamp all SMU functions to what's allowed in the new mode
         allowed_smu_fns = ChannelsConstraints.smu_functions(new_mode)
         for smu in self._config.smu.values():
@@ -134,8 +141,19 @@ class ChannelsPresenter(QObject):
     # SMU handlers ────────────────────────────────────────────────────────────
 
     def _on_smu_enabled(self, index: int, enabled: bool) -> None:
-        self._config.smu[index].enabled = enabled
-        self._update_validation()
+        smu = self._config.smu[index]
+        smu.enabled = enabled
+        # A re-enabled card may carry a stale pulse mode while another
+        # enabled SMU is already the pulse source — depulse the newcomer.
+        if (
+            enabled
+            and smu.mode in PULSE_SMU_MODES
+            and ChannelsConstraints.other_smu_pulsed(self._config, index)
+        ):
+            smu.mode = ChannelsConstraints.depulsed_mode(smu.mode)
+        # Enabling/disabling an SMU changes whether the *other* cards may
+        # offer the pulse modes — refresh every card.
+        self._push_full_state()
 
     def _on_smu_mode(self, index: int, value: str) -> None:
         try:
@@ -144,12 +162,22 @@ class ChannelsPresenter(QObject):
             return
         self._config.smu[index].mode = new_mode
 
+        # Only one SMU may be a pulse source: taking a pulse mode depulses
+        # every other SMU (including disabled cards, so a stale pulse mode
+        # cannot resurface on re-enable).
+        if new_mode in PULSE_SMU_MODES:
+            for idx, smu in self._config.smu.items():
+                if idx != index:
+                    smu.mode = ChannelsConstraints.depulsed_mode(smu.mode)
+
         # Lock function to CONST when COMM mode is selected
         locked = ChannelsConstraints.smu_function_locked(new_mode)
         if locked:
             self._config.smu[index].function = UnitFunction.CONST
-        self._view.display_smu_function_locked(index, locked)
-        self._update_validation()
+        # Entering or leaving a pulse mode changes which options the other
+        # cards' mode combos may offer — refresh every card (the COMM lock
+        # is re-pushed inside _push_full_state).
+        self._push_full_state()
 
     def _on_smu_function(self, index: int, value: str) -> None:
         try:
@@ -313,10 +341,16 @@ class ChannelsPresenter(QObject):
             [mode.value for mode in allowed_modes]
         )
 
-        # Per-card function lists and COMM locks for SMUs
+        # Per-card function lists, mode lists and COMM locks for SMUs
         for index, smu in config.smu.items():
             self._view.display_smu_functions(
                 index, [function.value for function in allowed_smu_fns]
+            )
+            allowed_smu_modes = ChannelsConstraints.allowed_smu_modes(
+                mode, ChannelsConstraints.other_smu_pulsed(config, index)
+            )
+            self._view.display_smu_modes(
+                index, [smu_mode.value for smu_mode in allowed_smu_modes]
             )
             locked = ChannelsConstraints.smu_function_locked(smu.mode)
             self._view.display_smu_function_locked(index, locked)
