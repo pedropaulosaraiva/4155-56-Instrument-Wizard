@@ -226,6 +226,7 @@ DOC_BODIES: dict[DocTopic, str] = {
     DocTopic.SWEEP_VAR1: pages.var1_basic_sweep.BODY,
     DocTopic.SWEEP_VAR2: pages.var2_subordinate_sweep.BODY,
     DocTopic.SWEEP_VARD: pages.vard_synchronous_sweep.BODY,
+    DocTopic.SWEEP_PULSE: pages.sweep_pulse.BODY,
     DocTopic.SAMPLING_OVERVIEW: pages.sampling_mode.BODY,
     DocTopic.SAMPLING_PARAMETERS: pages.sampling_parameters.BODY,
     DocTopic.STOP_CONDITION: pages.stop_condition.BODY,

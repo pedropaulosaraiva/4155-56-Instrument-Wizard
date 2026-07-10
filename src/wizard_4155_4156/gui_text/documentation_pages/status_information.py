@@ -39,6 +39,11 @@ DVOLT mode contributes a single stored value.
 The estimate follows the instrument's measurement model:
 
 - **Sweep / QSCV** — `Execution ≈ Hold + (Delay + Measurement interval) × indexes`.
+- **Pulse sweep** (one SMU in VPULSE/IPULSE mode) — `Execution = Hold + Pulse
+  Period × indexes`. The Delay is ignored (each step is paced by one pulse
+  period), so the estimate is a **single deterministic value** rather than a
+  range — though it becomes a lower bound if the instrument extends the pulse
+  width automatically (see the **Warnings** page).
 - **Sampling, fixed total time** — `Execution ≈ Hold + Total Sampling Time`.
 - **Sampling, automatic (linear)** — `Execution ≈ Hold + adjusted interval × samples`,
   where the *adjusted interval* is the smallest multiple of the Initial Interval

@@ -30,7 +30,9 @@ The exact set of checks depends on the measurement mode.
 | Short Aperture | (SHORT integration) outside range |
 | Integration Cycles | (LONG integration) outside range |
 
-**Timing** — Delay and Hold Time each within range.
+**Timing** — Delay and Hold Time each within range. When a pulse source is
+configured the Delay is ignored by the instrument (each step is paced by the
+pulse period), so it is hidden and **not checked**.
 
 **VAR1 / VAR2 / VARD source cards** — only the cards actually in use are checked:
 
@@ -43,8 +45,35 @@ The exact set of checks depends on the measurement mode.
 | Last swept value — Start + Step × (Steps − 1) — within the source range | VAR2 |
 | Offset and Ratio within range | VARD |
 | Output = VAR1 × Ratio + Offset stays within the source range | VARD |
-| Compliance within the bounds implied by the source magnitude | VAR1, VAR2, VARD |
-| Power Compliance within range (when its toggle is on) | VAR1, VAR2, VARD |
+| Compliance within the bounds implied by the source magnitude (for a pulsed unit the **Pulse Base** counts toward that magnitude) | VAR1, VAR2, VARD |
+| Power Compliance within range (when its toggle is on; not applicable to a pulsed VAR1/VARD unit — see below) | VAR1, VAR2, VARD |
+
+**PULSE — Pulse Source** (only when one SMU is in VPULSE/IPULSE mode):
+
+| Check | Fails when |
+|-------|-----------|
+| Pulse Period | outside **5 ms – 1 s** |
+| Pulse Width | outside **0.5 ms – 100 ms** |
+| Period vs Width | **Pulse Period < Pulse Width + 4 ms** — the instrument needs 4 ms after each pulse to settle and transfer the reading |
+| Pulse Base | outside the pulsed channel's source range (volts for VPULSE, amperes for IPULSE, tightened when the interlock is open) |
+
+A pulsed VAR1 or VARD unit has **no power compliance**: the row is hidden, its
+value is not validated, and it does not trigger the Sweep Stop rule below.
+
+**Output resolution** (checked once the corresponding card is otherwise sound):
+
+Every output value must be representable in the **output range** the instrument
+selects — the lowest standard range covering the unit's largest output magnitude
+(including the Pulse Base on a pulsed unit). Each range has a finite setting
+resolution (e.g. the 40 V range resolves 2 mV; the tables differ between the
+4155's MPSMU and the 4156's HRSMU, and a VSU always resolves 1 mV):
+
+- **Step ⩾ resolution** — a finer step cannot advance the sweep. Checked for the
+  VAR1 Step, the VAR2 Step, and the VARD *effective* step (VAR1 Step × Ratio).
+- **Values ⩾ resolution (or exactly zero)** — a nonzero value smaller than the
+  resolution cannot be output. Checked for VAR1 Start/Stop, VAR2 Start and Last
+  Value, and the Pulse Base. Example: sweeping 1 mV → 40 V puts the output in
+  the 40 V range, whose 2 mV resolution cannot represent the 1 mV start.
 
 **Point counts** (checked once the VAR1 fields are sound):
 
@@ -55,11 +84,12 @@ The exact set of checks depends on the measurement mode.
 **Cross-parameter & shared checks**
 
 - **Sweep Stop** must be ABNORMAL or COMPLIANCE whenever any Power Compliance is
-  enabled.
+  enabled (a pulsed VAR1/VARD unit is exempt — its power compliance is ignored).
 - **Display Variables**: at least two selected, at least one of them a measured
   variable, and no more than the maximum.
 - **Constant Sources**: each constant source value and its compliance within the
-  channel's hardware limits.
+  channel's hardware limits (for a pulsed CONST unit the Pulse Base counts toward
+  the source magnitude that bounds the compliance).
 - **Range vs Compliance**: a FIXED / LIMITED measurement range may not exceed the
   lowest standard range that covers the unit's compliance.
 
