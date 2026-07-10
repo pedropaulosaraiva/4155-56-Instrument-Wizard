@@ -206,20 +206,21 @@ class SetupDetailPanel(QWidget):
             self._add_var_card(
                 P.FUNC_VARD, "VARD", channels, sweep["vard"], "VARD"
             )
+        if "pulse" in sweep:
+            self._add_pulse_card(channels, sweep["pulse"])
 
         self._add_display_vars_card(channels, cfg.get("display_vars", []))
         self._add_units_card(channels)
 
-        self._add_card(
-            P.ACCENT,
-            tr_ui(_T.RUNS_SUM_TIMING),
-            [
-                *self._integration_rows(ms),
-                ("Hold time", f"{_num(sweep.get('hold_time'))} s"),
-                ("Delay", f"{_num(sweep.get('delay'))} s"),
-                ("Sweep stop", _txt(sweep.get("sweep_stop"))),
-            ],
-        )
+        timing_rows = [
+            *self._integration_rows(ms),
+            ("Hold time", f"{_num(sweep.get('hold_time'))} s"),
+        ]
+        # Pulse sweeps carry no delay (each step is paced by the period).
+        if "delay" in sweep:
+            timing_rows.append(("Delay", f"{_num(sweep.get('delay'))} s"))
+        timing_rows.append(("Sweep stop", _txt(sweep.get("sweep_stop"))))
+        self._add_card(P.ACCENT, tr_ui(_T.RUNS_SUM_TIMING), timing_rows)
 
     def _build_sampling_summary(self) -> None:
         cfg = self._config
@@ -373,6 +374,24 @@ class SetupDetailPanel(QWidget):
 
         self._add_card(accent, title, rows)
 
+    def _add_pulse_card(self, channels: dict, pulse: dict) -> None:
+        """SMU pulse-source digest (period / width / base value)."""
+        cid, ch = _find_pulsed_channel(channels)
+        base_u, _comp_u = _source_units(ch)
+        title = f"PULSE · {cid}" if cid else "PULSE"
+        self._add_card(
+            P.FUNC_PULSE,
+            title,
+            [
+                ("Pulse period", f"{_num(pulse.get('period'))} s"),
+                ("Pulse width", f"{_num(pulse.get('width'))} s"),
+                (
+                    "Base value",
+                    f"{_num(pulse.get('base'))} {base_u}".strip(),
+                ),
+            ],
+        )
+
     def _add_display_vars_card(
         self,
         channels: dict,
@@ -485,6 +504,18 @@ def _find_function_channel(channels: dict, fn: str):
             isinstance(ch, dict)
             and not ch.get("disable")
             and ch.get("function") == fn
+        ):
+            return cid, ch
+    return None, None
+
+
+def _find_pulsed_channel(channels: dict):
+    """The (single) enabled SMU in a pulse mode, or (None, None)."""
+    for cid, ch in channels.items():
+        if (
+            isinstance(ch, dict)
+            and not ch.get("disable")
+            and str(ch.get("smu_mode", "")).upper() in ("VPULSE", "IPULSE")
         ):
             return cid, ch
     return None, None
