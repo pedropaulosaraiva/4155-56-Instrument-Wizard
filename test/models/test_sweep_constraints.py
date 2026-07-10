@@ -479,6 +479,49 @@ def test_pulse_base_gates_constant_compliance():
     )
 
 
+# ── Pulse suppresses power compliance and delay ──────────────────────────────
+
+
+def test_pulse_suppresses_var1_power_compliance():
+    channels = [smu(1, mode="VPULSE", function="VAR1")]
+    cfg = make_config()
+    cfg.var1.power_compliance_enabled = True
+    cfg.var1.power_compliance = 100.0  # out of range — but ignored
+    errors = validate(cfg, channels=channels)
+    assert not any("Power Compliance" in e for e in errors)
+    # ...and it no longer triggers the sweep-stop requirement either.
+    assert not any(e.startswith("Sweep stop") for e in errors)
+    # Sanity: the same config without pulse raises both.
+    errors = validate(cfg)
+    assert any(e.startswith("VAR1 Power Compliance") for e in errors)
+    assert any(e.startswith("Sweep stop") for e in errors)
+
+
+def test_pulse_suppresses_vard_power_compliance():
+    channels = [
+        smu(1, mode="V", function="VAR1"),
+        smu(2, mode="VPULSE", function="VAR1'"),
+    ]
+    flags = SweepUnitFlags(
+        has_var1=True, has_vard=True, var1_is_voltage=True
+    )
+    cfg = make_config()
+    cfg.vard.power_compliance_enabled = True
+    cfg.vard.power_compliance = 100.0
+    errors = validate(cfg, flags=flags, channels=channels)
+    assert not any(e.startswith("VARD Power Compliance") for e in errors)
+    assert not any(e.startswith("Sweep stop") for e in errors)
+
+
+def test_pulse_skips_delay_validation():
+    cfg = make_config(delay=100.0)  # above the 65.535 s maximum
+    assert any(e.startswith("Delay") for e in validate(cfg))
+    assert not any(
+        e.startswith("Delay")
+        for e in validate(cfg, channels=pulse_channels())
+    )
+
+
 # ── Pulse-timing feasibility warning (non-blocking) ──────────────────────────
 
 
@@ -612,6 +655,66 @@ def test_vard_effective_step_resolution():
     cfg.vard.ratio = 0.0
     errors = validate(cfg, flags=flags, channels=channels)
     assert not any(e.startswith("VARD Effective Step") for e in errors)
+
+
+@pytest.mark.parametrize(
+    ("start", "stop", "step", "bad_label"),
+    [
+        (0.001, 40.0, 20.0, "VAR1 Start"),  # 40 V range → 2 mV resolution
+        (40.0, 0.001, -20.0, "VAR1 Stop"),
+    ],
+)
+def test_var1_value_below_resolution(start, stop, step, bad_label):
+    cfg = make_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = start, stop, step
+    errors = validate(cfg)
+    assert any(
+        e.startswith(bad_label) and "output resolution" in e for e in errors
+    )
+
+
+def test_zero_values_are_always_representable():
+    cfg = make_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 0.0, 40.0, 20.0
+    assert not any("output resolution" in e for e in validate(cfg))
+
+
+def test_var2_start_below_resolution():
+    cfg = make_config()
+    cfg.var2.start, cfg.var2.step, cfg.var2.n_of_steps = 0.001, 20.0, 3
+    channels = [smu(1, mode="V", function="VAR2")]
+    errors = validate(cfg, flags=var2_flags(True), channels=channels)
+    assert any(
+        e.startswith("VAR2 Start") and "output resolution" in e
+        for e in errors
+    )
+
+
+def test_pulse_base_below_resolution_on_var1_unit():
+    channels = [smu(1, mode="VPULSE", function="VAR1")]
+    cfg = make_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 39.9, 40.0, 0.002
+    cfg.pulse.base = 0.001  # below the 40 V range's 2 mV resolution
+    errors = validate(cfg, channels=channels)
+    assert any(
+        e.startswith("Pulse Base") and "output resolution" in e
+        for e in errors
+    )
+    cfg.pulse.base = 0.0  # zero base is always representable
+    errors = validate(cfg, channels=channels)
+    assert not any(e.startswith("Pulse Base") for e in errors)
+
+
+def test_pulse_base_below_resolution_on_const_unit():
+    channels = pulse_channels("VPULSE", function="CONST")
+    cfg = make_config()
+    cfg.constants = {"SMU2": {"source": 40.0, "compliance": 0.01}}
+    cfg.pulse.base = 0.001  # 40 V range from the constant source
+    errors = validate(cfg, channels=channels)
+    assert any(
+        e.startswith("Pulse Base") and "output resolution" in e
+        for e in errors
+    )
 
 
 def test_pulse_base_extends_resolution_range():

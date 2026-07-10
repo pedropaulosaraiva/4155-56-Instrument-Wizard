@@ -826,9 +826,14 @@ class SweepConstraints:
         return errors
 
     @staticmethod
-    def _validate_timing(cfg: SweepConfig) -> List[str]:
+    def _validate_timing(
+        cfg: SweepConfig, has_pulse: bool = False
+    ) -> List[str]:
+        """The delay is ignored by the instrument during a pulse sweep
+        (each step is paced by the pulse period), so it is not validated
+        — nor emitted — when a pulse source is configured."""
         errors: List[str] = []
-        if not (DELAY_MIN <= cfg.delay <= DELAY_MAX):
+        if not has_pulse and not (DELAY_MIN <= cfg.delay <= DELAY_MAX):
             errors.append(
                 f"Delay: invalid value "
                 f"(range: {DELAY_MIN:.3g} – {DELAY_MAX:.3g} s)"
@@ -848,9 +853,11 @@ class SweepConstraints:
         interlock_open: bool,
         instrument_model: str,
         extra_source_magnitude: float = 0.0,
+        is_pulsed: bool = False,
     ) -> List[str]:
         """``extra_source_magnitude`` folds a pulse base |value| into the
-        source magnitude that gates the compliance bounds."""
+        source magnitude that gates the compliance bounds.  A pulsed VAR1
+        unit has no power compliance (``is_pulsed`` skips its check)."""
         errors: List[str] = []
         v1 = cfg.var1
         src_min, src_max = SweepConstraints.source_range(
@@ -907,8 +914,10 @@ class SweepConstraints:
                         interlock_open,
                     )
                 )
-            if v1.power_compliance_enabled and not (
-                PCOMP_MIN <= v1.power_compliance <= PCOMP_MAX
+            if (
+                not is_pulsed
+                and v1.power_compliance_enabled
+                and not (PCOMP_MIN <= v1.power_compliance <= PCOMP_MAX)
             ):
                 errors.append(
                     f"VAR1 Power Compliance: invalid "
@@ -1116,6 +1125,7 @@ class SweepConstraints:
         interlock_open: bool,
         instrument_model: str,
         extra_source_magnitude: float = 0.0,
+        is_pulsed: bool = False,
     ) -> List[str]:
         errors: List[str] = []
         vd = cfg.vard
@@ -1170,8 +1180,10 @@ class SweepConstraints:
                         interlock_open,
                     )
                 )
-            if vd.power_compliance_enabled and not (
-                PCOMP_MIN <= vd.power_compliance <= PCOMP_MAX
+            if (
+                not is_pulsed
+                and vd.power_compliance_enabled
+                and not (PCOMP_MIN <= vd.power_compliance <= PCOMP_MAX)
             ):
                 errors.append(
                     f"VARD Power Compliance: invalid "
@@ -1265,60 +1277,88 @@ class SweepConstraints:
         ]
 
     @staticmethod
-    def _validate_step_resolution(
+    def _validate_output_resolution(
         cfg: SweepConfig,
         flags: SweepUnitFlags,
         instrument_model: str,
-        extras: Dict[str, float],
+        pulse_ch: Optional[Dict[str, Any]],
         prior_errors: List[str],
     ) -> List[str]:
         """
-        Step size must be ≥ the output resolution of the output range
-        covering the unit's max |output value| (pulse base included via
-        ``extras``, keyed by function).  Each check runs only when the
-        section has no prior errors, and log spacings are exempt (no
-        user-entered step).
+        Every output value and step size must be representable in the
+        output range covering the unit's max |output value|: a step below
+        the range's resolution cannot advance the sweep, and a nonzero
+        value below it cannot be output (zero is always representable).
+        The pulse base shares the pulsed unit's output range.  Each check
+        runs only when the section has no prior errors; log spacings have
+        no user-entered step, and a VARD with ratio 0 is constant.
         """
         errors: List[str] = []
+        pulse_fn = pulse_ch.get("function") if pulse_ch else None
+        base = cfg.pulse.base
 
         def clean(prefix: str) -> bool:
             return not any(e.startswith(prefix) for e in prior_errors)
 
         def check(
-            label: str,
-            step: float,
-            max_mag: float,
+            values: List[Tuple[str, float]],
+            step_pair: Optional[Tuple[str, float]],
             is_voltage: bool,
             is_vsu: bool,
+            extra_mags: Tuple[float, ...] = (),
         ) -> None:
+            """``values`` are checked as 0 < |v| < resolution; the range
+            is picked from all values plus ``extra_mags``."""
+            mags = [abs(v) for _lbl, v in values]
+            mags.extend(extra_mags)
             rng, res = output_range_resolution(
-                is_voltage, is_vsu, instrument_model, max_mag
+                is_voltage, is_vsu, instrument_model, max(mags, default=0.0)
             )
-            if abs(step) < res:
-                unit = SweepConstraints.source_unit(is_voltage or is_vsu)
-                errors.append(
-                    f"{label}: {abs(step):.3g} {unit} is below the "
+            unit = SweepConstraints.source_unit(is_voltage or is_vsu)
+
+            def below(label: str, magnitude: float) -> str:
+                return (
+                    f"{label}: {magnitude:.3g} {unit} is below the "
                     f"output resolution {res:.3g} {unit} of the "
                     f"{rng:.3g} {unit} output range"
                 )
 
+            for label, value in values:
+                if 0 < abs(value) < res:
+                    errors.append(below(label, abs(value)))
+            if step_pair is not None and abs(step_pair[1]) < res:
+                errors.append(below(step_pair[0], abs(step_pair[1])))
+
         v1 = cfg.var1
         v1_linear = v1.spacing == SweepSpacing.LINEAR
-        if flags.has_var1 and v1_linear and v1.step != 0 and clean("VAR1"):
+        if flags.has_var1 and clean("VAR1"):
+            values = [("VAR1 Start", v1.start), ("VAR1 Stop", v1.stop)]
+            if pulse_fn == "VAR1" and clean("Pulse Base"):
+                values.append(("Pulse Base", base))
+            step_pair = (
+                ("VAR1 Step", v1.step)
+                if v1_linear and v1.step != 0
+                else None
+            )
             check(
-                "VAR1 Step",
-                v1.step,
-                max(abs(v1.start), abs(v1.stop), extras.get("VAR1", 0.0)),
+                values,
+                step_pair,
                 flags.var1_is_voltage,
                 flags.var1_is_vsu,
             )
         v2 = cfg.var2
-        if flags.has_var2 and v2.step != 0 and clean("VAR2"):
-            last = v2.start + (v2.n_of_steps - 1) * v2.step
+        if flags.has_var2 and clean("VAR2"):
+            values = [("VAR2 Start", v2.start)]
+            step_pair = None
+            if v2.step != 0:
+                last = v2.start + (v2.n_of_steps - 1) * v2.step
+                values.append(("VAR2 Last Value", last))
+                step_pair = ("VAR2 Step", v2.step)
+            if pulse_fn == "VAR2" and clean("Pulse Base"):
+                values.append(("Pulse Base", base))
             check(
-                "VAR2 Step",
-                v2.step,
-                max(abs(v2.start), abs(last), extras.get("VAR2", 0.0)),
+                values,
+                step_pair,
                 flags.var2_is_voltage,
                 flags.var2_is_vsu,
             )
@@ -1326,21 +1366,39 @@ class SweepConstraints:
         if (
             flags.has_vard
             and flags.has_var1
-            and v1_linear
-            and v1.step != 0
-            and vd.ratio != 0
             and clean("VARD")
             and clean("VAR1")
         ):
             out_a = v1.start * vd.ratio + vd.offset
             out_b = v1.stop * vd.ratio + vd.offset
-            check(
-                "VARD Effective Step (VAR1 Step x Ratio)",
-                v1.step * vd.ratio,
-                max(abs(out_a), abs(out_b), extras.get("VAR1'", 0.0)),
-                flags.var1_is_voltage or flags.var1_is_vsu,
-                flags.vard_is_vsu,
-            )
+            values = []
+            if pulse_fn == "VAR1'" and clean("Pulse Base"):
+                values.append(("Pulse Base", base))
+            step_pair = None
+            if v1_linear and v1.step != 0 and vd.ratio != 0:
+                step_pair = (
+                    "VARD Effective Step (VAR1 Step x Ratio)",
+                    v1.step * vd.ratio,
+                )
+            if values or step_pair:
+                check(
+                    values,
+                    step_pair,
+                    flags.var1_is_voltage or flags.var1_is_vsu,
+                    flags.vard_is_vsu,
+                    extra_mags=(abs(out_a), abs(out_b)),
+                )
+        if pulse_ch is not None and pulse_fn == "CONST":
+            if clean("Pulse Base"):
+                entry = cfg.constants.get(pulse_ch["id"], {}) or {}
+                src = abs(entry.get("source", 0.0) or 0.0)
+                check(
+                    [("Pulse Base", base)],
+                    None,
+                    pulse_ch.get("mode") == "VPULSE",
+                    False,
+                    extra_mags=(src,),
+                )
         return errors
 
     @staticmethod
@@ -1383,13 +1441,6 @@ class SweepConstraints:
         never block.
         """
         errors: List[str] = []
-        errors.extend(
-            SweepConstraints._validate_measurement_setup(
-                cfg.measurement_setup,
-            )
-        )
-        errors.extend(SweepConstraints._validate_timing(cfg))
-
         pulse_ch = pulsed_channel(active_channels or [])
         pulse_fn = pulse_ch.get("function") if pulse_ch else None
         pulse_base_mag = abs(cfg.pulse.base) if pulse_ch else 0.0
@@ -1397,6 +1448,17 @@ class SweepConstraints:
             fn: pulse_base_mag if pulse_fn == fn else 0.0
             for fn in ("VAR1", "VAR2", "VAR1'")
         }
+
+        errors.extend(
+            SweepConstraints._validate_measurement_setup(
+                cfg.measurement_setup,
+            )
+        )
+        errors.extend(
+            SweepConstraints._validate_timing(
+                cfg, has_pulse=pulse_ch is not None
+            )
+        )
 
         if flags.has_var1:
             errors.extend(
@@ -1406,6 +1468,7 @@ class SweepConstraints:
                     interlock_open,
                     instrument_model,
                     extras["VAR1"],
+                    is_pulsed=pulse_fn == "VAR1",
                 )
             )
             if not any(e.startswith("VAR1") for e in errors):
@@ -1435,19 +1498,12 @@ class SweepConstraints:
                     interlock_open,
                     instrument_model,
                     extras["VAR1'"],
+                    is_pulsed=pulse_fn == "VAR1'",
                 )
             )
 
-        errors.extend(
-            SweepConstraints._validate_step_resolution(
-                cfg,
-                flags,
-                instrument_model,
-                extras,
-                errors,
-            )
-        )
-
+        # Pulse rules run before the resolution block so an out-of-range
+        # base gates (rather than duplicates) its resolution check.
         if pulse_ch is not None:
             errors.extend(
                 SweepConstraints._validate_pulse(
@@ -1457,10 +1513,23 @@ class SweepConstraints:
                 )
             )
 
+        errors.extend(
+            SweepConstraints._validate_output_resolution(
+                cfg,
+                flags,
+                instrument_model,
+                pulse_ch,
+                errors,
+            )
+        )
+
+        # A pulsed VAR1/VARD unit has no power compliance, so it does not
+        # trigger the sweep-stop requirement either.
         any_pcomp = (
             (
                 flags.has_var1
                 and not flags.var1_is_vsu
+                and pulse_fn != "VAR1"
                 and cfg.var1.power_compliance_enabled
             )
             or (
@@ -1471,6 +1540,7 @@ class SweepConstraints:
             or (
                 flags.has_vard
                 and not flags.vard_is_vsu
+                and pulse_fn != "VAR1'"
                 and cfg.vard.power_compliance_enabled
             )
         )

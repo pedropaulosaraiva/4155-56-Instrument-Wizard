@@ -168,11 +168,13 @@ class _SweepTimingSection(_SectionFrame):
         super().__init__(
             "Sweep Timing", parent, doc_topic=DocTopic.SWEEP_TIMING
         )
+        self._delay_visible = True
         self._delay_edit = _SciDoubleEdit(0.1, DELAY_MIN, DELAY_MAX, "s")
         self._delay_edit._edit.setToolTip(
             f"Range: {DELAY_MIN} – {DELAY_MAX} s"
         )
-        self.body().addWidget(_form_row("Delay", self._delay_edit))
+        self._delay_row = _form_row("Delay", self._delay_edit)
+        self.body().addWidget(self._delay_row)
 
         # Hold time has a DIFFERENT (larger) max than delay
         self._hold_edit = _SciDoubleEdit(
@@ -199,9 +201,14 @@ class _SweepTimingSection(_SectionFrame):
         self._hold_edit.set_value(hold_time)
         self._stop_seg.set_value(sweep_stop)
 
+    def set_delay_visible(self, visible: bool) -> None:
+        """The delay is ignored (and hidden) during a pulse sweep."""
+        self._delay_visible = visible
+        self._delay_row.setVisible(visible)
+
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
-        if self._delay_edit.get_value() is None:
+        if self._delay_visible and self._delay_edit.get_value() is None:
             errors["delay"] = "Delay: value is empty or invalid"
         if self._hold_edit.get_value() is None:
             errors["hold_time"] = "Hold Time: value is empty or invalid"
@@ -226,6 +233,7 @@ class _VAR1Section(_SectionFrame):
             doc_topic=DocTopic.SWEEP_VAR1,
         )
         self._is_vsu = False
+        self._is_pulsed = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
             f"color: {P.FUNC_VAR1}; font-size: {P.FONT_SIZE_SM}; "
@@ -302,12 +310,15 @@ class _VAR1Section(_SectionFrame):
         is_voltage: bool,
         is_vsu: bool = False,
         interlock_open: bool = False,
+        is_pulsed: bool = False,
     ) -> None:
-        """Called by the view when sweep-type context changes."""
+        """Called by the view when sweep-type context changes.  A pulsed
+        VAR1 unit has no power compliance — its row is hidden."""
         SC = SweepConstraints
         self._is_vsu = is_vsu
+        self._is_pulsed = is_pulsed
         self._comp_row.setVisible(not is_vsu)
-        self._pcomp_row.setVisible(not is_vsu)
+        self._pcomp_row.setVisible(not is_vsu and not is_pulsed)
         src_min, src_max = SC.source_range(is_voltage, is_vsu, interlock_open)
         if is_vsu:
             # VSU step spans the full range width in either direction
@@ -361,7 +372,8 @@ class _VAR1Section(_SectionFrame):
                     "VAR1 Compliance: value is empty or invalid"
                 )
             if (
-                self._pcomp_widget.is_pcomp_enabled()
+                not self._is_pulsed
+                and self._pcomp_widget.is_pcomp_enabled()
                 and self._pcomp_widget.get_value() is None
             ):
                 errors["var1_pcomp"] = (
@@ -506,6 +518,7 @@ class _VARDSection(_SectionFrame):
             doc_topic=DocTopic.SWEEP_VARD,
         )
         self._is_vsu = False
+        self._is_pulsed = False
         self._channel_lbl = QLabel("")
         self._channel_lbl.setStyleSheet(
             f"color: {P.FUNC_VARD}; font-size: {P.FONT_SIZE_SM}; "
@@ -564,11 +577,13 @@ class _VARDSection(_SectionFrame):
         is_voltage: bool,
         is_vsu: bool = False,
         interlock_open: bool = False,
+        is_pulsed: bool = False,
     ) -> None:
         SC = SweepConstraints
         self._is_vsu = is_vsu
+        self._is_pulsed = is_pulsed
         self._comp_row.setVisible(not is_vsu)
-        self._pcomp_row.setVisible(not is_vsu)
+        self._pcomp_row.setVisible(not is_vsu and not is_pulsed)
         if is_vsu:
             off_min, off_max = VARD_OFFSET_V_MIN, VARD_OFFSET_V_MAX
         elif is_voltage:
@@ -597,7 +612,8 @@ class _VARDSection(_SectionFrame):
                     "VARD Compliance: value is empty or invalid"
                 )
             if (
-                self._pcomp_widget.is_pcomp_enabled()
+                not self._is_pulsed
+                and self._pcomp_widget.is_pcomp_enabled()
                 and self._pcomp_widget.get_value() is None
             ):
                 errors["vard_pcomp"] = (
@@ -836,8 +852,11 @@ class SweepConfigPageView(BasePage):
         is_voltage: bool,
         is_vsu: bool = False,
         interlock_open: bool = False,
+        is_pulsed: bool = False,
     ) -> None:
-        self._var1_sec.update_ranges(is_voltage, is_vsu, interlock_open)
+        self._var1_sec.update_ranges(
+            is_voltage, is_vsu, interlock_open, is_pulsed
+        )
         self._var1_sec.display_context(channel_label)
 
     def display_var2_context(
@@ -856,12 +875,19 @@ class SweepConfigPageView(BasePage):
         is_voltage: bool,
         is_vsu: bool = False,
         interlock_open: bool = False,
+        is_pulsed: bool = False,
     ) -> None:
-        self._vard_sec.update_ranges(is_voltage, is_vsu, interlock_open)
+        self._vard_sec.update_ranges(
+            is_voltage, is_vsu, interlock_open, is_pulsed
+        )
         self._vard_sec.display_context(channel_label)
 
     def display_pulse_section(self, visible: bool) -> None:
         self._pulse_sec.setVisible(visible)
+
+    def display_delay_visible(self, visible: bool) -> None:
+        """Hide the Sweep Timing delay row during a pulse sweep."""
+        self._timing_sec.set_delay_visible(visible)
 
     def display_pulse_context(
         self,

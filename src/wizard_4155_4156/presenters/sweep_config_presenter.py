@@ -456,12 +456,14 @@ class SweepConfigPresenter(QObject):
         )
 
         interlock_open = ctx["interlock_open"]
+        pulse_ch_id = ctx["pulse_channel"]
         if ctx["has_var1"] and ctx["var1_channel"]:
             self._view.display_var1_context(
                 ctx["var1_channel"],
                 is_voltage=ctx["var1_is_voltage"],
                 is_vsu=ctx["var1_is_vsu"],
                 interlock_open=interlock_open,
+                is_pulsed=ctx["var1_channel"] == pulse_ch_id,
             )
 
         if ctx["has_var2"] and ctx["var2_channel"]:
@@ -479,9 +481,11 @@ class SweepConfigPresenter(QObject):
                 is_voltage=ctx["var1_is_voltage"],
                 is_vsu=ctx["vard_is_vsu"],
                 interlock_open=interlock_open,
+                is_pulsed=ctx["vard_channel"] == pulse_ch_id,
             )
 
         self._view.display_pulse_section(ctx["has_pulse"])
+        self._view.display_delay_visible(not ctx["has_pulse"])
         if ctx["has_pulse"] and ctx["pulse_channel"]:
             self._view.display_pulse_context(
                 ctx["pulse_channel"],
@@ -841,11 +845,15 @@ class SweepConfigPresenter(QObject):
         meas_json["wait_time"] = ms.wait_multiplier  # JSON key kept
         meas_json["ranges"] = ms.ranges
 
-        sweep_json: Dict[str, Any] = {
-            "delay": cfg.delay,
-            "hold_time": cfg.hold_time,
-            "sweep_stop": cfg.sweep_stop.value,
-        }
+        sweep_json: Dict[str, Any] = {}
+        has_pulse = self._ctx.get("has_pulse", False)
+        pulse_ch_id = self._ctx.get("pulse_channel")
+        # The instrument ignores the delay during a pulse sweep (each step
+        # is paced by the pulse period) — omit the key entirely.
+        if not has_pulse:
+            sweep_json["delay"] = cfg.delay
+        sweep_json["hold_time"] = cfg.hold_time
+        sweep_json["sweep_stop"] = cfg.sweep_stop.value
 
         if self._ctx.get("has_var1"):
             v1 = cfg.var1
@@ -861,7 +869,10 @@ class SweepConfigPresenter(QObject):
                 sweep_json["var1"]["step"] = v1.step
             if not self._ctx.get("var1_is_vsu"):
                 sweep_json["var1"]["compliance"] = v1.compliance
-                if v1.power_compliance_enabled:
+                # A pulsed VAR1 unit has no power compliance.
+                if v1.power_compliance_enabled and not (
+                    self._ctx.get("var1_channel") == pulse_ch_id
+                ):
                     sweep_json["var1"]["pcompliance"] = v1.power_compliance
 
         if self._ctx.get("has_var2"):
@@ -884,10 +895,13 @@ class SweepConfigPresenter(QObject):
             }
             if not self._ctx.get("vard_is_vsu"):
                 sweep_json["vard"]["compliance"] = vd.compliance
-                if vd.power_compliance_enabled:
+                # A pulsed VARD unit has no power compliance.
+                if vd.power_compliance_enabled and not (
+                    self._ctx.get("vard_channel") == pulse_ch_id
+                ):
                     sweep_json["vard"]["pcompliance"] = vd.power_compliance
 
-        if self._ctx.get("has_pulse"):
+        if has_pulse:
             sweep_json["pulse"] = {
                 "period": cfg.pulse.period,
                 "width": cfg.pulse.width,
