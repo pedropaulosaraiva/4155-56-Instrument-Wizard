@@ -348,7 +348,7 @@ wheels = [
 
 [[package]]
 name = "wizard-4155-4156"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
@@ -375,7 +375,7 @@ requires-dist = [
     { name = "pyqtgraph", specifier = "==0.14.0" },
     { name = "pyside6", specifier = "==6.11.1" },
     { name = "pyvisa", specifier = "==1.16.2" },
-    { name = "sqlalchemy", specifier = ">=2.0.50" },
+    { name = "sqlalchemy", specifier = "==2.0.50" },
 ]
 
 [package.metadata.requires-dev]
