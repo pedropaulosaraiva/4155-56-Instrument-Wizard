@@ -283,17 +283,19 @@ class GraphPageView(BasePage):
         self._tab_bar.setCurrentIndex(current)
         self._tab_bar.blockSignals(False)
 
-    def _make_close_button(self, index: int) -> QToolButton:
+    def _make_close_button(self, index: int) -> QWidget:
         """Themed close button replacing Qt's native close icon.  Tabs are
         fully rebuilt on every display_scenes, so the captured index is
         safe."""
         btn = QToolButton()
+        # 10 px icon in the 16 px circle — even margins center it exactly
+        # (an odd leftover shifts the glyph 1 px right/down).
         btn.setIcon(
             hover_tinted_icon(
-                AppIcon24.X, P.TEXT_MUTED, P.STATUS_ERROR, 11
+                AppIcon24.X, P.TEXT_SECONDARY, P.TEXT_ON_ACCENT, 10
             )
         )
-        btn.setIconSize(QSize(11, 11))
+        btn.setIconSize(QSize(10, 10))
         btn.setFixedSize(16, 16)
         btn.setToolTip(tr_ui(TXT.GRAPH_CLOSE_SCENE_TITLE))
         btn.setStyleSheet(graph_tab_close_button_stylesheet())
@@ -301,7 +303,16 @@ class GraphPageView(BasePage):
         btn.clicked.connect(
             lambda _c=False, i=index: self.scene_close_requested.emit(i)
         )
-        return btn
+        # QTabBar pins the side widget to the tab's outer right edge, which
+        # leaves the circle hanging off the rounded tab — a right margin on
+        # a transparent wrapper pulls it back inside.
+        wrapper = QWidget()
+        wrapper.setStyleSheet("background: transparent;")
+        lay = QHBoxLayout(wrapper)
+        lay.setContentsMargins(0, 0, 8, 0)
+        lay.setSpacing(0)
+        lay.addWidget(btn)
+        return wrapper
 
     # ── Plot area ────────────────────────────────────────────────────────────
 
@@ -327,10 +338,14 @@ class GraphPageView(BasePage):
         self.plot_area.reset_view(slot_index)
 
     def export_plot_png(self, slot_index: int, path: str) -> bool:
-        return self.plot_area.export_plot_png(slot_index, path)
+        return self.plot_area.export_plot_png(
+            slot_index, path, self.sidebar.tools_tab.export_background()
+        )
 
     def export_scene_png(self, path: str) -> bool:
-        return self.plot_area.export_scene_png(path)
+        return self.plot_area.export_scene_png(
+            path, self.sidebar.tools_tab.export_background()
+        )
 
     # ── Data tab ─────────────────────────────────────────────────────────────
 

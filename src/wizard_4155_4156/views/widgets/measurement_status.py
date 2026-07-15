@@ -297,7 +297,7 @@ class MeasurementTopBar(QWidget):
             run_reason = tr_ui(_T.CFG_QUICK_NEED_CONNECTION)
         menu.add_item(
             tr_ui(_T.CFG_MENU_QUICK_APPLY_SETUP),
-            icon="⚡",
+            icon=app_icon(AppIcon24.TOOL),
             callback=self.apply_setup_requested.emit,
             available=can_run,
             unavailable_reason=run_reason,

@@ -48,6 +48,12 @@ _CURSOR_LABELS = {
     "single": TXT.GRAPH_CURSOR_SINGLE,
     "dual": TXT.GRAPH_CURSOR_DUAL,
 }
+_EXPORT_BG_LABELS = {  # logical id ↔ combo label ("theme" = current look)
+    "theme": TXT.GRAPH_EXPORT_BG_THEME,
+    "white": TXT.GRAPH_EXPORT_BG_WHITE,
+    "black": TXT.GRAPH_EXPORT_BG_BLACK,
+    "transparent": TXT.GRAPH_EXPORT_BG_TRANSPARENT,
+}
 
 
 class GraphToolsTab(QWidget):
@@ -155,6 +161,15 @@ class GraphToolsTab(QWidget):
         section = SectionFrame(
             tr_ui(TXT.GRAPH_SEC_EXPORT), flat=True, accent=P.GRAPH_TAB_TOOLS
         )
+        # PNG background choice — export-only; never touches the app theme.
+        self._export_bg = combo(
+            [tr_ui(label) for label in _EXPORT_BG_LABELS.values()]
+        )
+        section.body().addWidget(
+            form_row(
+                tr_ui(TXT.GRAPH_LBL_EXPORT_BG), self._export_bg, _LABEL_WIDTH
+            )
+        )
         # Stacked vertically — four labels don't fit the sidebar in a row.
         for kind, text in (
             ("png", TXT.GRAPH_BTN_EXPORT_PNG),
@@ -169,6 +184,14 @@ class GraphToolsTab(QWidget):
             )
             section.body().addWidget(btn)
         return section
+
+    def export_background(self) -> str:
+        """Selected PNG-export background id (theme/white/black/…)."""
+        current = self._export_bg.currentText()
+        for bg_id, label in _EXPORT_BG_LABELS.items():
+            if tr_ui(label) == current:
+                return bg_id
+        return "theme"
 
     # ── Public display API ──────────────────────────────────────────────────
 

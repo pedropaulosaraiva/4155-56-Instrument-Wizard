@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from wizard_4155_4156.styles.theme import PALETTE as P
@@ -230,17 +231,124 @@ class GraphPlotArea(QWidget):
         if state is not None:
             state.plot.autoRange()
 
-    def export_plot_png(self, slot_index: int, path: str) -> bool:
+    # PNG-export background choices (export-only — the on-screen theme
+    # background is never touched).  "theme" keeps the exporter default.
+    _EXPORT_BG_COLORS = {
+        "white": "#ffffff",
+        "black": "#000000",
+        "transparent": (0, 0, 0, 0),
+    }
+    # Foreground (axis / title / legend text) paired with each background;
+    # "transparent" keeps the theme text since the final backdrop is unknown.
+    _EXPORT_FG_COLORS = {
+        "white": "#000000",
+        "black": "#ffffff",
+    }
+
+    def _make_exporter(self, item, background: str) -> ImageExporter:
+        exporter = ImageExporter(item)
+        color = self._export_bg_qcolor(background)
+        if color is not None:
+            exporter.parameters()["background"] = color
+        return exporter
+
+    def _export_bg_qcolor(self, background: str) -> QColor | None:
+        bg = self._EXPORT_BG_COLORS.get(background)
+        if bg is None:
+            return None
+        return QColor(*bg) if isinstance(bg, tuple) else QColor(bg)
+
+    @staticmethod
+    def _set_legend_label_colors(legend: pg.LegendItem, color) -> None:
+        """Recolor existing legend labels.
+
+        ``LegendItem.setLabelTextColor`` only stores the color — the label
+        HTML is generated at ``setText`` time, so each label must be re-set
+        for the change to actually render.
+        """
+        legend.opts["labelTextColor"] = pg.mkColor(color)
+        for _sample, label in legend.items:
+            label.setText(label.text, color=color)
+
+    def _style_for_export(
+        self, state: _SlotState, bg_color: QColor, fg: str | None
+    ) -> None:
+        """Restyle one plot's text/legend/cursor readouts for ``bg_color``.
+
+        ``fg=None`` (transparent background) keeps the theme text colors and
+        only clears the boxes behind the legend and cursor readouts.
+        """
+        plot = state.plot
+        if fg is not None:
+            for side in ("bottom", "left"):
+                axis = plot.getAxis(side)
+                axis.setPen(pg.mkPen(fg))
+                axis.setTextPen(pg.mkPen(fg))
+            if state.spec.title:
+                plot.setTitle(state.spec.title, color=fg)
+            self._set_legend_label_colors(state.legend, fg)
+        state.legend.setBrush(pg.mkBrush(bg_color))
+        state.legend.setPen(pg.mkPen(fg if fg else P.BORDER))
+        for cursor in state.cursors:
+            if fg is not None:
+                cursor.label.setColor(fg)
+            cursor.label.fill = pg.mkBrush(bg_color)
+            cursor.label.border = pg.mkPen(fg if fg else P.BORDER)
+            cursor.label.update()
+
+    def _apply_export_style(
+        self, states: list[_SlotState], background: str
+    ) -> None:
+        """Restyle text/legend so they read on the chosen export background."""
+        bg_color = self._export_bg_qcolor(background)
+        if bg_color is None:
+            return
+        fg = self._EXPORT_FG_COLORS.get(background)
+        for state in states:
+            self._style_for_export(state, bg_color, fg)
+
+    def _restore_theme_style(self, states: list[_SlotState]) -> None:
+        label_fill = pg.mkColor(P.BG_PANEL)
+        label_fill.setAlphaF(0.85)
+        for state in states:
+            plot = state.plot
+            for side in ("bottom", "left"):
+                axis = plot.getAxis(side)
+                axis.setPen(pg.mkPen(P.TEXT_SECONDARY))
+                axis.setTextPen(pg.mkPen(P.TEXT_SECONDARY))
+            if state.spec.title:
+                plot.setTitle(state.spec.title, color=P.TEXT_SECONDARY)
+            state.legend.setBrush(pg.mkBrush(P.BG_PANEL))
+            state.legend.setPen(pg.mkPen(P.BORDER))
+            self._set_legend_label_colors(state.legend, P.TEXT_SECONDARY)
+            for cursor in state.cursors:
+                cursor.label.setColor(P.TEXT_PRIMARY)
+                cursor.label.fill = pg.mkBrush(label_fill)
+                cursor.label.border = pg.mkPen(P.BORDER)
+                cursor.label.update()
+
+    def export_plot_png(
+        self, slot_index: int, path: str, background: str = "theme"
+    ) -> bool:
         """Render one plot to a PNG file (pyqtgraph ImageExporter)."""
         state = self._slots.get(slot_index)
         if state is None:
             return False
-        ImageExporter(state.plot).export(path)
+        self._apply_export_style([state], background)
+        try:
+            self._make_exporter(state.plot, background).export(path)
+        finally:
+            self._restore_theme_style([state])
         return True
 
-    def export_scene_png(self, path: str) -> bool:
+    def export_scene_png(self, path: str, background: str = "theme") -> bool:
         """Render the whole plot grid (all visible plots) to a PNG file."""
-        ImageExporter(self._glw.scene()).export(path)
+        states = list(self._slots.values())
+        self._apply_export_style(states, background)
+        try:
+            self._make_exporter(self._glw.scene(), background).export(path)
+        finally:
+            self._restore_theme_style(states)
         return True
 
     # =========================================================================

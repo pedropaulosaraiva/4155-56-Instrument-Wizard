@@ -242,6 +242,11 @@ class CommandWizardText(StrEnum):
         "and cannot be used for trace math or curve fitting."
     )
     # Export
+    GRAPH_LBL_EXPORT_BG = "Background:"
+    GRAPH_EXPORT_BG_THEME = "Theme"
+    GRAPH_EXPORT_BG_WHITE = "White"
+    GRAPH_EXPORT_BG_BLACK = "Black"
+    GRAPH_EXPORT_BG_TRANSPARENT = "Transparent"
     GRAPH_EXPORT_PNG_TITLE = "Export plot image"
     GRAPH_EXPORT_SCENE_TITLE = "Export scene image"
     GRAPH_EXPORT_CSV_TITLE = "Export plot data"

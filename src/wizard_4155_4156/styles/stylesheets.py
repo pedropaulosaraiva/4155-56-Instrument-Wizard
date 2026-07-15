@@ -875,6 +875,10 @@ def validation_status_stylesheet(state: str) -> str:
     else:
         color = P.STATUS_WARN
     return f"""
+        IconTextLabel {{
+            background: transparent;
+            border: none;
+        }}
         QLabel {{
             color: {color};
             font-size: {P.FONT_SIZE_MD};
@@ -1965,19 +1969,18 @@ def graph_body_splitter_stylesheet() -> str:
 
 
 def graph_tab_close_button_stylesheet() -> str:
-    """Themed '✕' close button installed on each scene tab."""
+    """Close button on each scene tab — a smaller twin of the recent-project
+    card remove button: grey circle idle, red circle on hover."""
     return f"""
         QToolButton {{
-            background: transparent;
-            color: {P.TEXT_MUTED};
+            background-color: {P.BORDER};
             border: none;
-            border-radius: {P.RADIUS_SM};
-            font-size: {P.FONT_SIZE_XS};
-            font-weight: bold;
+            border-radius: 8px;
+            width: 16px;
+            height: 16px;
         }}
         QToolButton:hover {{
-            color: {P.STATUS_ERROR};
-            background-color: {P.BG_ELEVATED};
+            background-color: {P.STATUS_ERROR};
         }}
     """
 
