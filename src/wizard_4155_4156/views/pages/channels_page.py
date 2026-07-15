@@ -29,7 +29,6 @@ MVP rules
 
 from __future__ import annotations
 
-import html
 from typing import override
 
 from PySide6.QtCore import (
@@ -57,7 +56,7 @@ from PySide6.QtWidgets import (
 
 from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
-from wizard_4155_4156.styles.icons import AppIcon24, app_icon, icon_text_html
+from wizard_4155_4156.styles.icons import AppIcon24, app_icon
 from wizard_4155_4156.styles.stylesheets import (
     bottom_panel_stylesheet,
     channels_page_stylesheet,
@@ -86,6 +85,7 @@ from wizard_4155_4156.views.widgets.doc_tooltip import (
     DocTooltipButton,
     SectionHeader,
 )
+from wizard_4155_4156.views.widgets.icon_label import IconTextLabel
 
 # ── Internal helpers ─────────────────────────────────────────────────────────
 _NAME_VALIDATOR = QRegularExpressionValidator(
@@ -702,31 +702,22 @@ class ChannelsPageView(BasePage):
     def display_validation_status(self, is_valid: bool, message: str) -> None:
         """Update the bottom panel validation status label."""
         self._configure_btn.setEnabled(is_valid)
-        self._validation_lbl.setTextFormat(Qt.TextFormat.RichText)
         if is_valid:
-            self._validation_lbl.setText(
-                icon_text_html(
-                    AppIcon24.CHECK,
-                    html.escape(
-                        tr_ui(CommandWizardText.CHAN_VALIDATION_VALID).format(
-                            message=message
-                        )
-                    ),
-                )
+            self._validation_lbl.set_content(
+                AppIcon24.CHECK,
+                tr_ui(CommandWizardText.CHAN_VALIDATION_VALID).format(
+                    message=message
+                ),
             )
             self._validation_lbl.setStyleSheet(
                 validation_status_stylesheet("valid")
             )
         else:
-            self._validation_lbl.setText(
-                icon_text_html(
-                    AppIcon24.ALERT_TRIANGLE,
-                    html.escape(
-                        tr_ui(
-                            CommandWizardText.CHAN_VALIDATION_INVALID
-                        ).format(message=message)
-                    ),
-                )
+            self._validation_lbl.set_content(
+                AppIcon24.ALERT_TRIANGLE,
+                tr_ui(CommandWizardText.CHAN_VALIDATION_INVALID).format(
+                    message=message
+                ),
             )
             self._validation_lbl.setStyleSheet(
                 validation_status_stylesheet("warning")
@@ -853,7 +844,7 @@ class ChannelsPageView(BasePage):
         self._interlock_cb.setStyleSheet(global_option_checkbox_stylesheet())
         bp_layout.addWidget(self._interlock_cb)
 
-        self._validation_lbl = QLabel()
+        self._validation_lbl = IconTextLabel()
         bp_layout.addWidget(self._validation_lbl)
 
         bp_layout.addStretch()

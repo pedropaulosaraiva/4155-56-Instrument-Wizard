@@ -19,7 +19,6 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -39,11 +38,9 @@ from wizard_4155_4156.db.repository import ExecRow, SetupRow
 from wizard_4155_4156.extra_widgets.description_dialog import DescriptionDialog
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.icons import (
-    AppIcon,
     AppIcon24,
     accent_button_icon,
     app_icon,
-    tinted_pixmap,
 )
 from wizard_4155_4156.styles.stylesheets import (
     error_bar_stylesheet,
@@ -54,7 +51,6 @@ from wizard_4155_4156.styles.stylesheets import (
     runs_panel_title_stylesheet,
     runs_primary_button_stylesheet,
 )
-from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
 from wizard_4155_4156.views.widgets.action_menu import ActionMenu
 from wizard_4155_4156.views.widgets.setup_detail_panel import SetupDetailPanel
@@ -325,14 +321,14 @@ class RunsPageView(BasePage):
         menu = ActionMenu(self)
         menu.add_item(
             tr_ui(_T.RUNS_MENU_VIEW_TABLE),
-            icon=QIcon(tinted_pixmap(AppIcon.TABLE, P.TEXT_SECONDARY, 16)),
+            icon=app_icon(AppIcon24.TABLE),
             callback=self._on_view_clicked,
             available=has_exec,
             unavailable_reason=need_run,
         )
         menu.add_item(
             tr_ui(_T.RUNS_MENU_VIEW_GRAPH),
-            icon=QIcon(tinted_pixmap(AppIcon.GRAPH, P.TEXT_SECONDARY, 16)),
+            icon=app_icon(AppIcon24.BAR_CHART),
             available=False,  # Graph page not built yet.
             unavailable_reason=tr_ui(_T.RUNS_GRAPH_SOON_TOOLTIP),
         )

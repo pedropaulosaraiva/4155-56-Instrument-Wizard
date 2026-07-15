@@ -229,14 +229,21 @@ def top_bar_label_stylesheet() -> str:
 
 
 def top_bar_sys_status_stylesheet() -> str:
+    """Project-status pill (an ``IconTextLabel`` named ``sys_status_pill``)."""
     return f"""
-        color: {P.STATUS_OK};
-        font-size: {P.FONT_SIZE_MD};
-        font-weight: bold;
-        background: transparent;
-        padding: 6px 14px;
-        border-radius: {P.RADIUS_PILL};
-        border: 1px solid {P.STATUS_OK};
+        QFrame#sys_status_pill {{
+            background: transparent;
+            padding: 6px 14px;
+            border-radius: {P.RADIUS_PILL};
+            border: 1px solid {P.STATUS_OK};
+        }}
+        QFrame#sys_status_pill QLabel {{
+            color: {P.STATUS_OK};
+            font-size: {P.FONT_SIZE_MD};
+            font-weight: bold;
+            background: transparent;
+            border: none;
+        }}
     """
 
 

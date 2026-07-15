@@ -235,38 +235,39 @@ _LIGHT_OVERRIDES: dict = {
 # France — the light theme with blue-tinted surfaces and French-blue accents.
 _FRANCE_OVERRIDES: dict = {
     **_LIGHT_OVERRIDES,
-    "BG_DEEP": "#edf2f9",
-    "BG_PANEL": "#f8fafd",
-    "BG_ELEVATED": "#e1eaf6",
-    "BG_NAVBAR": "#dbe5f3",
-    "BG_TOPBAR": "#d5e1f1",
-    "BORDER": "#c4d2e7",
+    "BG_DEEP": "#d9e4f3",
+    "BG_PANEL": "#ecf2fa",
+    "BG_ELEVATED": "#c9d9ee",
+    "BG_NAVBAR": "#c0d3eb",
+    "BG_TOPBAR": "#b8cde9",
+    "BG_INPUT": "#f7fafd",
+    "BORDER": "#9fbbdf",
     "BORDER_FOCUS": "#0055a4",
     "ACCENT": "#0055a4",  # flag blue
     "ACCENT_HOVER": "#2a72c3",
     "ACCENT_PRESSED": "#003f7d",
-    "ACCENT_MUTED": "#cfdff2",
-    "NAV_ACTIVE_BG": "#cfdff2",
+    "ACCENT_MUTED": "#aecbec",
+    "NAV_ACTIVE_BG": "#aecbec",
     "NAV_ACTIVE_INDICATOR": "#0055a4",
-    "NAV_HOVER_BG": "#dde7f4",
+    "NAV_HOVER_BG": "#cddef1",
     "UNIT_SMU": "#0055a4",
 }
 
 # Brasil — the dark theme with green-tinted surfaces and green accents.  The
 # teal family is lifted so it separates from the green accent/backgrounds.
 _BRASIL_OVERRIDES: dict = {
-    "BG_DEEP": "#121a15",
-    "BG_PANEL": "#18231c",
-    "BG_ELEVATED": "#213127",
-    "BG_NAVBAR": "#0d140f",
-    "BG_INPUT": "#0b110d",
-    "BG_TOPBAR": "#2a3d31",
-    "BORDER": "#31473a",
+    "BG_DEEP": "#1b2a22",
+    "BG_PANEL": "#243830",
+    "BG_ELEVATED": "#2f4a3c",
+    "BG_NAVBAR": "#16231c",
+    "BG_INPUT": "#132019",
+    "BG_TOPBAR": "#3a5a48",
+    "BORDER": "#446353",
     "BORDER_FOCUS": "#2bb673",
     "ACCENT": "#1e9e5a",  # flag green
     "ACCENT_HOVER": "#2fca77",
     "ACCENT_PRESSED": "#177a45",
-    "ACCENT_MUTED": "#14442c",
+    "ACCENT_MUTED": "#1d5b3b",
     "STATUS_OK": "#63dfc6",
     "FUNC_VAR1": "#63dfc6",
     "UNIT_VSU": "#63dfc6",
@@ -280,11 +281,11 @@ _BRASIL_OVERRIDES: dict = {
         "#b5cea8",  # sage
         "#ce9178",  # copper
     ),
-    "GRAPH_ROI": "#14442c",
+    "GRAPH_ROI": "#1d5b3b",
     "GRAPH_TAB_DATA": "#63dfc6",
-    "NAV_ACTIVE_BG": "#14442c",
+    "NAV_ACTIVE_BG": "#1d5b3b",
     "NAV_ACTIVE_INDICATOR": "#2fca77",
-    "NAV_HOVER_BG": "#213127",
+    "NAV_HOVER_BG": "#2f4a3c",
     "NAV_SIG_MEASURE_CONFIG": "#63dfc6",
 }
 

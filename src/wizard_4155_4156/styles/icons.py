@@ -23,7 +23,6 @@ Exposes:
     - ``tinted_pixmap``— a single recolored ``QPixmap``.
     - ``accent_button_icon`` — icon tinted for ACCENT-filled buttons.
     - ``hover_tinted_icon``  — two-state icon for hover-repainted buttons.
-    - ``icon_text_html``     — rich-text ``<img> text`` snippet for QLabels.
     - ``nav_icon``     — a stateful ``QIcon`` for checkable nav buttons:
       dim idle, brighter on hover, signature hue when the page is selected.
 """
@@ -64,6 +63,7 @@ class AppIcon24:
     """
 
     ALERT_TRIANGLE = themed_icon_path("alert-triangle")
+    BAR_CHART = themed_icon_path("bar-chart")
     BOOK = themed_icon_path("book")
     CHECK = themed_icon_path("check")
     EDIT = themed_icon_path("edit")
@@ -76,6 +76,7 @@ class AppIcon24:
     SAVE = themed_icon_path("save")
     SEARCH = themed_icon_path("search")
     SETTINGS = themed_icon_path("settings")
+    TABLE = themed_icon_path("table")
     TOOL = themed_icon_path("tool")
     TRASH = themed_icon_path("trash-2")
     X = themed_icon_path("x")
@@ -131,18 +132,6 @@ def hover_tinted_icon(
     icon.addPixmap(_tint(base, idle_color), QIcon.Mode.Normal)
     icon.addPixmap(_tint(base, hover_color), QIcon.Mode.Active)
     return icon
-
-
-def icon_text_html(path: str, text: str, size: int = 14) -> str:
-    """Rich-text ``<img> text`` snippet for single-QLabel icon+text sites.
-
-    ``text`` is inserted verbatim — callers must ``html.escape()`` any
-    user-provided content before passing it in.
-    """
-    return (
-        f'<img src="{path}" width="{size}" height="{size}" '
-        f'style="vertical-align: middle;"/>&nbsp; {text}'
-    )
 
 
 def nav_icon(path: str, active_color: str, size: int) -> QIcon:

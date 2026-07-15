@@ -99,7 +99,9 @@ class ProjectCard(QFrame):
         thumb_layout = QVBoxLayout(thumb)
         thumb_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon = QLabel()
-        icon.setPixmap(tinted_pixmap(AppIcon.GRAPH, P.TEXT_MUTED, 32))
+        # 24px themed SVG scaled up — the 32px monochrome set is reserved
+        # for the nav bar and the New/Open Project buttons.
+        icon.setPixmap(app_icon(AppIcon24.BAR_CHART).pixmap(QSize(32, 32)))
         icon.setStyleSheet("background: transparent;")
         thumb_layout.addWidget(icon, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(thumb, alignment=Qt.AlignmentFlag.AlignCenter)

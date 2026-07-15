@@ -262,8 +262,8 @@ class CommandWizardText(StrEnum):
     )
     THEME_LABEL_DARK = "Black"
     THEME_LABEL_LIGHT = "Light"
-    THEME_LABEL_FRANCE = "France"
-    THEME_LABEL_BRASIL = "Brasil"
+    THEME_LABEL_FRANCE = "France (light blue)"
+    THEME_LABEL_BRASIL = "Brasil (dark green)"
 
 
 def tr_ui(text_enum: CommandWizardText) -> str:

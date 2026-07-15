@@ -11,8 +11,6 @@ set_project_status() to reflect whether a project is open.  (Live
 hardware busy/ready is surfaced by the bottom QStatusBar instead.)
 """
 
-import html
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
@@ -21,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from wizard_4155_4156.styles.icons import AppIcon24, icon_text_html
+from wizard_4155_4156.styles.icons import AppIcon24
 from wizard_4155_4156.styles.stylesheets import (
     connection_top_bar_stylesheet,
     top_bar_app_name_stylesheet,
@@ -29,6 +27,7 @@ from wizard_4155_4156.styles.stylesheets import (
     top_bar_sys_status_stylesheet,
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
+from wizard_4155_4156.views.widgets.icon_label import IconTextLabel
 
 
 class ConnectionTopBar(QFrame):
@@ -67,11 +66,8 @@ class ConnectionTopBar(QFrame):
         elided to ``MAX_PROJECT_NAME_CHARS``; the full name is kept as the
         tooltip.
         """
-        self._lbl_status.setTextFormat(Qt.TextFormat.RichText)
         if not project_name:
-            self._lbl_status.setText(
-                icon_text_html(AppIcon24.FOLDER, "No Project Open")
-            )
+            self._lbl_status.set_content(AppIcon24.FOLDER, "No Project Open")
             self._lbl_status.setToolTip("")
             self._lbl_status.setStyleSheet(
                 top_bar_sys_status_stylesheet().replace(
@@ -81,9 +77,7 @@ class ConnectionTopBar(QFrame):
             return
 
         name = self._elide(project_name, self.MAX_PROJECT_NAME_CHARS)
-        self._lbl_status.setText(
-            icon_text_html(AppIcon24.FOLDER, html.escape(name))
-        )
+        self._lbl_status.set_content(AppIcon24.FOLDER, name)
         self._lbl_status.setToolTip(project_name)
         self._lbl_status.setStyleSheet(top_bar_sys_status_stylesheet())
 
@@ -140,8 +134,8 @@ class ConnectionTopBar(QFrame):
 
         layout.addStretch()
 
-        # Right — project status pill (text set by set_project_status())
-        self._lbl_status = QLabel()
+        # Right — project status pill (content set by set_project_status())
+        self._lbl_status = IconTextLabel(object_name="sys_status_pill")
         layout.addWidget(self._lbl_status)
 
     def _apply_styles(self) -> None:

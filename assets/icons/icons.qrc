@@ -12,6 +12,7 @@
   </qresource>
   <qresource prefix="/icons/24/dark">
     <file alias="alert-triangle">icons_24_dark_theme/alert-triangle_24_d.svg</file>
+    <file alias="bar-chart">icons_24_dark_theme/bar-chart-2_24_d.svg</file>
     <file alias="book">icons_24_dark_theme/book_24_d.svg</file>
     <file alias="check">icons_24_dark_theme/check_24_d.svg</file>
     <file alias="edit">icons_24_dark_theme/edit_24_d.svg</file>
@@ -24,12 +25,14 @@
     <file alias="save">icons_24_dark_theme/save_24_d.svg</file>
     <file alias="search">icons_24_dark_theme/search_24_d.svg</file>
     <file alias="settings">icons_24_dark_theme/settings_24_d.svg</file>
+    <file alias="table">icons_24_dark_theme/table_24_d.svg</file>
     <file alias="tool">icons_24_dark_theme/tool_24_d.svg</file>
     <file alias="trash-2">icons_24_dark_theme/trash-2_24_d.svg</file>
     <file alias="x">icons_24_dark_theme/x_24_d.svg</file>
   </qresource>
   <qresource prefix="/icons/24/light">
     <file alias="alert-triangle">icons_24_light_theme/alert-triangle_24_l.svg</file>
+    <file alias="bar-chart">icons_24_light_theme/bar-chart-2_24_l.svg</file>
     <file alias="book">icons_24_light_theme/book_24_l.svg</file>
     <file alias="check">icons_24_light_theme/check_24_l.svg</file>
     <file alias="edit">icons_24_light_theme/edit_24_l.svg</file>
@@ -42,6 +45,7 @@
     <file alias="save">icons_24_light_theme/save_24_l.svg</file>
     <file alias="search">icons_24_light_theme/search_24_l.svg</file>
     <file alias="settings">icons_24_light_theme/settings_24_l.svg</file>
+    <file alias="table">icons_24_light_theme/table_24_l.svg</file>
     <file alias="tool">icons_24_light_theme/tool_24_l.svg</file>
     <file alias="trash-2">icons_24_light_theme/trash-2_24_l.svg</file>
     <file alias="x">icons_24_light_theme/x_24_l.svg</file>
