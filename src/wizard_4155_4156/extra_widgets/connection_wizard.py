@@ -25,6 +25,12 @@ from wizard_4155_4156.gpib.workers import (
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.gui_text.log_messages import LogMsg
 from wizard_4155_4156.SCPI.base_director import CommandPair
+from wizard_4155_4156.styles.stylesheets import (
+    compact_connector_stylesheet,
+    connector_label_model_stylesheet,
+    connector_label_status_idle_stylesheet,
+    connector_modal_stylesheet,
+)
 
 AnyWorkerTask = (
     ScanTask
@@ -47,6 +53,7 @@ class ConnectorWizardModal(QDialog):
         self.setWindowTitle(tr_ui(CommandWizardText.WIZARD_TITLE))
         self.resize(500, 450)
         self.setModal(True)
+        self.setStyleSheet(connector_modal_stylesheet())
         self.parent_widget = parent
         self.setup_ui()
 
@@ -83,9 +90,6 @@ class ConnectorWizardModal(QDialog):
         v_log = QVBoxLayout()
         self.text_log = QTextEdit()
         self.text_log.setReadOnly(True)
-        self.text_log.setStyleSheet(
-            "background-color: #1e1e1e; color: #d4d4d4;font-family: monospace;"
-        )
         v_log.addWidget(self.text_log)
         group_log.setLayout(v_log)
         layout.addWidget(group_log)
@@ -146,16 +150,7 @@ class CompactConnectorWidget(QFrame):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.StyledPanel)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet("""
-            CompactConnectorWidget {
-                background-color: #ffffff;
-                border: 1px solid #c0c0c0;
-                border-radius: 4px;
-            }
-            CompactConnectorWidget:hover {
-                background-color: #eef2f5;
-            }
-        """)
+        self.setStyleSheet(compact_connector_stylesheet())
         self.setFixedSize(300, 70)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
@@ -180,10 +175,10 @@ class CompactConnectorWidget(QFrame):
         layout.setSpacing(2)
 
         self.lbl_model = QLabel(tr_ui(CommandWizardText.NO_EQUIP_CONNECTED))
-        self.lbl_model.setStyleSheet("font-weight: bold; color: #333;")
+        self.lbl_model.setStyleSheet(connector_label_model_stylesheet())
 
         self.lbl_status = QLabel(tr_ui(CommandWizardText.STATUS_DISCONNECTED))
-        self.lbl_status.setStyleSheet("font-size: 10px; color: #666;")
+        self.lbl_status.setStyleSheet(connector_label_status_idle_stylesheet())
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(10)

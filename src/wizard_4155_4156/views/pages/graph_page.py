@@ -23,7 +23,7 @@ else) and delegates ``display_*`` calls back down.  Zero business logic.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -40,6 +40,7 @@ from wizard_4155_4156.gui_text.general_text import (
     CommandWizardText as TXT,
 )
 from wizard_4155_4156.gui_text.general_text import tr_ui
+from wizard_4155_4156.styles.icons import AppIcon24, hover_tinted_icon
 from wizard_4155_4156.styles.stylesheets import (
     form_label_stylesheet,
     global_option_checkbox_stylesheet,
@@ -283,10 +284,16 @@ class GraphPageView(BasePage):
         self._tab_bar.blockSignals(False)
 
     def _make_close_button(self, index: int) -> QToolButton:
-        """Themed '✕' replacing Qt's native close icon.  Tabs are fully
-        rebuilt on every display_scenes, so the captured index is safe."""
+        """Themed close button replacing Qt's native close icon.  Tabs are
+        fully rebuilt on every display_scenes, so the captured index is
+        safe."""
         btn = QToolButton()
-        btn.setText("✕")
+        btn.setIcon(
+            hover_tinted_icon(
+                AppIcon24.X, P.TEXT_MUTED, P.STATUS_ERROR, 11
+            )
+        )
+        btn.setIconSize(QSize(11, 11))
         btn.setFixedSize(16, 16)
         btn.setToolTip(tr_ui(TXT.GRAPH_CLOSE_SCENE_TITLE))
         btn.setStyleSheet(graph_tab_close_button_stylesheet())

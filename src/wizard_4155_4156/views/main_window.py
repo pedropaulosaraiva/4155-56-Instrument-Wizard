@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMenu,
+    QMessageBox,
     QStackedWidget,
     QStatusBar,
     QVBoxLayout,
@@ -46,6 +47,7 @@ from wizard_4155_4156.extra_widgets.settings_dialog import SettingsDialog
 from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
     SetupMetadataDialog,
 )
+from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.models.project import RecentProjectsManager
 from wizard_4155_4156.presenters.channels_presenter import ChannelsPresenter
 from wizard_4155_4156.presenters.connector_presenter import ConnectorPresenter
@@ -492,10 +494,21 @@ class MainWindow(QMainWindow):
         self._status_bar.showMessage("Setup saved to project.", 4000)
 
     def _show_settings_dialog(self) -> None:
-        dlg = SettingsDialog(self._global_settings.get(), self)
+        old = self._global_settings.get()
+        dlg = SettingsDialog(old, self)
         if dlg.exec():
-            self._global_settings.save(dlg.get_settings())
+            new = dlg.get_settings()
+            self._global_settings.save(new)
             self._status_bar.showMessage("Settings saved.", 3000)
+            if new.theme != old.theme:
+                # Theme is read once at startup (styles/theme.py); no live
+                # re-styling exists, and the Nuitka-shipped exe must not
+                # relaunch itself — so just tell the user to restart.
+                QMessageBox.information(
+                    self,
+                    tr_ui(CommandWizardText.SETTINGS_THEME_RESTART_TITLE),
+                    tr_ui(CommandWizardText.SETTINGS_THEME_RESTART_BODY),
+                )
 
     def _on_doc_topic_requested(self, topic: str) -> None:
         """A documentation icon was clicked → open collapsed on that page."""

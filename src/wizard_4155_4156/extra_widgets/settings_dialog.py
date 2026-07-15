@@ -30,10 +30,23 @@ from PySide6.QtWidgets import (
 
 from wizard_4155_4156.db.global_settings import (
     ALLOWED_LINE_FREQUENCIES,
+    ALLOWED_THEMES,
     DEFAULT_LINE_FREQUENCY_HZ,
+    DEFAULT_THEME,
     GlobalSettings,
 )
+from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.stylesheets import settings_dialog_stylesheet
+
+_T = CommandWizardText
+
+# Internal theme name → UI label (gui_text enum member).
+_THEME_LABELS: dict[str, CommandWizardText] = {
+    "dark": _T.THEME_LABEL_DARK,
+    "light": _T.THEME_LABEL_LIGHT,
+    "france": _T.THEME_LABEL_FRANCE,
+    "brasil": _T.THEME_LABEL_BRASIL,
+}
 
 
 class SettingsDialog(QDialog):
@@ -62,6 +75,7 @@ class SettingsDialog(QDialog):
             line_frequency_hz=int(
                 self._line_freq.currentData() or DEFAULT_LINE_FREQUENCY_HZ
             ),
+            theme=str(self._theme.currentData() or DEFAULT_THEME),
         )
 
     # ── Build ────────────────────────────────────────────────────────────────
@@ -99,6 +113,24 @@ class SettingsDialog(QDialog):
         )
         instr_form.addRow("Line frequency", self._line_freq)
         root.addLayout(instr_form)
+
+        appearance_title = QLabel(tr_ui(_T.SETTINGS_APPEARANCE_SECTION))
+        appearance_title.setObjectName("section")
+        root.addWidget(appearance_title)
+
+        appearance_form = QFormLayout()
+        appearance_form.setSpacing(10)
+        self._theme = QComboBox()
+        for name in ALLOWED_THEMES:
+            self._theme.addItem(tr_ui(_THEME_LABELS[name]), name)
+        self._theme.setToolTip(tr_ui(_T.SETTINGS_THEME_RESTART_HINT))
+        appearance_form.addRow(tr_ui(_T.SETTINGS_THEME_LABEL), self._theme)
+        root.addLayout(appearance_form)
+
+        theme_hint = QLabel(tr_ui(_T.SETTINGS_THEME_RESTART_HINT))
+        theme_hint.setObjectName("hint")
+        theme_hint.setWordWrap(True)
+        root.addWidget(theme_hint)
 
         future_title = QLabel("Data acquisition (coming soon)")
         future_title.setObjectName("section")
@@ -143,3 +175,5 @@ class SettingsDialog(QDialog):
         self._accuracy.setChecked(settings.accuracy_toggle)
         idx = self._line_freq.findData(settings.line_frequency_hz)
         self._line_freq.setCurrentIndex(idx if idx >= 0 else 0)
+        theme_idx = self._theme.findData(settings.theme)
+        self._theme.setCurrentIndex(theme_idx if theme_idx >= 0 else 0)

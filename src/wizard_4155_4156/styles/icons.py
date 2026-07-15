@@ -11,10 +11,19 @@ recolored with a ``QPainter`` ``SourceIn`` fill from a ``PALETTE`` token.  This
 gives real per-state feedback (idle / hover / selected) and makes a future
 light theme a palette-token swap rather than a new set of assets.
 
+The 24 px sets are different: they ship **pre-colored** per theme (two SVG
+sets, ``:/icons/24/dark`` and ``:/icons/24/light``), and the active set is
+picked once at import time from ``theme.ICON_VARIANT`` — light themes (light,
+france) use the light set, dark themes (dark, brasil) the dark set.
+
 Exposes:
     - ``AppIcon``      — semantic resource paths (decoupled from filenames).
+    - ``AppIcon24``    — semantic paths into the theme-matched 24 px set.
     - ``app_icon``     — plain ``QIcon`` from a resource path (untinted).
     - ``tinted_pixmap``— a single recolored ``QPixmap``.
+    - ``accent_button_icon`` — icon tinted for ACCENT-filled buttons.
+    - ``hover_tinted_icon``  — two-state icon for hover-repainted buttons.
+    - ``icon_text_html``     — rich-text ``<img> text`` snippet for QLabels.
     - ``nav_icon``     — a stateful ``QIcon`` for checkable nav buttons:
       dim idle, brighter on hover, signature hue when the page is selected.
 """
@@ -23,6 +32,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 
 from wizard_4155_4156 import resources_rc  # noqa: F401  (registers :/icons)
+from wizard_4155_4156.styles.theme import ICON_VARIANT
 from wizard_4155_4156.styles.theme import PALETTE as P
 
 
@@ -37,6 +47,38 @@ class AppIcon:
     TABLE = ":/icons/table"
     NEW_PROJECT = ":/icons/new_project"
     OPEN_PROJECT = ":/icons/open_project"
+
+
+def themed_icon_path(name: str) -> str:
+    """Resource path of ``name`` in the active theme's pre-colored 24px set."""
+    return f":/icons/24/{ICON_VARIANT}/{name}"
+
+
+class AppIcon24:
+    """Semantic paths into the theme-matched pre-colored 24 px icon set.
+
+    These icons carry their own semantic colors (red trash, amber warning…)
+    tuned per theme background — use them as-is on panel/transparent
+    surfaces.  On ACCENT-filled buttons use :func:`accent_button_icon`
+    instead (the shipped ``plus`` is already white for exactly that use).
+    """
+
+    ALERT_TRIANGLE = themed_icon_path("alert-triangle")
+    BOOK = themed_icon_path("book")
+    CHECK = themed_icon_path("check")
+    EDIT = themed_icon_path("edit")
+    EDIT_PENCIL = themed_icon_path("edit-3")
+    FOLDER = themed_icon_path("folder")
+    HELP_CIRCLE = themed_icon_path("help-circle")
+    INFO = themed_icon_path("info")
+    PLAY = themed_icon_path("play")
+    PLUS = themed_icon_path("plus")  # white — accent backgrounds only
+    SAVE = themed_icon_path("save")
+    SEARCH = themed_icon_path("search")
+    SETTINGS = themed_icon_path("settings")
+    TOOL = themed_icon_path("tool")
+    TRASH = themed_icon_path("trash-2")
+    X = themed_icon_path("x")
 
 
 def app_icon(path: str) -> QIcon:
@@ -65,6 +107,42 @@ def tinted_pixmap(path: str, color: str, size: int) -> QPixmap:
     """Render ``path`` at ``size`` px and recolor it to ``color``."""
     base = QIcon(path).pixmap(QSize(size, size))
     return _tint(base, color)
+
+
+def accent_button_icon(path: str, size: int = 16) -> QIcon:
+    """Icon tinted ``TEXT_ON_ACCENT`` for use on ACCENT-filled buttons.
+
+    Pre-colored 24 px icons would clash with a solid accent background, so
+    the glyph is repainted in the on-accent text color instead.
+    """
+    return QIcon(tinted_pixmap(path, P.TEXT_ON_ACCENT, size))
+
+
+def hover_tinted_icon(
+    path: str, idle_color: str, hover_color: str, size: int
+) -> QIcon:
+    """Two-state ``QIcon``: ``idle_color`` normally, ``hover_color`` on hover.
+
+    For buttons whose hover state repaints the background (e.g. the red
+    remove buttons) where a single fixed icon color would lose contrast.
+    """
+    base = QIcon(path).pixmap(QSize(size, size))
+    icon = QIcon()
+    icon.addPixmap(_tint(base, idle_color), QIcon.Mode.Normal)
+    icon.addPixmap(_tint(base, hover_color), QIcon.Mode.Active)
+    return icon
+
+
+def icon_text_html(path: str, text: str, size: int = 14) -> str:
+    """Rich-text ``<img> text`` snippet for single-QLabel icon+text sites.
+
+    ``text`` is inserted verbatim — callers must ``html.escape()`` any
+    user-provided content before passing it in.
+    """
+    return (
+        f'<img src="{path}" width="{size}" height="{size}" '
+        f'style="vertical-align: middle;"/>&nbsp; {text}'
+    )
 
 
 def nav_icon(path: str, active_color: str, size: int) -> QIcon:

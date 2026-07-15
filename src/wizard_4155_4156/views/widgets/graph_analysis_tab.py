@@ -11,7 +11,7 @@ stable string trace ids.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -28,6 +28,7 @@ from wizard_4155_4156.gui_text.general_text import (
     CommandWizardText as TXT,
 )
 from wizard_4155_4156.gui_text.general_text import tr_ui
+from wizard_4155_4156.styles.icons import AppIcon24, app_icon
 from wizard_4155_4156.styles.stylesheets import (
     graph_analysis_message_stylesheet,
     graph_results_list_stylesheet,
@@ -119,7 +120,9 @@ class _RemovableList(QWidget):
             h.addWidget(self._copy_btn)
         h.addStretch(1)
 
-        self._remove_btn = QPushButton("✕")
+        self._remove_btn = QPushButton()
+        self._remove_btn.setIcon(app_icon(AppIcon24.X))
+        self._remove_btn.setIconSize(QSize(12, 12))
         self._remove_btn.setStyleSheet(runs_secondary_button_stylesheet())
         self._remove_btn.setFixedWidth(34)
         self._remove_btn.setToolTip(tr_ui(TXT.GRAPH_TT_REMOVE_SELECTED))

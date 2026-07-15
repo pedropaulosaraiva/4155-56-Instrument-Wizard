@@ -7,9 +7,26 @@ Central design-token registry for the Wizard 4155/4156 application.
 All color, spacing, and typography values should live here.
 Views and stylesheets MUST reference PALETTE constants —
 never hard-code hex strings anywhere else in the codebase.
+
+Theming
+-------
+Four selectable themes ship with the app: ``dark`` (UI label "Black" — the
+dataclass defaults), ``light``, ``france`` (light, blue-tinted) and ``brasil``
+(dark, green-tinted).  The active theme is chosen **once, at import time**:
+``_read_theme_preference()`` reads the persisted ``theme`` key from
+``~/.wizard4155/settings.json`` (the ``WIZARD_THEME`` environment variable
+wins over the file — useful for testing), and ``PALETTE`` is built from the
+matching override dict.  Because every stylesheet f-string reads ``PALETTE``
+tokens when widgets are constructed, a theme change simply requires an
+application restart — no re-styling machinery exists or is needed.
+
+This module stays Qt-free.
 """
 
+import json
+import os
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +55,8 @@ class _Palette:
     TEXT_MUTED: str = "#858585"
     TEXT_DISABLED: str = "#656565"
     TEXT_DISABLED_SOFT: str = "#8a8a8a"  # disabled text on darkest bgs
-    TEXT_WHITE: str = "#ffffff"
+    TEXT_WHITE: str = "#ffffff"  # strongest foreground (dark in light themes)
+    TEXT_ON_ACCENT: str = "#ffffff"  # text/icons on ACCENT-filled surfaces
 
     # ── Semantic status ──────────────────────────────────────────────────────
     STATUS_OK: str = "#4ec9b0"
@@ -136,4 +154,182 @@ class _Palette:
     CARD_COLUMNS: int = 4  # cards per grid row
 
 
-PALETTE = _Palette()
+# ── Theme override dicts ─────────────────────────────────────────────────────
+# Only color tokens may be overridden — typography, geometry and alpha values
+# are shared by every theme.  ``dark`` (UI label "Black") is the dataclass
+# defaults and therefore needs no dict.
+
+_LIGHT_OVERRIDES: dict = {
+    # Backgrounds — inverted layering: deepest is light grey, panels white.
+    "BG_DEEP": "#f4f5f7",
+    "BG_PANEL": "#ffffff",
+    "BG_ELEVATED": "#e9ebef",
+    "BG_NAVBAR": "#e6e8ec",
+    "BG_INPUT": "#ffffff",
+    "BG_TOPBAR": "#dfe2e7",
+    # Borders
+    "BORDER": "#d0d4db",
+    "BORDER_FOCUS": "#0067c0",
+    # Accent — darker blue for AA contrast on white; MUTED becomes a wash.
+    "ACCENT": "#0067c0",
+    "ACCENT_HOVER": "#0078d4",
+    "ACCENT_PRESSED": "#005a9e",
+    "ACCENT_MUTED": "#cce4f7",
+    # Text — TEXT_WHITE flips to "strongest foreground" (near-black);
+    # TEXT_ON_ACCENT is deliberately NOT overridden (stays white).
+    "TEXT_PRIMARY": "#1b1f24",
+    "TEXT_SECONDARY": "#33383f",
+    "TEXT_MUTED": "#6b7178",
+    "TEXT_DISABLED": "#a4a9af",
+    "TEXT_DISABLED_SOFT": "#8d9298",
+    "TEXT_WHITE": "#111418",
+    # Semantic status — same hues, darkened for white backgrounds.
+    "STATUS_OK": "#0f7b6c",
+    "STATUS_ERROR": "#c53929",
+    "STATUS_WARN": "#9a7b00",
+    "STATUS_CAUTION": "#b45f2a",
+    "STATUS_INFO": "#0b6bcb",
+    # Sweep function colors
+    "FUNC_VAR1": "#0f7b6c",
+    "FUNC_VAR2": "#9a7b00",
+    "FUNC_VARD": "#8e3fa8",
+    "FUNC_PULSE": "#b45f06",
+    # Unit-type colors
+    "UNIT_SMU": "#0067c0",
+    "UNIT_VMU": "#0b6bcb",
+    "UNIT_VSU": "#0f7b6c",
+    # Graphs page — dark trace hues that read well on white.
+    "GRAPH_TRACE_COLORS": (
+        "#0f766e",  # teal
+        "#1d4ed8",  # blue
+        "#a16207",  # amber
+        "#7e22ce",  # purple
+        "#dc2626",  # red
+        "#0369a1",  # light blue
+        "#4d7c0f",  # sage
+        "#c2410c",  # copper
+    ),
+    "GRAPH_CURSOR": "#c53929",
+    "GRAPH_CURSOR_ALT": "#9a7b00",
+    "GRAPH_ROI": "#cce4f7",
+    "GRAPH_FIT_COLOR": "#111418",
+    "GRAPH_TAB_DATA": "#0f7b6c",
+    "GRAPH_TAB_PLOT": "#0b6bcb",
+    "GRAPH_TAB_TOOLS": "#9a7b00",
+    "GRAPH_TAB_ANALYSIS": "#8e3fa8",
+    # Navigation bar — icons are tinted from these tokens, so the light
+    # theme needs no new icon assets for the nav.
+    "NAV_ACTIVE_BG": "#cce4f7",
+    "NAV_ACTIVE_INDICATOR": "#0067c0",
+    "NAV_HOVER_BG": "#dde1e6",
+    "NAV_ICON_IDLE": "#5f666d",
+    "NAV_ICON_HOVER": "#2b3036",
+    "NAV_SIG_HOME": "#0b6bcb",
+    "NAV_SIG_CHANNELS": "#9a7b00",
+    "NAV_SIG_MEASURE_CONFIG": "#0f7b6c",
+    "NAV_SIG_RUNS": "#8e3fa8",
+    "NAV_SIG_GRAPH": "#c53929",
+    "NAV_SIG_TABLE": "#4d7c0f",
+}
+
+# France — the light theme with blue-tinted surfaces and French-blue accents.
+_FRANCE_OVERRIDES: dict = {
+    **_LIGHT_OVERRIDES,
+    "BG_DEEP": "#edf2f9",
+    "BG_PANEL": "#f8fafd",
+    "BG_ELEVATED": "#e1eaf6",
+    "BG_NAVBAR": "#dbe5f3",
+    "BG_TOPBAR": "#d5e1f1",
+    "BORDER": "#c4d2e7",
+    "BORDER_FOCUS": "#0055a4",
+    "ACCENT": "#0055a4",  # flag blue
+    "ACCENT_HOVER": "#2a72c3",
+    "ACCENT_PRESSED": "#003f7d",
+    "ACCENT_MUTED": "#cfdff2",
+    "NAV_ACTIVE_BG": "#cfdff2",
+    "NAV_ACTIVE_INDICATOR": "#0055a4",
+    "NAV_HOVER_BG": "#dde7f4",
+    "UNIT_SMU": "#0055a4",
+}
+
+# Brasil — the dark theme with green-tinted surfaces and green accents.  The
+# teal family is lifted so it separates from the green accent/backgrounds.
+_BRASIL_OVERRIDES: dict = {
+    "BG_DEEP": "#121a15",
+    "BG_PANEL": "#18231c",
+    "BG_ELEVATED": "#213127",
+    "BG_NAVBAR": "#0d140f",
+    "BG_INPUT": "#0b110d",
+    "BG_TOPBAR": "#2a3d31",
+    "BORDER": "#31473a",
+    "BORDER_FOCUS": "#2bb673",
+    "ACCENT": "#1e9e5a",  # flag green
+    "ACCENT_HOVER": "#2fca77",
+    "ACCENT_PRESSED": "#177a45",
+    "ACCENT_MUTED": "#14442c",
+    "STATUS_OK": "#63dfc6",
+    "FUNC_VAR1": "#63dfc6",
+    "UNIT_VSU": "#63dfc6",
+    "GRAPH_TRACE_COLORS": (
+        "#5fd8bf",  # teal (lifted off the green surfaces)
+        "#0098ff",  # blue
+        "#dcdcaa",  # amber
+        "#c586c0",  # purple
+        "#f48771",  # coral
+        "#9cdcfe",  # light blue
+        "#b5cea8",  # sage
+        "#ce9178",  # copper
+    ),
+    "GRAPH_ROI": "#14442c",
+    "GRAPH_TAB_DATA": "#63dfc6",
+    "NAV_ACTIVE_BG": "#14442c",
+    "NAV_ACTIVE_INDICATOR": "#2fca77",
+    "NAV_HOVER_BG": "#213127",
+    "NAV_SIG_MEASURE_CONFIG": "#63dfc6",
+}
+
+_THEMES: dict[str, dict] = {
+    "dark": {},
+    "light": _LIGHT_OVERRIDES,
+    "france": _FRANCE_OVERRIDES,
+    "brasil": _BRASIL_OVERRIDES,
+}
+
+# Which pre-colored 24px icon set (:/icons/24/<variant>/...) each theme uses.
+_ICON_VARIANTS: dict[str, str] = {
+    "dark": "dark",
+    "light": "light",
+    "france": "light",
+    "brasil": "dark",
+}
+
+_SETTINGS_PATH = Path.home() / ".wizard4155" / "settings.json"
+
+
+def load_palette(name: str) -> _Palette:
+    """Build the palette for ``name``; unknown names fall back to dark."""
+    return _Palette(**_THEMES.get(str(name).strip().lower(), {}))
+
+
+def _read_theme_preference(path: Path | None = None) -> str:
+    """Return the persisted theme name, defaulting to ``dark``.
+
+    The ``WIZARD_THEME`` environment variable wins over the settings file.
+    The file is read directly (not through ``GlobalSettingsManager``) so this
+    module stays import-light and Qt-free at interpreter start-up.
+    """
+    env = os.environ.get("WIZARD_THEME", "").strip().lower()
+    if env in _THEMES:
+        return env
+    target = path if path is not None else _SETTINGS_PATH
+    try:
+        with open(target, encoding="utf-8") as fh:
+            name = str(json.load(fh).get("theme", "")).strip().lower()
+    except Exception:  # noqa: BLE001  (missing/corrupt file → default)
+        return "dark"
+    return name if name in _THEMES else "dark"
+
+
+_THEME_NAME = _read_theme_preference()
+PALETTE = load_palette(_THEME_NAME)
+ICON_VARIANT: str = _ICON_VARIANTS[_THEME_NAME]

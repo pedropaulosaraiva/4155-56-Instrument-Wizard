@@ -5,16 +5,18 @@ A small popup "ellipsis" (⋮) menu — pure View layer.
 
 Unlike ``QMenu``, unavailable entries stay hoverable: they highlight in a muted
 grey (never the accent blue) and surface a tooltip explaining *why* they are
-unavailable, instead of being silently skipped. Every entry carries an emoji
-icon. The owner rebuilds the menu on each open so entry availability reflects
-the current selection.
+unavailable, instead of being silently skipped. Entries carry either a
+``QIcon`` (the themed 24 px SVG set) or a short text glyph (the surviving ⚡).
+The owner rebuilds the menu on each open so entry availability reflects the
+current selection.
 """
 
 from __future__ import annotations
 
 from typing import Callable, Optional
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, QSize, Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QFrame, QPushButton, QVBoxLayout, QWidget
 
 from wizard_4155_4156.styles.stylesheets import (
@@ -41,12 +43,17 @@ class ActionMenu(QFrame):
         self,
         text: str,
         *,
-        icon: str = "",
+        icon: QIcon | str = "",
         callback: Optional[Callable[[], None]] = None,
         available: bool = True,
         unavailable_reason: str = "",
     ) -> None:
-        btn = QPushButton(f"{icon}  {text}" if icon else text)
+        if isinstance(icon, QIcon):
+            btn = QPushButton(text)
+            btn.setIcon(icon)
+            btn.setIconSize(QSize(16, 16))
+        else:
+            btn = QPushButton(f"{icon}  {text}" if icon else text)
         btn.setCursor(
             Qt.CursorShape.PointingHandCursor
             if available

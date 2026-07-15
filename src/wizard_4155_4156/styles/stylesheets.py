@@ -470,7 +470,7 @@ def card_remove_button_stylesheet() -> str:
         }}
         QToolButton:hover {{
             background-color: {P.STATUS_ERROR};
-            color: {P.TEXT_WHITE};
+            color: {P.TEXT_ON_ACCENT};
         }}
     """
 
@@ -514,7 +514,7 @@ def connector_modal_stylesheet() -> str:
         }}
         QPushButton {{
             background-color: {P.ACCENT};
-            color: {P.TEXT_WHITE};
+            color: {P.TEXT_ON_ACCENT};
             border: none;
             border-radius: {P.RADIUS_SM};
             padding: 8px 18px;
@@ -528,8 +528,8 @@ def connector_modal_stylesheet() -> str:
             color: {P.TEXT_DISABLED};
         }}
         QTextEdit {{
-            background-color: #0d0d0d;
-            color: #d4d4d4;
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_SECONDARY};
             border: 1px solid {P.BORDER};
             border-radius: {P.RADIUS_SM};
             font-family: {P.FONT_FAMILY_MONO};
@@ -968,7 +968,7 @@ def input_error_stylesheet() -> str:
     when its value is out of range."""
     return f"""
         QLineEdit {{
-            background-color: rgba(244, 135, 113, 0.12);
+            background-color: {_rgba(P.STATUS_ERROR, 0.12)};
             border: 1px solid {P.STATUS_ERROR};
             border-radius: {P.RADIUS_SM};
             color: {P.STATUS_ERROR};
@@ -977,7 +977,7 @@ def input_error_stylesheet() -> str:
             font-family: {P.FONT_FAMILY_MONO};
         }}
         QSpinBox {{
-            background-color: rgba(244, 135, 113, 0.12);
+            background-color: {_rgba(P.STATUS_ERROR, 0.12)};
             border: 1px solid {P.STATUS_ERROR};
             color: {P.STATUS_ERROR};
         }}
@@ -1010,7 +1010,7 @@ def segmented_btn_checked_stylesheet(compact: bool = False) -> str:
     return f"""
         QPushButton {{
             background-color: {P.ACCENT};
-            color: {P.TEXT_WHITE};
+            color: {P.TEXT_ON_ACCENT};
             border: 1px solid {P.ACCENT};
             padding: {padding};
             font-size: {P.FONT_SIZE_SM};
@@ -1052,7 +1052,7 @@ def export_btn_stylesheet() -> str:
     return f"""
         QPushButton {{
             background-color: {P.ACCENT};
-            color: {P.TEXT_WHITE};
+            color: {P.TEXT_ON_ACCENT};
             border: none;
             border-radius: {P.RADIUS_MD};
             padding: 8px 22px;
@@ -1071,7 +1071,7 @@ def export_btn_stylesheet() -> str:
 def error_bar_stylesheet() -> str:
     return f"""
         QLabel {{
-            background-color: rgba(244, 135, 113, 0.15);
+            background-color: {_rgba(P.STATUS_ERROR, 0.15)};
             color: {P.STATUS_ERROR};
             border: 1px solid {P.STATUS_ERROR};
             border-radius: {P.RADIUS_SM};
@@ -1316,7 +1316,7 @@ def settings_dialog_stylesheet() -> str:
         }}
         QPushButton#primary {{
             background-color: {P.ACCENT};
-            color: {P.TEXT_WHITE};
+            color: {P.TEXT_ON_ACCENT};
             border: none;
         }}
         QPushButton#primary:hover {{ background-color: {P.ACCENT_HOVER}; }}
@@ -1430,7 +1430,7 @@ def runs_primary_button_stylesheet() -> str:
     return f"""
         QPushButton {{
             background-color: {P.ACCENT};
-            color: {P.TEXT_WHITE};
+            color: {P.TEXT_ON_ACCENT};
             border: none;
             border-radius: {P.RADIUS_MD};
             padding: 9px 18px;
@@ -1551,7 +1551,7 @@ def doc_tooltip_icon_stylesheet(size: int = 16) -> str:
     return f"""
         QToolButton {{
             background-color: {P.ACCENT};
-            color: #e8edf2;
+            color: {P.TEXT_ON_ACCENT};
             border: none;
             border-radius: {radius}px;
             font-family: Georgia, "Times New Roman", serif;
@@ -1697,6 +1697,11 @@ _STATUS_COLORS = {
     "ok": P.STATUS_OK,
     "muted": P.TEXT_MUTED,
 }
+
+
+def status_color(kind: str) -> str:
+    """Public accessor for the chip state colors (icon tinting in views)."""
+    return _STATUS_COLORS.get(kind, P.TEXT_SECONDARY)
 
 
 def measurement_topbar_stylesheet() -> str:

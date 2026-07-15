@@ -18,7 +18,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -37,6 +38,13 @@ from PySide6.QtWidgets import (
 from wizard_4155_4156.db.repository import ExecRow, SetupRow
 from wizard_4155_4156.extra_widgets.description_dialog import DescriptionDialog
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
+from wizard_4155_4156.styles.icons import (
+    AppIcon,
+    AppIcon24,
+    accent_button_icon,
+    app_icon,
+    tinted_pixmap,
+)
 from wizard_4155_4156.styles.stylesheets import (
     error_bar_stylesheet,
     runs_list_stylesheet,
@@ -46,6 +54,7 @@ from wizard_4155_4156.styles.stylesheets import (
     runs_panel_title_stylesheet,
     runs_primary_button_stylesheet,
 )
+from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
 from wizard_4155_4156.views.widgets.action_menu import ActionMenu
 from wizard_4155_4156.views.widgets.setup_detail_panel import SetupDetailPanel
@@ -169,16 +178,22 @@ class RunsPageView(BasePage):
         row = QHBoxLayout()
         row.setSpacing(8)
 
-        self._btn_create = QPushButton("➕  " + tr_ui(_T.RUNS_BTN_CREATE))
+        self._btn_create = QPushButton(tr_ui(_T.RUNS_BTN_CREATE))
+        self._btn_create.setIcon(accent_button_icon(AppIcon24.PLUS))
+        self._btn_create.setIconSize(QSize(16, 16))
         self._btn_create.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_create.clicked.connect(self._on_create_clicked)
         row.addWidget(self._btn_create)
         row.addStretch()
 
-        self._btn_apply = QPushButton("🛠️  " + tr_ui(_T.MEAS_BTN_APPLY_SETUP))
+        self._btn_apply = QPushButton(tr_ui(_T.MEAS_BTN_APPLY_SETUP))
+        self._btn_apply.setIcon(accent_button_icon(AppIcon24.TOOL))
+        self._btn_apply.setIconSize(QSize(16, 16))
         self._btn_apply.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_apply.clicked.connect(self._on_apply_clicked)
-        self._btn_run = QPushButton("▶️  " + tr_ui(_T.RUNS_BTN_APPLY_RUN))
+        self._btn_run = QPushButton(tr_ui(_T.RUNS_BTN_APPLY_RUN))
+        self._btn_run.setIcon(accent_button_icon(AppIcon24.PLAY))
+        self._btn_run.setIconSize(QSize(16, 16))
         self._btn_run.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_run.clicked.connect(self._on_run_clicked)
         row.addWidget(self._btn_apply)
@@ -273,21 +288,21 @@ class RunsPageView(BasePage):
         menu = ActionMenu(self)
         menu.add_item(
             tr_ui(_T.RUNS_MENU_EDIT_META),
-            icon="✏️",
+            icon=app_icon(AppIcon24.EDIT_PENCIL),
             callback=self._on_edit_clicked,
             available=has_setup,
             unavailable_reason=reason,
         )
         menu.add_item(
             tr_ui(_T.RUNS_MENU_EDIT_AS_NEW),
-            icon="📄",
+            icon=app_icon(AppIcon24.EDIT),
             callback=self._on_copy_clicked,
             available=has_setup,
             unavailable_reason=reason,
         )
         menu.add_item(
             tr_ui(_T.RUNS_MENU_SEE_DESC),
-            icon="ℹ️",
+            icon=app_icon(AppIcon24.INFO),
             callback=self._on_see_setup_description,
             available=has_setup,
             unavailable_reason=reason,
@@ -295,7 +310,7 @@ class RunsPageView(BasePage):
         menu.add_separator()
         menu.add_item(
             tr_ui(_T.RUNS_MENU_DELETE_SETUP),
-            icon="🗑️",
+            icon=app_icon(AppIcon24.TRASH),
             callback=self._on_delete_setup_clicked,
             available=has_setup,
             unavailable_reason=reason,
@@ -310,14 +325,14 @@ class RunsPageView(BasePage):
         menu = ActionMenu(self)
         menu.add_item(
             tr_ui(_T.RUNS_MENU_VIEW_TABLE),
-            icon="📊",
+            icon=QIcon(tinted_pixmap(AppIcon.TABLE, P.TEXT_SECONDARY, 16)),
             callback=self._on_view_clicked,
             available=has_exec,
             unavailable_reason=need_run,
         )
         menu.add_item(
             tr_ui(_T.RUNS_MENU_VIEW_GRAPH),
-            icon="📈",
+            icon=QIcon(tinted_pixmap(AppIcon.GRAPH, P.TEXT_SECONDARY, 16)),
             available=False,  # Graph page not built yet.
             unavailable_reason=tr_ui(_T.RUNS_GRAPH_SOON_TOOLTIP),
         )
@@ -330,7 +345,7 @@ class RunsPageView(BasePage):
         )
         menu.add_item(
             tr_ui(_T.RUNS_MENU_SEE_DESC),
-            icon="ℹ️",
+            icon=app_icon(AppIcon24.INFO),
             callback=self._on_see_run_description,
             available=has_exec,
             unavailable_reason=need_run,
@@ -338,7 +353,7 @@ class RunsPageView(BasePage):
         menu.add_separator()
         menu.add_item(
             tr_ui(_T.RUNS_MENU_DELETE_RUN),
-            icon="🗑️",
+            icon=app_icon(AppIcon24.TRASH),
             callback=self._on_delete_exec_clicked,
             available=has_exec,
             unavailable_reason=need_run,

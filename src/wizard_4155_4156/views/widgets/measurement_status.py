@@ -31,6 +31,7 @@ from wizard_4155_4156.extra_widgets.measurement_status_dialog import (
 )
 from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
+from wizard_4155_4156.styles.icons import AppIcon24, app_icon, tinted_pixmap
 from wizard_4155_4156.styles.stylesheets import (
     export_btn_stylesheet,
     measurement_status_card_stylesheet,
@@ -38,6 +39,7 @@ from wizard_4155_4156.styles.stylesheets import (
     measurement_topbar_title_stylesheet,
     runs_menu_button_stylesheet,
     status_chip_stylesheet,
+    status_color,
 )
 from wizard_4155_4156.views.widgets.action_menu import ActionMenu
 from wizard_4155_4156.views.widgets.doc_tooltip import DocTooltipButton
@@ -52,6 +54,39 @@ class _ClickableFrame(QFrame):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)
+
+
+class _StatusChip(QWidget):
+    """Icon + text pair for one status chip (critical/warning/info).
+
+    The SVG glyph is tinted to the chip's state color so it follows the
+    same muted/active states as the text (a fixed pre-colored icon would
+    stay red in the grey "0 criticals" state).
+    """
+
+    _ICON_PX = 14
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        self._icon = QLabel()
+        self._icon.setStyleSheet("background: transparent;")
+        self._text = QLabel()
+        row.addWidget(self._icon)
+        row.addWidget(self._text)
+
+    def set_state(self, kind: str, icon_path: str, text: str) -> None:
+        self._icon.setPixmap(
+            tinted_pixmap(icon_path, status_color(kind), self._ICON_PX)
+        )
+        self._text.setText(text)
+        self._text.setStyleSheet(status_chip_stylesheet(kind))
+
+    def clear(self) -> None:
+        self._icon.clear()
+        self._text.clear()
 
 
 class MeasurementTopBar(QWidget):
@@ -120,16 +155,16 @@ class MeasurementTopBar(QWidget):
         card_row = QHBoxLayout(self._card)
         card_row.setContentsMargins(14, 8, 14, 8)
         card_row.setSpacing(18)
-        self._critical_lbl = QLabel()
-        self._warning_lbl = QLabel()
-        self._info_lbl = QLabel()
+        self._critical_chip = _StatusChip()
+        self._warning_chip = _StatusChip()
+        self._info_chip = _StatusChip()
         # Spread the three chips across the card (space-between) instead of
         # clustering them at the left edge.
-        card_row.addWidget(self._critical_lbl)
+        card_row.addWidget(self._critical_chip)
         card_row.addStretch()
-        card_row.addWidget(self._warning_lbl)
+        card_row.addWidget(self._warning_chip)
         card_row.addStretch()
-        card_row.addWidget(self._info_lbl)
+        card_row.addWidget(self._info_chip)
         row.addWidget(self._card, stretch=1)
 
         self._save_btn = QPushButton(tr_ui(_T.CFG_BTN_SAVE_SETUP))
@@ -195,10 +230,13 @@ class MeasurementTopBar(QWidget):
 
     def flash_saved(self, name: str) -> None:
         """Briefly show a save confirmation, then restore the status."""
-        self._critical_lbl.setText(tr_ui(_T.CFG_SAVED_TOAST).format(name=name))
-        self._critical_lbl.setStyleSheet(status_chip_stylesheet("ok"))
-        self._warning_lbl.clear()
-        self._info_lbl.clear()
+        self._critical_chip.set_state(
+            "ok",
+            AppIcon24.SAVE,
+            tr_ui(_T.CFG_SAVED_TOAST).format(name=name),
+        )
+        self._warning_chip.clear()
+        self._info_chip.clear()
         self._toast_timer.start()
 
     # ── Rendering ────────────────────────────────────────────────────────────
@@ -209,34 +247,31 @@ class MeasurementTopBar(QWidget):
         top = "critical" if n_c else ("warning" if n_w else "info")
 
         if n_c:
-            text = f"❌ {self._criticals[0]}"
+            text = self._criticals[0]
             if n_c > 1:
                 text += f"  +{n_c - 1}"
-            self._critical_lbl.setText(text)
-            self._critical_lbl.setStyleSheet(
-                status_chip_stylesheet("critical")
-            )
+            self._critical_chip.set_state("critical", AppIcon24.X, text)
         else:
-            self._critical_lbl.setText("❌ 0")
-            self._critical_lbl.setStyleSheet(status_chip_stylesheet("muted"))
+            self._critical_chip.set_state("muted", AppIcon24.X, "0")
 
         if top == "warning":
-            text = f"⚠️ {self._warnings[0]}"
+            text = self._warnings[0]
             if n_w > 1:
                 text += f"  +{n_w - 1}"
-            self._warning_lbl.setText(text)
+            self._warning_chip.set_state(
+                "warning", AppIcon24.ALERT_TRIANGLE, text
+            )
         else:
-            self._warning_lbl.setText(f"⚠️ {n_w}")
-        self._warning_lbl.setStyleSheet(
-            status_chip_stylesheet("warning" if n_w else "muted")
-        )
+            self._warning_chip.set_state(
+                "warning" if n_w else "muted",
+                AppIcon24.ALERT_TRIANGLE,
+                str(n_w),
+            )
 
-        if top == "info":
-            self._info_lbl.setText(f"ℹ️ {self._status_text}")
-        else:
-            self._info_lbl.setText("ℹ️")
-        self._info_lbl.setStyleSheet(
-            status_chip_stylesheet("ok" if self._savable else "info")
+        self._info_chip.set_state(
+            "ok" if self._savable else "info",
+            AppIcon24.INFO,
+            self._status_text if top == "info" else "",
         )
 
         self._save_btn.setEnabled(self._savable)
@@ -269,7 +304,7 @@ class MeasurementTopBar(QWidget):
         )
         menu.add_item(
             tr_ui(_T.CFG_MENU_QUICK_APPLY_RUN),
-            icon="▶",
+            icon=app_icon(AppIcon24.PLAY),
             callback=self.apply_run_fetch_requested.emit,
             available=can_run,
             unavailable_reason=run_reason,

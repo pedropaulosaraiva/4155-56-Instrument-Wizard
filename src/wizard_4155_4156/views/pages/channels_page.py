@@ -29,9 +29,17 @@ MVP rules
 
 from __future__ import annotations
 
+import html
 from typing import override
 
-from PySide6.QtCore import QRegularExpression, QSignalBlocker, Qt, Signal, Slot
+from PySide6.QtCore import (
+    QRegularExpression,
+    QSignalBlocker,
+    QSize,
+    Qt,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import QRegularExpressionValidator
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -49,6 +57,7 @@ from PySide6.QtWidgets import (
 
 from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
+from wizard_4155_4156.styles.icons import AppIcon24, app_icon, icon_text_html
 from wizard_4155_4156.styles.stylesheets import (
     bottom_panel_stylesheet,
     channels_page_stylesheet,
@@ -693,10 +702,16 @@ class ChannelsPageView(BasePage):
     def display_validation_status(self, is_valid: bool, message: str) -> None:
         """Update the bottom panel validation status label."""
         self._configure_btn.setEnabled(is_valid)
+        self._validation_lbl.setTextFormat(Qt.TextFormat.RichText)
         if is_valid:
             self._validation_lbl.setText(
-                tr_ui(CommandWizardText.CHAN_VALIDATION_VALID).format(
-                    message=message
+                icon_text_html(
+                    AppIcon24.CHECK,
+                    html.escape(
+                        tr_ui(CommandWizardText.CHAN_VALIDATION_VALID).format(
+                            message=message
+                        )
+                    ),
                 )
             )
             self._validation_lbl.setStyleSheet(
@@ -704,8 +719,13 @@ class ChannelsPageView(BasePage):
             )
         else:
             self._validation_lbl.setText(
-                tr_ui(CommandWizardText.CHAN_VALIDATION_INVALID).format(
-                    message=message
+                icon_text_html(
+                    AppIcon24.ALERT_TRIANGLE,
+                    html.escape(
+                        tr_ui(
+                            CommandWizardText.CHAN_VALIDATION_INVALID
+                        ).format(message=message)
+                    ),
                 )
             )
             self._validation_lbl.setStyleSheet(
@@ -838,7 +858,11 @@ class ChannelsPageView(BasePage):
 
         bp_layout.addStretch()
 
-        self._configure_btn = QPushButton("⚙️ Generate Setup Page")
+        self._configure_btn = QPushButton(
+            tr_ui(CommandWizardText.CHAN_BTN_GENERATE_SETUP)
+        )
+        self._configure_btn.setIcon(app_icon(AppIcon24.SETTINGS))
+        self._configure_btn.setIconSize(QSize(16, 16))
         self._configure_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._configure_btn.setStyleSheet(
             configure_measure_button_stylesheet()

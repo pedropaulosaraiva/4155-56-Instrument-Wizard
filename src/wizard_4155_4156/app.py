@@ -45,7 +45,7 @@ def build_palette() -> QPalette:
     palette.setColor(R.Button, QColor(P.BG_PANEL))
     palette.setColor(R.ButtonText, QColor(P.TEXT_SECONDARY))
     palette.setColor(R.Highlight, QColor(P.ACCENT))
-    palette.setColor(R.HighlightedText, QColor(P.TEXT_WHITE))
+    palette.setColor(R.HighlightedText, QColor(P.TEXT_ON_ACCENT))
     palette.setColor(R.Link, QColor(P.ACCENT_HOVER))
     palette.setColor(R.BrightText, QColor(P.TEXT_WHITE))
     return palette

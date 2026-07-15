@@ -210,7 +210,7 @@ WELCOME_MD = pages.welcome.BODY
 PLACEHOLDER_MD = """
 # {title}
 
-> 📝 **Documentation not yet written.**
+> **Documentation not yet written.**
 >
 > This page is a placeholder. Content for **{title}** will be added in a future
 > update.

@@ -12,7 +12,7 @@ The view exposes:
 from pathlib import Path
 from typing import List
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -28,7 +28,13 @@ from PySide6.QtWidgets import (
 )
 
 from wizard_4155_4156.models.project import ProjectData
-from wizard_4155_4156.styles.icons import AppIcon, tinted_pixmap
+from wizard_4155_4156.styles.icons import (
+    AppIcon,
+    AppIcon24,
+    app_icon,
+    hover_tinted_icon,
+    tinted_pixmap,
+)
 from wizard_4155_4156.styles.stylesheets import (
     card_date_stylesheet,
     card_name_stylesheet,
@@ -92,8 +98,9 @@ class ProjectCard(QFrame):
         thumb.setStyleSheet(card_thumbnail_stylesheet())
         thumb_layout = QVBoxLayout(thumb)
         thumb_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon = QLabel("📊")
-        icon.setStyleSheet("font-size: 32px; background: transparent;")
+        icon = QLabel()
+        icon.setPixmap(tinted_pixmap(AppIcon.GRAPH, P.TEXT_MUTED, 32))
+        icon.setStyleSheet("background: transparent;")
         thumb_layout.addWidget(icon, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(thumb, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -125,7 +132,12 @@ class ProjectCard(QFrame):
 
         # Remove button — absolutely positioned, hidden by default
         self._btn_remove = QToolButton(self)
-        self._btn_remove.setText("✕")
+        self._btn_remove.setIcon(
+            hover_tinted_icon(
+                AppIcon24.X, P.TEXT_SECONDARY, P.TEXT_ON_ACCENT, 12
+            )
+        )
+        self._btn_remove.setIconSize(QSize(12, 12))
         self._btn_remove.setCursor(Qt.CursorShape.ArrowCursor)
         self._btn_remove.setStyleSheet(card_remove_button_stylesheet())
         self._btn_remove.setFixedSize(20, 20)
@@ -234,11 +246,17 @@ class QuickActionsPanel(QFrame):
         res_title.setStyleSheet(subsection_title_stylesheet())
         layout.addWidget(res_title)
 
-        self.btn_docs = self._make_resource_btn("📖", "Documentation")
+        self.btn_docs = self._make_resource_btn(
+            AppIcon24.BOOK, "Documentation"
+        )
         self.btn_docs.clicked.connect(self.documentation_requested.emit)
-        self.btn_settings = self._make_resource_btn("⚙️", "Settings")
+        self.btn_settings = self._make_resource_btn(
+            AppIcon24.SETTINGS, "Settings"
+        )
         self.btn_settings.clicked.connect(self.settings_requested.emit)
-        self.btn_help = self._make_resource_btn("❓", "Help & Support")
+        self.btn_help = self._make_resource_btn(
+            AppIcon24.HELP_CIRCLE, "Help & Support"
+        )
 
         for btn in (self.btn_docs, self.btn_settings, self.btn_help):
             layout.addWidget(btn)
@@ -303,8 +321,10 @@ class QuickActionsPanel(QFrame):
         return btn
 
     @staticmethod
-    def _make_resource_btn(icon: str, label: str) -> QPushButton:
-        btn = QPushButton(f"{icon}  {label}")
+    def _make_resource_btn(icon_path: str, label: str) -> QPushButton:
+        btn = QPushButton(label)
+        btn.setIcon(app_icon(icon_path))
+        btn.setIconSize(QSize(16, 16))
         btn.setStyleSheet(resource_button_stylesheet())
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         return btn

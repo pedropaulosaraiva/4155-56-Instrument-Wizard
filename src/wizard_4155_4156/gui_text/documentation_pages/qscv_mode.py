@@ -33,7 +33,7 @@ Two optional refinements improve accuracy, both on the **QSCV Measure Setup** ca
 ## The QSCV Configuration page
 
 The page is built from a channel configuration — most often by clicking
-**⚙️ Generate Setup Page** on the **Channels** page, but it can also be opened by
+**Generate Setup Page** on the **Channels** page, but it can also be opened by
 copying a previously saved setup. It is laid out in two columns:
 
 - **Left** — **Channel Summary**, **User Functions** (the capacitance and leakage

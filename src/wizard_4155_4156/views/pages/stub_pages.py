@@ -12,15 +12,17 @@ Replace with full implementations incrementally — the interface
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from wizard_4155_4156.styles.icons import AppIcon, tinted_pixmap
 from wizard_4155_4156.styles.stylesheets import (
     stub_page_stylesheet,
     stub_page_subtitle_stylesheet,
     stub_page_title_stylesheet,
 )
+from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
 
 
-def _make_stub(icon: str, title: str, subtitle: str) -> type[BasePage]:
+def _make_stub(icon_path: str, title: str, subtitle: str) -> type[BasePage]:
     """
     Factory that produces a BasePage subclass at runtime.
     Avoids copy-pasting the same five-line body for every stub.
@@ -35,8 +37,9 @@ def _make_stub(icon: str, title: str, subtitle: str) -> type[BasePage]:
             layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.setSpacing(12)
 
-            icon_lbl = QLabel(icon)
-            icon_lbl.setStyleSheet("font-size: 56px; background: transparent;")
+            icon_lbl = QLabel()
+            icon_lbl.setPixmap(tinted_pixmap(icon_path, P.TEXT_MUTED, 56))
+            icon_lbl.setStyleSheet("background: transparent;")
             icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(icon_lbl)
 
@@ -56,13 +59,13 @@ def _make_stub(icon: str, title: str, subtitle: str) -> type[BasePage]:
 
 
 ChannelsPage = _make_stub(
-    "🔌",
+    AppIcon.CHANNELS,
     "Channels",
     "Select and configure SMU channels for measurement.",
 )
 
 SweepConfigPage = _make_stub(
-    "⚙️",
+    AppIcon.MEASURE_CONFIG,
     "Sweep / Sampling / QSCV Config",
     "Define sweep parameters, sampling intervals, and QSCV settings.",
 )

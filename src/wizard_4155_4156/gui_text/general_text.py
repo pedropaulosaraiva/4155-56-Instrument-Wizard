@@ -39,8 +39,10 @@ class CommandWizardText(StrEnum):
     MEAS_BTN_APPLY_SETUP = "Apply Setup"
 
     # ── Channels page ────────────────────────────────────────────────────────
-    CHAN_VALIDATION_VALID = "✅ {message}"
-    CHAN_VALIDATION_INVALID = "⚠️ {message}"
+    # Validation icons (check / alert-triangle) are supplied by the view.
+    CHAN_VALIDATION_VALID = "{message}"
+    CHAN_VALIDATION_INVALID = "{message}"
+    CHAN_BTN_GENERATE_SETUP = "Generate Setup Page"
     CHAN_OPT_COMMON_TO_GROUND = "Common circuit is connected to ground"
     CHAN_OPT_INTERLOCK_OPEN = "Interlock terminal is open"
 
@@ -68,7 +70,7 @@ class CommandWizardText(StrEnum):
     CFG_COL_INFO = "Information"
     CFG_NO_CRITICAL = "No blocking errors."
     CFG_NO_WARNINGS = "No warnings."
-    CFG_SAVED_TOAST = "💾 Saved to {name}"
+    CFG_SAVED_TOAST = "Saved to {name}"  # save icon supplied by the view
 
     # ── Table View page ──────────────────────────────────────────────────────
     TABLE_PAGE_TITLE = "Table View"
@@ -246,6 +248,22 @@ class CommandWizardText(StrEnum):
     GRAPH_EXPORT_DONE = "Saved {path}"
     GRAPH_EXPORT_ERROR = "Could not save file:\n{error}"
     GRAPH_EXPORT_NO_PLOT = "The active plot has nothing to export."
+
+    # ── Global settings (Preferences dialog) ─────────────────────────────────
+    SETTINGS_APPEARANCE_SECTION = "Appearance"
+    SETTINGS_THEME_LABEL = "Theme"
+    SETTINGS_THEME_RESTART_HINT = (
+        "Theme changes take effect after the application is restarted."
+    )
+    SETTINGS_THEME_RESTART_TITLE = "Restart required"
+    SETTINGS_THEME_RESTART_BODY = (
+        "The new theme will be applied the next time you start "
+        "Wizard 4155/4156."
+    )
+    THEME_LABEL_DARK = "Black"
+    THEME_LABEL_LIGHT = "Light"
+    THEME_LABEL_FRANCE = "France"
+    THEME_LABEL_BRASIL = "Brasil"
 
 
 def tr_ui(text_enum: CommandWizardText) -> str:

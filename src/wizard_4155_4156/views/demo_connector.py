@@ -18,7 +18,7 @@ The interface this widget must expose for ConnectionTopBar and MainWindow:
         opened via show_connection_wizard)
 """
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.styles.icons import AppIcon24, accent_button_icon
 from wizard_4155_4156.styles.stylesheets import (
     compact_connector_stylesheet,
     connector_label_model_stylesheet,
@@ -68,7 +69,9 @@ class DemoConnectorModal(QDialog):
         self.combo_equipments.setMinimumWidth(200)
         self.combo_equipments.addItem("Scan to detect instruments...")
 
-        self.btn_scan = QPushButton("🔍  Scan Bus")
+        self.btn_scan = QPushButton("Scan Bus")
+        self.btn_scan.setIcon(accent_button_icon(AppIcon24.SEARCH))
+        self.btn_scan.setIconSize(QSize(16, 16))
         self.btn_connect = QPushButton("Connect")
         self.btn_disconnect = QPushButton("Disconnect")
         self.btn_disconnect.setEnabled(False)
@@ -139,7 +142,7 @@ class DemoCompactConnectorWidget(QFrame):
         self.modal.combo_equipments.setEnabled(not connected)
 
         if connected:
-            self._lbl_model.setText(f"📟  {name}")
+            self._lbl_model.setText(name)
             self._lbl_status.setText("● Connected")
             self._lbl_status.setStyleSheet(
                 connector_label_status_connected_stylesheet()

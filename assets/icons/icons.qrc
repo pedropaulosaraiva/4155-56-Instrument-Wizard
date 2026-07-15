@@ -10,4 +10,40 @@
     <file alias="new_project">icon_32_white/plus_32_white.svg</file>
     <file alias="open_project">icon_32_white/folder_32_white.svg</file>
   </qresource>
+  <qresource prefix="/icons/24/dark">
+    <file alias="alert-triangle">icons_24_dark_theme/alert-triangle_24_d.svg</file>
+    <file alias="book">icons_24_dark_theme/book_24_d.svg</file>
+    <file alias="check">icons_24_dark_theme/check_24_d.svg</file>
+    <file alias="edit">icons_24_dark_theme/edit_24_d.svg</file>
+    <file alias="edit-3">icons_24_dark_theme/edit-3_24_d.svg</file>
+    <file alias="folder">icons_24_dark_theme/folder_24_d.svg</file>
+    <file alias="help-circle">icons_24_dark_theme/help-circle_24_d.svg</file>
+    <file alias="info">icons_24_dark_theme/info_24_d.svg</file>
+    <file alias="play">icons_24_dark_theme/play_24_d.svg</file>
+    <file alias="plus">icons_24_dark_theme/plus_24_d.svg</file>
+    <file alias="save">icons_24_dark_theme/save_24_d.svg</file>
+    <file alias="search">icons_24_dark_theme/search_24_d.svg</file>
+    <file alias="settings">icons_24_dark_theme/settings_24_d.svg</file>
+    <file alias="tool">icons_24_dark_theme/tool_24_d.svg</file>
+    <file alias="trash-2">icons_24_dark_theme/trash-2_24_d.svg</file>
+    <file alias="x">icons_24_dark_theme/x_24_d.svg</file>
+  </qresource>
+  <qresource prefix="/icons/24/light">
+    <file alias="alert-triangle">icons_24_light_theme/alert-triangle_24_l.svg</file>
+    <file alias="book">icons_24_light_theme/book_24_l.svg</file>
+    <file alias="check">icons_24_light_theme/check_24_l.svg</file>
+    <file alias="edit">icons_24_light_theme/edit_24_l.svg</file>
+    <file alias="edit-3">icons_24_light_theme/edit-3_24_l.svg</file>
+    <file alias="folder">icons_24_light_theme/folder_24_l.svg</file>
+    <file alias="help-circle">icons_24_light_theme/help-circle_24_l.svg</file>
+    <file alias="info">icons_24_light_theme/info_24_l.svg</file>
+    <file alias="play">icons_24_light_theme/play_24_l.svg</file>
+    <file alias="plus">icons_24_light_theme/plus_24_l_bluecontrast.svg</file>
+    <file alias="save">icons_24_light_theme/save_24_l.svg</file>
+    <file alias="search">icons_24_light_theme/search_24_l.svg</file>
+    <file alias="settings">icons_24_light_theme/settings_24_l.svg</file>
+    <file alias="tool">icons_24_light_theme/tool_24_l.svg</file>
+    <file alias="trash-2">icons_24_light_theme/trash-2_24_l.svg</file>
+    <file alias="x">icons_24_light_theme/x_24_l.svg</file>
+  </qresource>
 </RCC>

@@ -62,7 +62,7 @@ A run stops as soon as any one of these happens:
 ## The Sampling Configuration page
 
 The page is built from a channel configuration — most often by clicking
-**⚙️ Generate Setup Page** on the **Channels** page, but it can also be opened by
+**Generate Setup Page** on the **Channels** page, but it can also be opened by
 copying a previously saved setup. It brings together:
 
 - Sections **common to every measurement mode** — **Channel Summary**,

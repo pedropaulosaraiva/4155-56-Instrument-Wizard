@@ -1151,7 +1151,7 @@ class JsonPreviewDialog(QDialog):
         self._text.setReadOnly(True)
         self._text.setPlainText(json_str)
         self._text.setStyleSheet(
-            f"background-color: #0d0d0d; color: #d4d4d4; "
+            f"background-color: {P.BG_INPUT}; color: {P.TEXT_SECONDARY}; "
             f"font-family: {P.FONT_FAMILY_MONO}; font-size: 12px; "
             f"border: 1px solid {P.BORDER}; border-radius: 4px; padding: 8px;"
         )
