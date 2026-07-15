@@ -26,6 +26,13 @@ _ARROW_POINTS = {"up": "0,5 8,5 4,1", "down": "0,1 8,1 4,5"}
 _arrow_cache: dict[tuple[str, str], str] = {}
 
 
+def _rgba(hex_color: str, alpha: float) -> str:
+    """``#rrggbb`` + alpha → a QSS ``rgba(r, g, b, a)`` string."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
 def _arrow_url(direction: str, color: str) -> str:
     """Filesystem path (QSS url form) of an 8×6 SVG triangle."""
     key = (direction, color)
@@ -150,43 +157,44 @@ def navigation_bar_stylesheet() -> str:
     """
 
 
-def nav_button_stylesheet() -> str:
+def nav_button_stylesheet(signature: str) -> str:
     """
-    Checkable QToolButton used as nav item.
-    The 3px left border on :checked acts as the active-page indicator.
-    padding-left compensates for the border to keep the icon centered.
+    Checkable QToolButton used as a nav item (one stylesheet per button, so
+    the selected-state pill can carry that page's ``signature`` hue).
+
+    The icon itself is tinted in code (styles/icons.py::nav_icon): dim grey
+    when idle, the signature hue when selected.  This QSS supplies the
+    background: a soft neutral pill on hover and a low-alpha signature pill
+    (rounded, inset via margin) when the page is active — replacing the old
+    full-cell blue block + left rail.
     """
+    pill = _rgba(signature, 0.16)
+    pill_hover = _rgba(signature, 0.24)
     return f"""
         QToolButton {{
             background-color: transparent;
             border: none;
-            border-left: 3px solid transparent;
-            color: {P.TEXT_DISABLED};
-            font-size: {P.FONT_SIZE_ICON_NAV};
-            width: {P.NAV_BTN_SIZE}px;
-            height: {P.NAV_BTN_SIZE}px;
+            border-radius: {P.RADIUS_LG};
+            margin: 3px 7px;
             padding: 0px;
-            border-radius: 0px;
         }}
         QToolButton:hover {{
             background-color: {P.NAV_HOVER_BG};
-            color: {P.TEXT_PRIMARY};
         }}
         QToolButton:checked {{
-            background-color: {P.NAV_ACTIVE_BG};
-            border-left: 3px solid {P.NAV_ACTIVE_INDICATOR};
-            color: {P.ACCENT_HOVER};
+            background-color: {pill};
         }}
         QToolButton:checked:hover {{
-            background-color: {P.ACCENT_MUTED};
+            background-color: {pill_hover};
         }}
-        QToolButton:pressed {{
-            background-color: {P.ACCENT_MUTED};
-        }}
-        QToolButton:disabled {{
-            background-color: transparent;
-            color: {P.TEXT_MUTED};
-        }}
+    """
+
+
+def icon_chip_stylesheet(hex_color: str) -> str:
+    """Rounded, low-alpha tinted background behind a leading button icon."""
+    return f"""
+        background-color: {_rgba(hex_color, 0.14)};
+        border-radius: {P.RADIUS_LG};
     """
 
 

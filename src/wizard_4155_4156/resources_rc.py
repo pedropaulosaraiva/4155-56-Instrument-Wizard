@@ -1,0 +1,277 @@
+# Resource object code (Python 3)
+# Created by: object code
+# Created by: The Resource Compiler for Qt version 6.11.1
+# WARNING! All changes made in this file will be lost!
+
+from PySide6 import QtCore
+
+qt_resource_data = b"\
+\x00\x00\x01O\
+<\
+svg xmlns=\x22http:\
+//www.w3.org/200\
+0/svg\x22 width=\x2232\
+\x22 height=\x2232\x22 vi\
+ewBox=\x220 0 24 24\
+\x22 fill=\x22none\x22 st\
+roke=\x22#FFFFFF\x22 s\
+troke-width=\x222\x22 \
+stroke-linecap=\x22\
+round\x22 stroke-li\
+nejoin=\x22round\x22 c\
+lass=\x22feather fe\
+ather-table\x22><pa\
+th d=\x22M9 3H5a2 2\
+ 0 0 0-2 2v4m6-6\
+h10a2 2 0 0 1 2 \
+2v4M9 3v18m0 0h1\
+0a2 2 0 0 0 2-2V\
+9M9 21H5a2 2 0 0\
+ 1-2-2V9m0 0h18\x22\
+></path></svg>\
+\x00\x00\x01+\
+<\
+svg xmlns=\x22http:\
+//www.w3.org/200\
+0/svg\x22 width=\x2232\
+\x22 height=\x2232\x22 vi\
+ewBox=\x220 0 24 24\
+\x22 fill=\x22none\x22 st\
+roke=\x22#FFFFFF\x22 s\
+troke-width=\x222\x22 \
+stroke-linecap=\x22\
+round\x22 stroke-li\
+nejoin=\x22round\x22 c\
+lass=\x22feather fe\
+ather-plus\x22><lin\
+e x1=\x2212\x22 y1=\x225\x22\
+ x2=\x2212\x22 y2=\x2219\x22\
+></line><line x1\
+=\x225\x22 y1=\x2212\x22 x2=\
+\x2219\x22 y2=\x2212\x22></l\
+ine></svg>\
+\x00\x00\x02^\
+<\
+svg xmlns=\x22http:\
+//www.w3.org/200\
+0/svg\x22 width=\x2232\
+\x22 height=\x2232\x22 vi\
+ewBox=\x220 0 24 24\
+\x22 fill=\x22none\x22 st\
+roke=\x22#FFFFFF\x22 s\
+troke-width=\x222\x22 \
+stroke-linecap=\x22\
+round\x22 stroke-li\
+nejoin=\x22round\x22 c\
+lass=\x22feather fe\
+ather-sliders\x22><\
+line x1=\x224\x22 y1=\x22\
+21\x22 x2=\x224\x22 y2=\x221\
+4\x22></line><line \
+x1=\x224\x22 y1=\x2210\x22 x\
+2=\x224\x22 y2=\x223\x22></l\
+ine><line x1=\x2212\
+\x22 y1=\x2221\x22 x2=\x2212\
+\x22 y2=\x2212\x22></line\
+><line x1=\x2212\x22 y\
+1=\x228\x22 x2=\x2212\x22 y2\
+=\x223\x22></line><lin\
+e x1=\x2220\x22 y1=\x2221\
+\x22 x2=\x2220\x22 y2=\x2216\
+\x22></line><line x\
+1=\x2220\x22 y1=\x2212\x22 x\
+2=\x2220\x22 y2=\x223\x22></\
+line><line x1=\x221\
+\x22 y1=\x2214\x22 x2=\x227\x22\
+ y2=\x2214\x22></line>\
+<line x1=\x229\x22 y1=\
+\x228\x22 x2=\x2215\x22 y2=\x22\
+8\x22></line><line \
+x1=\x2217\x22 y1=\x2216\x22 \
+x2=\x2223\x22 y2=\x2216\x22>\
+</line></svg>\
+\x00\x00\x01G\
+<\
+svg xmlns=\x22http:\
+//www.w3.org/200\
+0/svg\x22 width=\x2232\
+\x22 height=\x2232\x22 vi\
+ewBox=\x220 0 24 24\
+\x22 fill=\x22none\x22 st\
+roke=\x22#FFFFFF\x22 s\
+troke-width=\x222\x22 \
+stroke-linecap=\x22\
+round\x22 stroke-li\
+nejoin=\x22round\x22 c\
+lass=\x22feather fe\
+ather-home\x22><pat\
+h d=\x22M3 9l9-7 9 \
+7v11a2 2 0 0 1-2\
+ 2H5a2 2 0 0 1-2\
+-2z\x22></path><pol\
+yline points=\x229 \
+22 9 12 15 12 15\
+ 22\x22></polyline>\
+</svg>\
+\x00\x00\x01\x5c\
+<\
+svg xmlns=\x22http:\
+//www.w3.org/200\
+0/svg\x22 width=\x2232\
+\x22 height=\x2232\x22 vi\
+ewBox=\x220 0 24 24\
+\x22 fill=\x22none\x22 st\
+roke=\x22#FFFFFF\x22 s\
+troke-width=\x222\x22 \
+stroke-linecap=\x22\
+round\x22 stroke-li\
+nejoin=\x22round\x22 c\
+lass=\x22feather fe\
+ather-bar-chart\x22\
+><line x1=\x2212\x22 y\
+1=\x2220\x22 x2=\x2212\x22 y\
+2=\x2210\x22></line><l\
+ine x1=\x2218\x22 y1=\x22\
+20\x22 x2=\x2218\x22 y2=\x22\
+4\x22></line><line \
+x1=\x226\x22 y1=\x2220\x22 x\
+2=\x226\x22 y2=\x2216\x22></\
+line></svg>\
+\x00\x00\x01\x15\
+<\
+svg xmlns=\x22http:\
+//www.w3.org/200\
+0/svg\x22 width=\x2232\
+\x22 height=\x2232\x22 vi\
+ewBox=\x220 0 24 24\
+\x22 fill=\x22none\x22 st\
+roke=\x22#FFFFFF\x22 s\
+troke-width=\x222\x22 \
+stroke-linecap=\x22\
+round\x22 stroke-li\
+nejoin=\x22round\x22 c\
+lass=\x22feather fe\
+ather-zap\x22><poly\
+gon points=\x2213 2\
+ 3 14 12 14 11 2\
+2 21 10 12 10 13\
+ 2\x22></polygon></\
+svg>\
+\x00\x00\x012\
+<\
+svg xmlns=\x22http:\
+//www.w3.org/200\
+0/svg\x22 width=\x2232\
+\x22 height=\x2232\x22 vi\
+ewBox=\x220 0 24 24\
+\x22 fill=\x22none\x22 st\
+roke=\x22#FFFFFF\x22 s\
+troke-width=\x222\x22 \
+stroke-linecap=\x22\
+round\x22 stroke-li\
+nejoin=\x22round\x22 c\
+lass=\x22feather fe\
+ather-folder\x22><p\
+ath d=\x22M22 19a2 \
+2 0 0 1-2 2H4a2 \
+2 0 0 1-2-2V5a2 \
+2 0 0 1 2-2h5l2 \
+3h9a2 2 0 0 1 2 \
+2z\x22></path></svg\
+>\
+\x00\x00\x01o\
+<\
+svg xmlns=\x22http:\
+//www.w3.org/200\
+0/svg\x22 width=\x2232\
+\x22 height=\x2232\x22 vi\
+ewBox=\x220 0 24 24\
+\x22 fill=\x22none\x22 st\
+roke=\x22#FFFFFF\x22 s\
+troke-width=\x222\x22 \
+stroke-linecap=\x22\
+round\x22 stroke-li\
+nejoin=\x22round\x22 c\
+lass=\x22feather fe\
+ather-database\x22>\
+<ellipse cx=\x2212\x22\
+ cy=\x225\x22 rx=\x229\x22 r\
+y=\x223\x22></ellipse>\
+<path d=\x22M21 12c\
+0 1.66-4 3-9 3s-\
+9-1.34-9-3\x22></pa\
+th><path d=\x22M3 5\
+v14c0 1.66 4 3 9\
+ 3s9-1.34 9-3V5\x22\
+></path></svg>\
+"
+
+qt_resource_name = b"\
+\x00\x05\
+\x00o\xa6S\
+\x00i\
+\x00c\x00o\x00n\x00s\
+\x00\x05\
+\x00zy%\
+\x00t\
+\x00a\x00b\x00l\x00e\
+\x00\x0b\
+\x07\x7f\x91d\
+\x00n\
+\x00e\x00w\x00_\x00p\x00r\x00o\x00j\x00e\x00c\x00t\
+\x00\x0e\
+\x02\xb3\xc1w\
+\x00m\
+\x00e\x00a\x00s\x00u\x00r\x00e\x00_\x00c\x00o\x00n\x00f\x00i\x00g\
+\x00\x04\
+\x00\x06\xf65\
+\x00h\
+\x00o\x00m\x00e\
+\x00\x05\
+\x00n\x88h\
+\x00g\
+\x00r\x00a\x00p\x00h\
+\x00\x08\
+\x0e\x85I\x13\
+\x00c\
+\x00h\x00a\x00n\x00n\x00e\x00l\x00s\
+\x00\x0c\
+\x09[\x83d\
+\x00o\
+\x00p\x00e\x00n\x00_\x00p\x00r\x00o\x00j\x00e\x00c\x00t\
+\x00\x04\
+\x00\x07\x9cS\
+\x00r\
+\x00u\x00n\x00s\
+"
+
+qt_resource_struct = b"\
+\x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x01\
+\x00\x00\x00\x00\x00\x00\x00\x00\
+\x00\x00\x00\x00\x00\x02\x00\x00\x00\x08\x00\x00\x00\x02\
+\x00\x00\x00\x00\x00\x00\x00\x00\
+\x00\x00\x00^\x00\x00\x00\x00\x00\x01\x00\x00\x04\xe4\
+\x00\x00\x01\x9fd\xc5H\x08\
+\x00\x00\x00\xb0\x00\x00\x00\x00\x00\x01\x00\x00\x09\xde\
+\x00\x00\x01\x9fd\xc5!Y\
+\x00\x00\x00l\x00\x00\x00\x00\x00\x01\x00\x00\x06/\
+\x00\x00\x01\x9fd\xc4\xe7a\
+\x00\x00\x00\x10\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\
+\x00\x00\x01\x9fd\xc5\x84\xea\
+\x00\x00\x00<\x00\x00\x00\x00\x00\x01\x00\x00\x02\x82\
+\x00\x00\x01\x9fd\xc5a*\
+\x00\x00\x00 \x00\x00\x00\x00\x00\x01\x00\x00\x01S\
+\x00\x00\x01\x9fd\xc8\xea\x08\
+\x00\x00\x00\x92\x00\x00\x00\x00\x00\x01\x00\x00\x08\xa8\
+\x00\x00\x01\x9fd\xc7|\xe6\
+\x00\x00\x00|\x00\x00\x00\x00\x00\x01\x00\x00\x07\x8f\
+\x00\x00\x01\x9fd\xc5\xa6f\
+"
+
+def qInitResources():
+    QtCore.qRegisterResourceData(0x03, qt_resource_struct, qt_resource_name, qt_resource_data)
+
+def qCleanupResources():
+    QtCore.qUnregisterResourceData(0x03, qt_resource_struct, qt_resource_name, qt_resource_data)
+
+qInitResources()

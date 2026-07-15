@@ -18,6 +18,7 @@ from importlib.metadata import PackageNotFoundError, version
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
+from wizard_4155_4156 import resources_rc  # noqa: F401  (registers :/icons)
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.main_window import MainWindow
 

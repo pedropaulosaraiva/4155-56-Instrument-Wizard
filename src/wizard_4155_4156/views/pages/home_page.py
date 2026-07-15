@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from wizard_4155_4156.models.project import ProjectData
+from wizard_4155_4156.styles.icons import AppIcon, tinted_pixmap
 from wizard_4155_4156.styles.stylesheets import (
     card_date_stylesheet,
     card_name_stylesheet,
@@ -36,6 +37,7 @@ from wizard_4155_4156.styles.stylesheets import (
     card_thumbnail_stylesheet,
     clear_history_button_stylesheet,
     empty_projects_label_stylesheet,
+    icon_chip_stylesheet,
     primary_action_button_stylesheet,
     project_card_stylesheet,
     quick_actions_panel_stylesheet,
@@ -204,13 +206,19 @@ class QuickActionsPanel(QFrame):
         layout.addWidget(start_title)
 
         self.btn_new = self._make_primary_btn(
-            "➕", "New Project", "Create a new measurement configuration"
+            AppIcon.NEW_PROJECT,
+            P.ACCENT_HOVER,
+            "New Project",
+            "Create a new measurement configuration",
         )
         self.btn_new.clicked.connect(self.new_project_requested.emit)
         layout.addWidget(self.btn_new)
 
         self.btn_open = self._make_primary_btn(
-            "📂", "Open Project", "Browse for existing project files"
+            AppIcon.OPEN_PROJECT,
+            P.STATUS_CAUTION,
+            "Open Project",
+            "Browse for existing project files",
         )
         self.btn_open.clicked.connect(self.open_project_requested.emit)
         layout.addWidget(self.btn_open)
@@ -246,18 +254,30 @@ class QuickActionsPanel(QFrame):
         outer.addWidget(scroll)
 
     @staticmethod
-    def _make_primary_btn(icon: str, title: str, desc: str) -> QPushButton:
+    def _make_primary_btn(
+        icon: str, accent: str, title: str, desc: str
+    ) -> QPushButton:
         btn = QPushButton()
         btn.setFixedHeight(90)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
         row = QHBoxLayout(btn)
-        row.setSpacing(12)
+        row.setSpacing(14)
         row.setContentsMargins(16, 10, 16, 10)
 
-        icon_lbl = QLabel(icon)
-        icon_lbl.setStyleSheet("font-size: 28px; background: transparent;")
-        row.addWidget(icon_lbl)
+        # Leading icon sits in a rounded, low-alpha tinted chip and is itself
+        # tinted to the same accent — reads as an affordance, not a lone glyph.
+        chip = QFrame()
+        chip.setFixedSize(40, 40)
+        chip.setStyleSheet(icon_chip_stylesheet(accent))
+        chip_layout = QVBoxLayout(chip)
+        chip_layout.setContentsMargins(0, 0, 0, 0)
+        chip_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl = QLabel()
+        icon_lbl.setPixmap(tinted_pixmap(icon, accent, 22))
+        icon_lbl.setStyleSheet("background: transparent;")
+        chip_layout.addWidget(icon_lbl)
+        row.addWidget(chip)
 
         col = QVBoxLayout()
         col.setSpacing(4)
@@ -321,7 +341,7 @@ class RecentProjectsPanel(QFrame):
         if not projects:
             empty = QLabel(
                 "No recent projects.\n"
-                "Create a new project or open an existing file."
+                "Create a new project or open an existing one first."
             )
             empty.setStyleSheet(empty_projects_label_stylesheet())
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)

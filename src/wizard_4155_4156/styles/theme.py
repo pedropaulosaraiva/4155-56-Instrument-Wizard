@@ -95,7 +95,21 @@ class _Palette:
     NAV_HOVER_BG: str = "#2d2d30"
     NAV_WIDTH: int = 56  # px — fixed sidebar width
     NAV_BTN_SIZE: int = 52  # px — icon button square
+    NAV_ICON_SIZE: int = 24  # px — SVG icon drawn inside the nav button
     NAV_DISABLED_OPACITY: float = 0.35  # dim factor for disabled nav buttons
+    # Nav icons ship as one monochrome source each, tinted in code per state
+    # (styles/icons.py::nav_icon).  Idle is a dim grey; the active page's icon
+    # takes its signature hue below.  A future light theme swaps these tokens.
+    NAV_ICON_IDLE: str = "#8a8a90"  # unselected nav icon (legible grey)
+    NAV_ICON_HOVER: str = "#d0d0d6"  # hovered, unselected nav icon
+    # Per-page signature accents — active icon + its inset pill.  Values mirror
+    # the app's existing hues so the nav stays in the same color language.
+    NAV_SIG_HOME: str = "#9cdcfe"  # light blue (as STATUS_INFO)
+    NAV_SIG_CHANNELS: str = "#dcdcaa"  # amber (as STATUS_WARN)
+    NAV_SIG_MEASURE_CONFIG: str = "#4ec9b0"  # teal (as STATUS_OK)
+    NAV_SIG_RUNS: str = "#c586c0"  # purple (as FUNC_VARD)
+    NAV_SIG_GRAPH: str = "#f48771"  # coral (as STATUS_ERROR)
+    NAV_SIG_TABLE: str = "#b5cea8"  # sage
 
     # ── Typography ───────────────────────────────────────────────────────────
     FONT_FAMILY_UI: str = "Segoe UI, Arial, sans-serif"
@@ -105,7 +119,6 @@ class _Palette:
     FONT_SIZE_MD: str = "13px"
     FONT_SIZE_LG: str = "15px"
     FONT_SIZE_XL: str = "20px"
-    FONT_SIZE_ICON_NAV: str = "22px"  # emoji icon in nav buttons
 
     # ── Geometry ─────────────────────────────────────────────────────────────
     RADIUS_SM: str = "4px"

@@ -1,0 +1,13 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/icons">
+    <file alias="home">icon_32_white/home_32_white.svg</file>
+    <file alias="channels">icon_32_white/zap_32_white.svg</file>
+    <file alias="measure_config">icon_32_white/sliders_32_white.svg</file>
+    <file alias="runs">icon_32_white/database_32_white.svg</file>
+    <file alias="graph">icon_32_white/bar-chart_32_white.svg</file>
+    <file alias="table">icon_32_white/table_32_white.svg</file>
+    <file alias="new_project">icon_32_white/plus_32_white.svg</file>
+    <file alias="open_project">icon_32_white/folder_32_white.svg</file>
+  </qresource>
+</RCC>
