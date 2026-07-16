@@ -11,8 +11,9 @@ never hard-code hex strings anywhere else in the codebase.
 Theming
 -------
 Four selectable themes ship with the app: ``dark`` (UI label "Black" — the
-dataclass defaults), ``light``, ``france`` (light, blue-tinted) and ``brasil``
-(dark, green-tinted).  The active theme is chosen **once, at import time**:
+dataclass defaults), ``light`` (the default when no preference is saved),
+``france`` (light, blue-tinted) and ``brasil`` (dark, green-tinted).  The
+active theme is chosen **once, at import time**:
 ``_read_theme_preference()`` reads the persisted ``theme`` key from
 ``~/.wizard4155/settings.json`` (the ``WIZARD_THEME`` environment variable
 wins over the file — useful for testing), and ``PALETTE`` is built from the
@@ -306,14 +307,20 @@ _ICON_VARIANTS: dict[str, str] = {
 
 _SETTINGS_PATH = Path.home() / ".wizard4155" / "settings.json"
 
+#: Theme used when no (valid) preference exists — first launch shows Light.
+_DEFAULT_THEME = "light"
+
 
 def load_palette(name: str) -> _Palette:
-    """Build the palette for ``name``; unknown names fall back to dark."""
-    return _Palette(**_THEMES.get(str(name).strip().lower(), {}))
+    """Build the palette for ``name``; unknown names fall back to light."""
+    key = str(name).strip().lower()
+    if key not in _THEMES:
+        key = _DEFAULT_THEME
+    return _Palette(**_THEMES[key])
 
 
 def _read_theme_preference(path: Path | None = None) -> str:
-    """Return the persisted theme name, defaulting to ``dark``.
+    """Return the persisted theme name, defaulting to ``light``.
 
     The ``WIZARD_THEME`` environment variable wins over the settings file.
     The file is read directly (not through ``GlobalSettingsManager``) so this
@@ -327,8 +334,8 @@ def _read_theme_preference(path: Path | None = None) -> str:
         with open(target, encoding="utf-8") as fh:
             name = str(json.load(fh).get("theme", "")).strip().lower()
     except Exception:  # noqa: BLE001  (missing/corrupt file → default)
-        return "dark"
-    return name if name in _THEMES else "dark"
+        return _DEFAULT_THEME
+    return name if name in _THEMES else _DEFAULT_THEME
 
 
 _THEME_NAME = _read_theme_preference()

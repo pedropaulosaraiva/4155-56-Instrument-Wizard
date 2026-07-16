@@ -29,11 +29,11 @@ DEFAULT_LINE_FREQUENCY_HZ: int = 50
 # names are lowercase; the Preferences dialog maps them to UI labels
 # ("dark" → "Black", …).
 ALLOWED_THEMES: tuple[str, ...] = ("dark", "light", "france", "brasil")
-DEFAULT_THEME: str = "dark"
+DEFAULT_THEME: str = "light"
 
 
 def _coerce_theme(value: object) -> str:
-    """Snap any stored value to a permitted theme name (default dark)."""
+    """Snap any stored value to a permitted theme name (default light)."""
     name = str(value).strip().lower()
     return name if name in ALLOWED_THEMES else DEFAULT_THEME
 

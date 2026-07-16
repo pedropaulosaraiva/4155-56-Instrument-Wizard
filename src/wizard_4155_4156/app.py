@@ -28,7 +28,7 @@ def _app_version() -> str:
         return version("wizard_4155_4156")
     except PackageNotFoundError:
         # Frozen build (Nuitka): package metadata is not bundled.
-        return "0.2.0"
+        return "0.3.0"
 
 
 def build_palette() -> QPalette:

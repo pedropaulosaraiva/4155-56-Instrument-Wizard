@@ -54,6 +54,8 @@ _EXPORT_BG_LABELS = {  # logical id ↔ combo label ("theme" = current look)
     "black": TXT.GRAPH_EXPORT_BG_BLACK,
     "transparent": TXT.GRAPH_EXPORT_BG_TRANSPARENT,
 }
+#: Pre-selected export background (publication-friendly white).
+_DEFAULT_EXPORT_BG = "white"
 
 
 class GraphToolsTab(QWidget):
@@ -165,6 +167,9 @@ class GraphToolsTab(QWidget):
         self._export_bg = combo(
             [tr_ui(label) for label in _EXPORT_BG_LABELS.values()]
         )
+        self._export_bg.setCurrentIndex(
+            list(_EXPORT_BG_LABELS).index(_DEFAULT_EXPORT_BG)
+        )
         section.body().addWidget(
             form_row(
                 tr_ui(TXT.GRAPH_LBL_EXPORT_BG), self._export_bg, _LABEL_WIDTH
@@ -191,7 +196,7 @@ class GraphToolsTab(QWidget):
         for bg_id, label in _EXPORT_BG_LABELS.items():
             if tr_ui(label) == current:
                 return bg_id
-        return "theme"
+        return _DEFAULT_EXPORT_BG
 
     # ── Public display API ──────────────────────────────────────────────────
 
