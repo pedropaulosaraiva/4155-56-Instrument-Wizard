@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from wizard_4155_4156.styles.icons import AppIcon24
+from wizard_4155_4156.styles.icons import AppIcon, AppIcon24, app_icon
 from wizard_4155_4156.styles.stylesheets import (
     connection_top_bar_stylesheet,
     top_bar_app_name_stylesheet,
@@ -28,6 +28,9 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.widgets.icon_label import IconTextLabel
+
+#: Rendered size of the main-logo pixmap in the branding corner (px).
+_LOGO_SIZE = 64
 
 
 class ConnectionTopBar(QFrame):
@@ -106,8 +109,11 @@ class ConnectionTopBar(QFrame):
         brand_row.setSpacing(10)
         brand_row.setContentsMargins(0, 0, 0, 0)
 
-        icon = QLabel("⚡")
-        icon.setStyleSheet("font-size: 24px; background: transparent;")
+        icon = QLabel()
+        icon.setPixmap(
+            app_icon(AppIcon.MAIN_LOGO).pixmap(_LOGO_SIZE, _LOGO_SIZE)
+        )
+        icon.setStyleSheet("background: transparent;")
         brand_row.addWidget(icon)
 
         name = QLabel("Wizard 4155/4156")

@@ -334,7 +334,7 @@ class RunsPageView(BasePage):
         )
         menu.add_item(
             tr_ui(_T.RUNS_MENU_INSERT_MOCK),
-            icon="⚡",
+            icon=app_icon(AppIcon24.BOOKMARK),
             callback=self._on_sample_clicked,
             available=has_setup,
             unavailable_reason=need_setup,
@@ -372,7 +372,7 @@ class RunsPageView(BasePage):
 
     @staticmethod
     def _make_exec_item(row: ExecRow) -> QListWidgetItem:
-        tag = "  ⚡sample" if row.is_synthetic else ""
+        tag = "  · mock sample" if row.is_synthetic else ""
         stamp = row.execution_date.strftime("%d/%m/%Y %H:%M")
         label = (
             f"{row.name}{tag}\n"
@@ -380,6 +380,8 @@ class RunsPageView(BasePage):
             f"{row.variable_count} var(s)"
         )
         item = QListWidgetItem(label)
+        if row.is_synthetic:
+            item.setIcon(app_icon(AppIcon24.BOOKMARK))
         item.setData(_ID_ROLE, row.id)
         return item
 

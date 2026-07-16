@@ -46,6 +46,7 @@ class AppIcon:
     TABLE = ":/icons/table"
     NEW_PROJECT = ":/icons/new_project"
     OPEN_PROJECT = ":/icons/open_project"
+    MAIN_LOGO = ":/branding/main_logo"  # full-color 128 px PNG, theme-free
 
 
 def themed_icon_path(name: str) -> str:
@@ -65,7 +66,10 @@ class AppIcon24:
     ALERT_TRIANGLE = themed_icon_path("alert-triangle")
     BAR_CHART = themed_icon_path("bar-chart")
     BOOK = themed_icon_path("book")
+    BOOKMARK = themed_icon_path("bookmark")
     CHECK = themed_icon_path("check")
+    COPY = themed_icon_path("copy")  # white — accent backgrounds only
+    DOWNLOAD = themed_icon_path("download")  # white — accent bkgrs only
     EDIT = themed_icon_path("edit")
     EDIT_PENCIL = themed_icon_path("edit-3")
     FOLDER = themed_icon_path("folder")

@@ -10,11 +10,17 @@
     <file alias="new_project">icon_32_white/plus_32_white.svg</file>
     <file alias="open_project">icon_32_white/folder_32_white.svg</file>
   </qresource>
+  <qresource prefix="/branding">
+    <file alias="main_logo">../branding/main_logo_detailed_background.png</file>
+  </qresource>
   <qresource prefix="/icons/24/dark">
     <file alias="alert-triangle">icons_24_dark_theme/alert-triangle_24_d.svg</file>
     <file alias="bar-chart">icons_24_dark_theme/bar-chart-2_24_d.svg</file>
     <file alias="book">icons_24_dark_theme/book_24_d.svg</file>
+    <file alias="bookmark">icons_24_dark_theme/bookmark_24_d.svg</file>
     <file alias="check">icons_24_dark_theme/check_24_d.svg</file>
+    <file alias="copy">icons_24_dark_theme/copy_24_d_bluecontrast.svg</file>
+    <file alias="download">icons_24_dark_theme/download_24_d_bluecontrast.svg</file>
     <file alias="edit">icons_24_dark_theme/edit_24_d.svg</file>
     <file alias="edit-3">icons_24_dark_theme/edit-3_24_d.svg</file>
     <file alias="folder">icons_24_dark_theme/folder_24_d.svg</file>
@@ -34,7 +40,10 @@
     <file alias="alert-triangle">icons_24_light_theme/alert-triangle_24_l.svg</file>
     <file alias="bar-chart">icons_24_light_theme/bar-chart-2_24_l.svg</file>
     <file alias="book">icons_24_light_theme/book_24_l.svg</file>
+    <file alias="bookmark">icons_24_light_theme/bookmark_24_l.svg</file>
     <file alias="check">icons_24_light_theme/check_24_l.svg</file>
+    <file alias="copy">icons_24_light_theme/copy_24_l_bluecontrast.svg</file>
+    <file alias="download">icons_24_light_theme/download_24_l_bluecontrast.svg</file>
     <file alias="edit">icons_24_light_theme/edit_24_l.svg</file>
     <file alias="edit-3">icons_24_light_theme/edit-3_24_l.svg</file>
     <file alias="folder">icons_24_light_theme/folder_24_l.svg</file>

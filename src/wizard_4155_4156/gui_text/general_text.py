@@ -78,8 +78,8 @@ class CommandWizardText(StrEnum):
     TABLE_SETUP_LABEL = "Setup:"
     TABLE_EXEC_LABEL = "Execution:"
     TABLE_FORMAT_LABEL = "Format:"
-    TABLE_BTN_DOWNLOAD = "⬇  Download"
-    TABLE_BTN_COPY = "⧉  Copy"
+    TABLE_BTN_DOWNLOAD = "Download"  # download icon supplied by the view
+    TABLE_BTN_COPY = "Copy"  # copy icon supplied by the view
     TABLE_NO_SETUP = "No setups in this project yet."
     TABLE_NO_EXEC = "No executions for this setup yet."
     TABLE_LIVE_DATA = "Live Data"

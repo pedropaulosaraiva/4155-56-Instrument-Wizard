@@ -6,7 +6,7 @@ A small popup "ellipsis" (⋮) menu — pure View layer.
 Unlike ``QMenu``, unavailable entries stay hoverable: they highlight in a muted
 grey (never the accent blue) and surface a tooltip explaining *why* they are
 unavailable, instead of being silently skipped. Entries carry either a
-``QIcon`` (the themed 24 px SVG set) or a short text glyph (the surviving ⚡).
+``QIcon`` (the themed 24 px SVG set) or a short text-glyph prefix.
 The owner rebuilds the menu on each open so entry availability reflects the
 current selection.
 """

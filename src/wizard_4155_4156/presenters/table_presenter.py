@@ -191,14 +191,10 @@ class TablePresenter(QObject):
             self._view.display_code(
                 generate_text(data, fmt), SPECS[fmt].language
             )
-            self._view.set_action_label(
-                tr_ui(CommandWizardText.TABLE_BTN_COPY)
-            )
+            self._view.set_action_mode("copy")
         else:
             self._view.display_table(dict(data))
-            self._view.set_action_label(
-                tr_ui(CommandWizardText.TABLE_BTN_DOWNLOAD)
-            )
+            self._view.set_action_mode("download")
 
     def _show_empty(self, message: Optional[str] = None) -> None:
         self._view.set_action_enabled(False)
@@ -225,15 +221,25 @@ class TablePresenter(QObject):
             items.extend((row.id, row.name) for row in rows)
         return items
 
-    def _exec_items(self, setup_id: int) -> list[tuple[int, str]]:
+    def _exec_items(self, setup_id: int) -> list[tuple[int, str, bool]]:
+        """Combo entries ``(id, label, synthetic)`` — the flag lets the
+        view tag sample runs with the bookmark icon."""
         if setup_id == LIVE_SETUP_ID:
-            return [(LIVE_EXEC_ID, tr_ui(CommandWizardText.TABLE_LIVE_EXEC))]
+            return [
+                (
+                    LIVE_EXEC_ID,
+                    tr_ui(CommandWizardText.TABLE_LIVE_EXEC),
+                    False,
+                )
+            ]
         db = self._projects.current_db
         if db is None:
             return []
         with db.session() as s:
             rows = ExecutionRepository.list_rows(s, setup_id)
-        return [(row.id, _exec_label(row)) for row in rows]
+        return [
+            (row.id, _exec_label(row), row.is_synthetic) for row in rows
+        ]
 
     # ── Dataset resolution ───────────────────────────────────────────────────
 
@@ -297,10 +303,9 @@ class TablePresenter(QObject):
         )
 
 
-def _has(items: Sequence[tuple[int, str]], value: Optional[int]) -> bool:
-    return value is not None and any(item_id == value for item_id, _ in items)
+def _has(items: Sequence[tuple], value: Optional[int]) -> bool:
+    return value is not None and any(item[0] == value for item in items)
 
 
 def _exec_label(row: ExecRow) -> str:
-    tag = " ⚡" if row.is_synthetic else ""
-    return f"{row.name}{tag} · {row.execution_date:%d/%m/%Y %H:%M}"
+    return f"{row.name} · {row.execution_date:%d/%m/%Y %H:%M}"

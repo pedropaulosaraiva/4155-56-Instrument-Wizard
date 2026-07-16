@@ -13,8 +13,8 @@ A single action button toggles between **Download** (table formats) and
 MVP rules
 ---------
 - No model/presenter/DB imports — the presenter pushes combo items as plain
-  ``(id, label)`` tuples and rendered content via ``display_*``; the view only
-  emits user-intent signals.
+  ``(id, label)`` tuples (executions add a synthetic-run flag) and rendered
+  content via ``display_*``; the view only emits user-intent signals.
 - All QSS comes from stylesheets.py; no hex literals appear here.
 """
 
@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -37,6 +37,11 @@ from PySide6.QtWidgets import (
 )
 
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
+from wizard_4155_4156.styles.icons import (
+    AppIcon24,
+    accent_button_icon,
+    app_icon,
+)
 from wizard_4155_4156.styles.stylesheets import (
     config_combo_stylesheet,
     data_table_stylesheet,
@@ -117,12 +122,12 @@ class TablePageView(BasePage):
         row.addWidget(self._format_combo)
         row.addStretch()
 
-        self._action_btn = QPushButton(
-            tr_ui(CommandWizardText.TABLE_BTN_DOWNLOAD)
-        )
+        self._action_btn = QPushButton()
         self._action_btn.setStyleSheet(export_btn_stylesheet())
+        self._action_btn.setIconSize(QSize(16, 16))
         self._action_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._action_btn.clicked.connect(self.action_requested.emit)
+        self.set_action_mode("download")
         row.addWidget(self._action_btn)
         return row
 
@@ -156,8 +161,20 @@ class TablePageView(BasePage):
     def display_setups(self, items: Sequence[tuple[int, str]]) -> None:
         self._reload_combo(self._setup_combo, items)
 
-    def display_executions(self, items: Sequence[tuple[int, str]]) -> None:
-        self._reload_combo(self._exec_combo, items)
+    def display_executions(
+        self, items: Sequence[tuple[int, str, bool]]
+    ) -> None:
+        """Reload the execution combo; flagged (synthetic) entries get a
+        bookmark icon in place of the old inline glyph."""
+        combo = self._exec_combo
+        combo.blockSignals(True)
+        combo.clear()
+        for value, label, synthetic in items:
+            if synthetic:
+                combo.addItem(app_icon(AppIcon24.BOOKMARK), label, value)
+            else:
+                combo.addItem(label, value)
+        combo.blockSignals(False)
 
     def set_formats(self, labels: Sequence[str]) -> None:
         self._format_combo.blockSignals(True)
@@ -188,8 +205,17 @@ class TablePageView(BasePage):
     def current_format_index(self) -> int:
         return self._format_combo.currentIndex()
 
-    def set_action_label(self, text: str) -> None:
-        self._action_btn.setText(text)
+    def set_action_mode(self, mode: str) -> None:
+        """Switch the action button persona: ``"download"`` or ``"copy"``."""
+        if mode == "copy":
+            text, icon = CommandWizardText.TABLE_BTN_COPY, AppIcon24.COPY
+        else:
+            text, icon = (
+                CommandWizardText.TABLE_BTN_DOWNLOAD,
+                AppIcon24.DOWNLOAD,
+            )
+        self._action_btn.setText(tr_ui(text))
+        self._action_btn.setIcon(accent_button_icon(icon))
 
     def set_action_enabled(self, enabled: bool) -> None:
         self._action_btn.setEnabled(enabled)
