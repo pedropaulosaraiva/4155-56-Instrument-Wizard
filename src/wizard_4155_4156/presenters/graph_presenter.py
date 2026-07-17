@@ -224,6 +224,9 @@ class GraphPresenter(QObject):
         v.trace_width_changed.connect(
             lambda t, w: self._on_trace_style(t, "width", w)
         )
+        v.trace_marker_size_changed.connect(
+            lambda t, s: self._on_trace_style(t, "marker_size", s)
+        )
         v.plot_font_size_changed.connect(self._on_font_size)
 
         v.fit_requested.connect(self._on_fit_requested)
@@ -1106,6 +1109,7 @@ class GraphPresenter(QObject):
                     "line_style": t.style.line_style,
                     "marker": t.style.marker,
                     "width": t.style.width,
+                    "marker_size": t.style.marker_size,
                 }
                 for t in plot.traces
             ]

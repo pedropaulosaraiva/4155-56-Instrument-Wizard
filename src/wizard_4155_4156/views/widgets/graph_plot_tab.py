@@ -4,7 +4,8 @@ views/widgets/graph_plot_tab.py
 "Plot" sidebar tab — everything about how the ACTIVE plot presents its
 data: per-axis settings (variable, autoscale, log, manual min/max,
 engineering multiplier), title/axis labels, font sizes, and per-trace
-styling rows (visibility, color, name, line style, marker, width).
+styling rows (visibility, color, name, line style/width, marker
+type/size).
 
 Passive view: emits ``*_changed``/``*_committed`` signals; state arrives
 through ``display_*`` methods.  The ``axis`` argument in axis signals is
@@ -64,6 +65,9 @@ _FONT_PT_MAX = 32
 _LINE_WIDTH_MIN = 0.5
 _LINE_WIDTH_MAX = 10.0
 _LINE_WIDTH_STEP = 0.5
+_MARKER_SIZE_MIN = 1.0
+_MARKER_SIZE_MAX = 20.0
+_MARKER_SIZE_STEP = 0.5
 
 #: (element key, form label) — keys mirror PlotConfig.font_* fields.
 _FONT_ELEMENTS: list[tuple[str, TXT]] = [
@@ -221,11 +225,13 @@ class _AxisSection:
 
 
 class _TraceRow(QFrame):
-    """Two-line styling row — the name owns the full first line so it
-    stays readable in the narrow sidebar:
+    """Three-line styling row — the name owns the full first line so it
+    stays readable in the narrow sidebar; line and marker each pair
+    their type with its size:
 
     [visible] [swatch] [name………………]
-    [line style combo] [marker combo] [width]
+    [line style combo] [line width]
+    [marker combo] [marker size]
     """
 
     def __init__(self, owner: "GraphPlotTab", spec: dict) -> None:
@@ -240,10 +246,13 @@ class _TraceRow(QFrame):
         v.setSpacing(4)
         top = QHBoxLayout()
         top.setSpacing(6)
-        bottom = QHBoxLayout()
-        bottom.setSpacing(6)
+        line_row = QHBoxLayout()
+        line_row.setSpacing(6)
+        marker_row = QHBoxLayout()
+        marker_row.setSpacing(6)
         v.addLayout(top)
-        v.addLayout(bottom)
+        v.addLayout(line_row)
+        v.addLayout(marker_row)
 
         visible = QCheckBox()
         visible.setStyleSheet(global_option_checkbox_stylesheet())
@@ -277,16 +286,7 @@ class _TraceRow(QFrame):
                 trace_id, line.currentData()
             )
         )
-        bottom.addWidget(line, stretch=1)
-
-        marker = _id_combo(_MARKER_OPTIONS)
-        marker.setCurrentIndex(max(0, marker.findData(spec["marker"])))
-        marker.currentIndexChanged.connect(
-            lambda _i: owner.trace_marker_changed.emit(
-                trace_id, marker.currentData()
-            )
-        )
-        bottom.addWidget(marker, stretch=1)
+        line_row.addWidget(line, stretch=1)
 
         width = dspinbox(
             _LINE_WIDTH_MIN,
@@ -298,7 +298,28 @@ class _TraceRow(QFrame):
         width.valueChanged.connect(
             lambda v: owner.trace_width_changed.emit(trace_id, v)
         )
-        bottom.addWidget(width)
+        line_row.addWidget(width)
+
+        marker = _id_combo(_MARKER_OPTIONS)
+        marker.setCurrentIndex(max(0, marker.findData(spec["marker"])))
+        marker.currentIndexChanged.connect(
+            lambda _i: owner.trace_marker_changed.emit(
+                trace_id, marker.currentData()
+            )
+        )
+        marker_row.addWidget(marker, stretch=1)
+
+        marker_size = dspinbox(
+            _MARKER_SIZE_MIN,
+            _MARKER_SIZE_MAX,
+            _MARKER_SIZE_STEP,
+            float(spec["marker_size"]),
+        )
+        marker_size.setToolTip(tr_ui(TXT.GRAPH_TT_MARKER_SIZE))
+        marker_size.valueChanged.connect(
+            lambda v: owner.trace_marker_size_changed.emit(trace_id, v)
+        )
+        marker_row.addWidget(marker_size)
 
 
 class GraphPlotTab(QWidget):
@@ -319,6 +340,7 @@ class GraphPlotTab(QWidget):
     trace_line_style_changed = Signal(str, str)
     trace_marker_changed = Signal(str, str)
     trace_width_changed = Signal(str, float)
+    trace_marker_size_changed = Signal(str, float)
     plot_font_size_changed = Signal(str, int)  # (element key, size in pt)
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -437,7 +459,7 @@ class GraphPlotTab(QWidget):
 
     def display_traces(self, specs: list[dict]) -> None:
         """Rebuild trace rows.  Spec keys: id, name, color, visible,
-        line_style, marker, width."""
+        line_style, marker, width, marker_size."""
         while self._traces_box.count():
             item = self._traces_box.takeAt(0)
             if item.widget():

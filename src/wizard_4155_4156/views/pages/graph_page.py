@@ -100,6 +100,7 @@ class GraphPageView(BasePage):
     trace_line_style_changed = Signal(str, str)
     trace_marker_changed = Signal(str, str)
     trace_width_changed = Signal(str, float)
+    trace_marker_size_changed = Signal(str, float)
     plot_font_size_changed = Signal(str, int)  # (element key, size in pt)
 
     # ── Analysis tab ─────────────────────────────────────────────────────────
@@ -247,6 +248,7 @@ class GraphPageView(BasePage):
         plot.trace_line_style_changed.connect(self.trace_line_style_changed)
         plot.trace_marker_changed.connect(self.trace_marker_changed)
         plot.trace_width_changed.connect(self.trace_width_changed)
+        plot.trace_marker_size_changed.connect(self.trace_marker_size_changed)
         plot.plot_font_size_changed.connect(self.plot_font_size_changed)
 
         tools = self.sidebar.tools_tab

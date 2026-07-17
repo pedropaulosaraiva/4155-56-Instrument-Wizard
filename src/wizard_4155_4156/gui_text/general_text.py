@@ -219,6 +219,7 @@ class CommandWizardText(StrEnum):
     GRAPH_MARKER_TRIANGLE = "Triangle"
     GRAPH_MARKER_CROSS = "Cross"
     GRAPH_TT_TRACE_WIDTH = "Line width (px)"
+    GRAPH_TT_MARKER_SIZE = "Marker size (px)"
     # Analysis tab
     GRAPH_SEC_CURVE_FIT = "Curve fit"
     GRAPH_SEC_TRACE_MATH = "Trace math"

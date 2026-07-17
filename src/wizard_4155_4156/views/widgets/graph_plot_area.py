@@ -264,6 +264,18 @@ class GraphPlotArea(QWidget):
         return QColor(*bg) if isinstance(bg, tuple) else QColor(bg)
 
     @staticmethod
+    def _set_legend_label_size(legend: pg.LegendItem, size: str) -> None:
+        """Resize existing legend labels.
+
+        ``LegendItem.setLabelTextSize`` only stores the size on each
+        label — the label HTML is generated at ``setText`` time, so each
+        label must be re-set for the change to actually render.
+        """
+        legend.setLabelTextSize(size)
+        for _sample, label in legend.items:
+            label.setText(label.text)
+
+    @staticmethod
     def _set_legend_label_colors(legend: pg.LegendItem, color) -> None:
         """Recolor existing legend labels.
 
@@ -451,7 +463,7 @@ class GraphPlotArea(QWidget):
         plot.setLogMode(x=spec.x_log, y=spec.y_log)
         plot.showGrid(x=True, y=True, alpha=P.GRAPH_GRID_ALPHA)
         # Before _draw_curves — labels added by plot(name=…) read the size.
-        state.legend.setLabelTextSize(f"{spec.font_legend}pt")
+        self._set_legend_label_size(state.legend, f"{spec.font_legend}pt")
         self._draw_curves(state)
         self._apply_range(state, "x", spec.x_range)
         self._apply_range(state, "y", spec.y_range)
@@ -539,7 +551,7 @@ class GraphPlotArea(QWidget):
             self._apply_axes(state)
 
         if spec.font_legend != old.font_legend:
-            state.legend.setLabelTextSize(f"{spec.font_legend}pt")
+            self._set_legend_label_size(state.legend, f"{spec.font_legend}pt")
 
         log_changed = spec.x_log != old.x_log or spec.y_log != old.y_log
         if log_changed:
