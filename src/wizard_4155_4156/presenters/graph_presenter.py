@@ -221,6 +221,10 @@ class GraphPresenter(QObject):
         v.trace_marker_changed.connect(
             lambda t, m: self._on_trace_style(t, "marker", m)
         )
+        v.trace_width_changed.connect(
+            lambda t, w: self._on_trace_style(t, "width", w)
+        )
+        v.plot_font_size_changed.connect(self._on_font_size)
 
         v.fit_requested.connect(self._on_fit_requested)
         v.fit_removed.connect(self._on_trace_removed)
@@ -626,6 +630,11 @@ class GraphPresenter(QObject):
         self._schedule_save()
         self._render_plot_area()
 
+    def _on_font_size(self, element: str, size: int) -> None:
+        setattr(self._plot, f"font_{element}", int(size))
+        self._schedule_save()
+        self._render_plot_area()
+
     def _on_trace_style(self, trace_id: str, prop: str, value) -> None:
         trace = self._plot.trace_by_id(trace_id)
         if trace is None:
@@ -914,7 +923,12 @@ class GraphPresenter(QObject):
                 kind=TraceKind.DATA,
                 x=list(data.get(plot.x_var, [])),
                 y=list(data.get(plot.y_var, [])),
-                style=old.style if old is not None else TraceStyle(),
+                style=(
+                    old.style
+                    if old is not None
+                    # Fresh data traces default to a scatter presentation.
+                    else TraceStyle(line_style="none", marker="circle")
+                ),
                 source_exec_id=exec_id,
             )
             if old is None:
@@ -1071,6 +1085,15 @@ class GraphPresenter(QObject):
         self._view.display_labels(
             plot.title, plot.axis_x.label, plot.axis_y.label
         )
+        self._view.display_fonts(
+            {
+                "title": plot.font_title,
+                "axis_x": plot.font_axis_x,
+                "axis_y": plot.font_axis_y,
+                "ticks": plot.font_ticks,
+                "legend": plot.font_legend,
+            }
+        )
         options = [(t.id, t.name) for t in plot.traces]
         self._view.display_cursor_trace_options(options, plot.cursor_source_id)
         self._view.display_traces(
@@ -1082,6 +1105,7 @@ class GraphPresenter(QObject):
                     "visible": t.style.visible,
                     "line_style": t.style.line_style,
                     "marker": t.style.marker,
+                    "width": t.style.width,
                 }
                 for t in plot.traces
             ]
@@ -1158,6 +1182,11 @@ class GraphPresenter(QObject):
             y_range=self._axis_range(plot.axis_y),
             mouse_mode=plot.mouse_mode,
             active=active,
+            font_title=plot.font_title,
+            font_axis_x=plot.font_axis_x,
+            font_axis_y=plot.font_axis_y,
+            font_ticks=plot.font_ticks,
+            font_legend=plot.font_legend,
             traces=[
                 TraceRenderSpec(
                     trace_id=t.id,

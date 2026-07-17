@@ -16,6 +16,7 @@ from wizard_4155_4156.models.graph.config import (
     PLOT_SLOTS,
     AxisConfig,
     Multiplier,
+    PlotConfig,
     SceneConfig,
     axis_label,
     axis_scale,
@@ -145,6 +146,8 @@ def _sample_scene() -> SceneConfig:
     plot.roi = (0.2, 0.8)
     plot.next_calc_id = 3
     plot.next_fit_id = 2
+    plot.font_title = 14
+    plot.font_ticks = 12
     plot.traces = [
         Trace(id="exec:3", name="I1 run A", source_exec_id=3),
         Trace(
@@ -190,6 +193,8 @@ def test_scene_round_trip_through_json():
     assert plot.selected_exec_ids == [3, 7]
     assert plot.roi == (0.2, 0.8)
     assert (plot.next_calc_id, plot.next_fit_id) == (3, 2)
+    assert (plot.font_title, plot.font_ticks) == (14, 12)
+    assert plot.font_legend == PlotConfig().font_legend  # untouched default
 
 
 def test_traces_persist_definitions_but_never_points():

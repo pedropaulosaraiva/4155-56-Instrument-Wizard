@@ -118,6 +118,14 @@ OPERATIONS: dict[str, OpSpec] = {
             _unary(lambda y: np.log10(np.abs(y))),
         ),
         OpSpec(
+            "ln_abs",
+            "ln|Y|",
+            OpCategory.UNARY,
+            1,
+            "ln|{a}|",
+            _unary(lambda y: np.log(np.abs(y))),
+        ),
+        OpSpec(
             "sqrt",
             "√Y",
             OpCategory.UNARY,
@@ -140,6 +148,14 @@ OPERATIONS: dict[str, OpSpec] = {
             1,
             "1/({a})",
             _unary(lambda y: 1.0 / y),
+        ),
+        OpSpec(
+            "inv_square",
+            "1/Y²",
+            OpCategory.UNARY,
+            1,
+            "1/({a})²",
+            _unary(lambda y: 1.0 / np.square(y)),
         ),
         OpSpec(
             "add",

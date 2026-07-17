@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -133,6 +134,18 @@ def combo(
 def spinbox(lo: int, hi: int, default: int) -> QSpinBox:
     sb = QSpinBox()
     sb.setRange(lo, hi)
+    sb.setValue(default)
+    sb.setStyleSheet(sweep_spinbox_stylesheet())
+    return sb
+
+
+def dspinbox(
+    lo: float, hi: float, step: float, default: float
+) -> QDoubleSpinBox:
+    sb = QDoubleSpinBox()
+    sb.setRange(lo, hi)
+    sb.setSingleStep(step)
+    sb.setDecimals(1)
     sb.setValue(default)
     sb.setStyleSheet(sweep_spinbox_stylesheet())
     return sb

@@ -3,8 +3,8 @@ views/widgets/graph_plot_tab.py
 -------------------------------
 "Plot" sidebar tab — everything about how the ACTIVE plot presents its
 data: per-axis settings (variable, autoscale, log, manual min/max,
-engineering multiplier), title/axis labels, and per-trace styling rows
-(visibility, color, name, line style, marker).
+engineering multiplier), title/axis labels, font sizes, and per-trace
+styling rows (visibility, color, name, line style, marker, width).
 
 Passive view: emits ``*_changed``/``*_committed`` signals; state arrives
 through ``display_*`` methods.  The ``axis`` argument in axis signals is
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -47,7 +48,9 @@ from wizard_4155_4156.views.widgets.config_sections import (
     SectionFrame,
     SegmentedGroup,
     combo,
+    dspinbox,
     form_row,
+    spinbox,
 )
 
 #: Multiplier selector options — MUST mirror the values of
@@ -56,6 +59,20 @@ _MULTIPLIER_OPTIONS = ["p", "n", "µ", "m", "1", "k", "M", "G"]
 
 _LABEL_WIDTH = 90
 _BOUND_LIMIT = 1e300
+_FONT_PT_MIN = 6
+_FONT_PT_MAX = 32
+_LINE_WIDTH_MIN = 0.5
+_LINE_WIDTH_MAX = 10.0
+_LINE_WIDTH_STEP = 0.5
+
+#: (element key, form label) — keys mirror PlotConfig.font_* fields.
+_FONT_ELEMENTS: list[tuple[str, TXT]] = [
+    ("title", TXT.GRAPH_LBL_FONT_TITLE),
+    ("axis_x", TXT.GRAPH_LBL_FONT_X),
+    ("axis_y", TXT.GRAPH_LBL_FONT_Y),
+    ("ticks", TXT.GRAPH_LBL_FONT_TICKS),
+    ("legend", TXT.GRAPH_LBL_FONT_LEGEND),
+]
 
 #: (logical id, UI label) — logical ids match models/graph/trace.py.
 _LINE_STYLE_OPTIONS: list[tuple[str, TXT]] = [
@@ -208,7 +225,7 @@ class _TraceRow(QFrame):
     stays readable in the narrow sidebar:
 
     [visible] [swatch] [name………………]
-    [line style combo] [marker combo]
+    [line style combo] [marker combo] [width]
     """
 
     def __init__(self, owner: "GraphPlotTab", spec: dict) -> None:
@@ -271,6 +288,18 @@ class _TraceRow(QFrame):
         )
         bottom.addWidget(marker, stretch=1)
 
+        width = dspinbox(
+            _LINE_WIDTH_MIN,
+            _LINE_WIDTH_MAX,
+            _LINE_WIDTH_STEP,
+            float(spec["width"]),
+        )
+        width.setToolTip(tr_ui(TXT.GRAPH_TT_TRACE_WIDTH))
+        width.valueChanged.connect(
+            lambda v: owner.trace_width_changed.emit(trace_id, v)
+        )
+        bottom.addWidget(width)
+
 
 class GraphPlotTab(QWidget):
     """Axes / labels / per-trace styling of the active plot."""
@@ -289,6 +318,8 @@ class GraphPlotTab(QWidget):
     trace_renamed = Signal(str, str)
     trace_line_style_changed = Signal(str, str)
     trace_marker_changed = Signal(str, str)
+    trace_width_changed = Signal(str, float)
+    plot_font_size_changed = Signal(str, int)  # (element key, size in pt)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -301,6 +332,7 @@ class GraphPlotTab(QWidget):
         root.addWidget(self._axis_x.section)
         root.addWidget(self._axis_y.section)
         root.addWidget(self._build_labels_section())
+        root.addWidget(self._build_fonts_section())
         root.addWidget(self._build_traces_section())
         root.addStretch(1)
 
@@ -342,6 +374,22 @@ class GraphPlotTab(QWidget):
             body.addWidget(form_row(tr_ui(text), edit, _LABEL_WIDTH))
         return section
 
+    def _build_fonts_section(self) -> SectionFrame:
+        section = SectionFrame(
+            tr_ui(TXT.GRAPH_SEC_FONTS), flat=True, accent=P.GRAPH_TAB_PLOT
+        )
+        body = section.body()
+
+        self._font_spins: dict[str, QSpinBox] = {}
+        for element, text in _FONT_ELEMENTS:
+            spin = spinbox(_FONT_PT_MIN, _FONT_PT_MAX, _FONT_PT_MIN)
+            spin.valueChanged.connect(
+                lambda v, e=element: self.plot_font_size_changed.emit(e, v)
+            )
+            self._font_spins[element] = spin
+            body.addWidget(form_row(tr_ui(text), spin, _LABEL_WIDTH))
+        return section
+
     def _build_traces_section(self) -> SectionFrame:
         section = SectionFrame(
             tr_ui(TXT.GRAPH_SEC_TRACES), flat=True, accent=P.GRAPH_TAB_PLOT
@@ -380,9 +428,16 @@ class GraphPlotTab(QWidget):
             edit.setText(text)
             edit.blockSignals(False)
 
+    def display_fonts(self, fonts: dict[str, int]) -> None:
+        """Push font sizes; keys mirror ``_FONT_ELEMENTS`` element ids."""
+        for element, spin in self._font_spins.items():
+            spin.blockSignals(True)
+            spin.setValue(int(fonts[element]))
+            spin.blockSignals(False)
+
     def display_traces(self, specs: list[dict]) -> None:
         """Rebuild trace rows.  Spec keys: id, name, color, visible,
-        line_style, marker."""
+        line_style, marker, width."""
         while self._traces_box.count():
             item = self._traces_box.takeAt(0)
             if item.widget():

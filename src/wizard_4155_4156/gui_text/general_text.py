@@ -198,6 +198,13 @@ class CommandWizardText(StrEnum):
     GRAPH_LBL_Y_LABEL = "Y label:"
     GRAPH_PH_TITLE = "Optional — no title when empty"
     GRAPH_PH_AXIS_LABEL = "Auto — uses the variable name"
+    # Font sizes section (values in points)
+    GRAPH_SEC_FONTS = "Font sizes"
+    GRAPH_LBL_FONT_TITLE = "Title:"
+    GRAPH_LBL_FONT_X = "X label:"
+    GRAPH_LBL_FONT_Y = "Y label:"
+    GRAPH_LBL_FONT_TICKS = "Tick labels:"
+    GRAPH_LBL_FONT_LEGEND = "Legend:"
     GRAPH_NO_TRACES = "No traces in the active plot."
     GRAPH_CURSOR_READOUT = "x = {x}    y = {y}"
     GRAPH_CURSOR_DELTA = "Δx = {dx}    Δy = {dy}    Δy/Δx = {slope}"
@@ -211,6 +218,7 @@ class CommandWizardText(StrEnum):
     GRAPH_MARKER_SQUARE = "Square"
     GRAPH_MARKER_TRIANGLE = "Triangle"
     GRAPH_MARKER_CROSS = "Cross"
+    GRAPH_TT_TRACE_WIDTH = "Line width (px)"
     # Analysis tab
     GRAPH_SEC_CURVE_FIT = "Curve fit"
     GRAPH_SEC_TRACE_MATH = "Trace math"

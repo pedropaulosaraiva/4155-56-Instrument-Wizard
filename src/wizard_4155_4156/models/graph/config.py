@@ -206,6 +206,12 @@ class PlotConfig:
     roi: tuple[float, float] | None = None
     next_calc_id: int = 1
     next_fit_id: int = 1
+    # Font sizes in points; defaults match pyqtgraph's built-in rendering.
+    font_title: int = 11
+    font_axis_x: int = 10
+    font_axis_y: int = 10
+    font_ticks: int = 9
+    font_legend: int = 9
 
     def trace_by_id(self, trace_id: str) -> Trace | None:
         for trace in self.traces:
@@ -229,6 +235,11 @@ class PlotConfig:
             "roi": list(self.roi) if self.roi else None,
             "next_calc_id": self.next_calc_id,
             "next_fit_id": self.next_fit_id,
+            "font_title": self.font_title,
+            "font_axis_x": self.font_axis_x,
+            "font_axis_y": self.font_axis_y,
+            "font_ticks": self.font_ticks,
+            "font_legend": self.font_legend,
         }
 
     @classmethod
@@ -252,6 +263,11 @@ class PlotConfig:
             roi=(float(roi[0]), float(roi[1])) if roi else None,
             next_calc_id=int(data.get("next_calc_id", 1)),
             next_fit_id=int(data.get("next_fit_id", 1)),
+            font_title=int(data.get("font_title", default.font_title)),
+            font_axis_x=int(data.get("font_axis_x", default.font_axis_x)),
+            font_axis_y=int(data.get("font_axis_y", default.font_axis_y)),
+            font_ticks=int(data.get("font_ticks", default.font_ticks)),
+            font_legend=int(data.get("font_legend", default.font_legend)),
         )
 
 

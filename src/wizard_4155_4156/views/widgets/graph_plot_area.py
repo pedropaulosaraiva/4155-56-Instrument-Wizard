@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from wizard_4155_4156.styles.theme import PALETTE as P
@@ -131,6 +131,11 @@ class PlotRenderSpec:
     y_range: tuple[float, float] | None = None
     mouse_mode: str = "pan"  # "pan" | "zoom"
     active: bool = False
+    font_title: int = 11  # all font sizes in points
+    font_axis_x: int = 10
+    font_axis_y: int = 10
+    font_ticks: int = 9
+    font_legend: int = 9
     traces: list[TraceRenderSpec] = field(default_factory=list)
     roi: tuple[float, float] | None = None  # visible when not None
     cursors: list[float] = field(default_factory=list)  # default x's
@@ -445,6 +450,8 @@ class GraphPlotArea(QWidget):
         self._apply_axes(state)
         plot.setLogMode(x=spec.x_log, y=spec.y_log)
         plot.showGrid(x=True, y=True, alpha=P.GRAPH_GRID_ALPHA)
+        # Before _draw_curves — labels added by plot(name=…) read the size.
+        state.legend.setLabelTextSize(f"{spec.font_legend}pt")
         self._draw_curves(state)
         self._apply_range(state, "x", spec.x_range)
         self._apply_range(state, "y", spec.y_range)
@@ -455,6 +462,8 @@ class GraphPlotArea(QWidget):
     def _apply_axes(self, state: _SlotState) -> None:
         spec = state.spec
         plot = state.plot
+        tick_font = QFont()
+        tick_font.setPointSize(spec.font_ticks)
         for side, scale in (
             ("bottom", spec.x_scale),
             ("left", spec.y_scale),
@@ -462,9 +471,18 @@ class GraphPlotArea(QWidget):
             axis = plot.getAxis(side)
             axis.enableAutoSIPrefix(False)  # multiplier is user-owned
             axis.setScale(scale)
-        plot.setLabel("bottom", spec.x_label or None)
-        plot.setLabel("left", spec.y_label or None)
-        plot.setTitle(spec.title or None)
+            axis.setStyle(tickFont=tick_font)
+        plot.setLabel(
+            "bottom",
+            spec.x_label or None,
+            **{"font-size": f"{spec.font_axis_x}pt"},
+        )
+        plot.setLabel(
+            "left",
+            spec.y_label or None,
+            **{"font-size": f"{spec.font_axis_y}pt"},
+        )
+        plot.setTitle(spec.title or None, size=f"{spec.font_title}pt")
 
     def _apply_range(
         self,
@@ -513,8 +531,15 @@ class GraphPlotArea(QWidget):
             or spec.y_label != old.y_label
             or spec.x_scale != old.x_scale
             or spec.y_scale != old.y_scale
+            or spec.font_title != old.font_title
+            or spec.font_axis_x != old.font_axis_x
+            or spec.font_axis_y != old.font_axis_y
+            or spec.font_ticks != old.font_ticks
         ):
             self._apply_axes(state)
+
+        if spec.font_legend != old.font_legend:
+            state.legend.setLabelTextSize(f"{spec.font_legend}pt")
 
         log_changed = spec.x_log != old.x_log or spec.y_log != old.y_log
         if log_changed:

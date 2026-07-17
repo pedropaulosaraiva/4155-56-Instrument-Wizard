@@ -71,9 +71,11 @@ def test_derivative_on_non_uniform_grid():
         ("abs", [-1.0, 2.0], [1.0, 2.0]),
         ("negate", [-1.0, 2.0], [1.0, -2.0]),
         ("log10", [-100.0, 10.0], [2.0, 1.0]),  # log10 of |y|
+        ("ln_abs", [-math.e, 1.0], [1.0, 0.0]),  # ln of |y|
         ("sqrt", [4.0, 9.0], [2.0, 3.0]),
         ("square", [3.0, -2.0], [9.0, 4.0]),
         ("reciprocal", [2.0, 4.0], [0.5, 0.25]),
+        ("inv_square", [2.0, -4.0], [0.25, 0.0625]),
     ],
 )
 def test_unary_operations(op_id, y_in, y_expected):
@@ -86,8 +88,10 @@ def test_unary_operations(op_id, y_in, y_expected):
     ("op_id", "y_in"),
     [
         ("log10", [0.0, 1.0]),  # log10(0) → nan, not -inf
+        ("ln_abs", [0.0, 1.0]),  # ln(0) → nan, not -inf
         ("sqrt", [-4.0, 1.0]),  # sqrt of negative → nan
         ("reciprocal", [0.0, 1.0]),  # 1/0 → nan, not inf
+        ("inv_square", [0.0, 1.0]),  # 1/0² → nan, not inf
     ],
 )
 def test_unary_invalid_inputs_become_nan(op_id, y_in):
