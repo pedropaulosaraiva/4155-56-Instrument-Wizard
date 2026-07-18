@@ -44,6 +44,14 @@ class _Palette:
     BORDER: str = "#3e3e42"
     BORDER_FOCUS: str = "#007acc"
 
+    # ── Tooltips ─────────────────────────────────────────────────────────────
+    # Deliberately theme-INVARIANT (no light/france/brasil overrides):
+    # tooltips read as dark balloons in every theme, matching the nav
+    # bar hints, instead of inheriting a light page background.
+    TOOLTIP_BG: str = "#252526"
+    TOOLTIP_TEXT: str = "#e0e0e0"
+    TOOLTIP_BORDER: str = "#3e3e42"
+
     # ── Accent (shades of blue) ──────────────────────────────────────
     ACCENT: str = "#007acc"
     ACCENT_HOVER: str = "#0098ff"

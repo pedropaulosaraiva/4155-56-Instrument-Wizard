@@ -137,9 +137,13 @@ class _AxisSection:
         self.log_chk.setStyleSheet(global_option_checkbox_stylesheet())
         self.grid_chk = QCheckBox(tr_ui(TXT.GRAPH_CHK_GRID))
         self.grid_chk.setStyleSheet(global_option_checkbox_stylesheet())
-        body.addWidget(self.auto_chk)
-        body.addWidget(self.log_chk)
-        body.addWidget(self.grid_chk)
+        checks = QHBoxLayout()
+        checks.setSpacing(10)
+        checks.addWidget(self.auto_chk)
+        checks.addWidget(self.log_chk)
+        checks.addWidget(self.grid_chk)
+        checks.addStretch(1)
+        body.addLayout(checks)
 
         self.min_edit = SciDoubleEdit(
             0.0, -_BOUND_LIMIT, _BOUND_LIMIT, dim_when_disabled=True

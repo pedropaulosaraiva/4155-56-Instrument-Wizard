@@ -75,8 +75,34 @@ def _check_url(color: str) -> str:
 # ── Application-wide ─────────────────────────────────────────────────────────
 
 
+def _tooltip_qss() -> str:
+    """Dark tooltip balloon, identical in every theme.
+
+    Qt's tooltip label adopts the stylesheet of the nearest ancestor
+    that has one — pages set a selectorless (universal) background
+    rule, which would bleed a light page background under light text.
+    This block must therefore be included both application-wide and in
+    every stylesheet that contains a universal rule: a type selector
+    beats the universal rule only within the same stylesheet origin.
+    """
+    return f"""
+        QToolTip {{
+            background-color: {P.TOOLTIP_BG};
+            color: {P.TOOLTIP_TEXT};
+            border: 1px solid {P.TOOLTIP_BORDER};
+            padding: 4px 6px;
+        }}
+    """
+
+
+def _page_background_qss() -> str:
+    """Deep page background (universal rule) + readable tooltips."""
+    return f"* {{ background-color: {P.BG_DEEP}; }} {_tooltip_qss()}"
+
+
 def application_stylesheet() -> str:
     return f"""
+        {_tooltip_qss()}
         QMainWindow {{
             background-color: {P.BG_DEEP};
         }}
@@ -339,7 +365,7 @@ def connector_progress_bar_stylesheet() -> str:
 
 
 def quick_actions_panel_stylesheet() -> str:
-    return f"background-color: {P.BG_DEEP};"
+    return _page_background_qss()
 
 
 def section_title_stylesheet() -> str:
@@ -589,7 +615,7 @@ def splitter_stylesheet() -> str:
 
 
 def stub_page_stylesheet() -> str:
-    return f"background-color: {P.BG_DEEP};"
+    return _page_background_qss()
 
 
 def stub_page_title_stylesheet() -> str:
@@ -611,7 +637,7 @@ def stub_page_subtitle_stylesheet() -> str:
 
 
 def channels_page_stylesheet() -> str:
-    return f"background-color: {P.BG_DEEP};"
+    return _page_background_qss()
 
 
 def units_scroll_area_stylesheet() -> str:
@@ -623,7 +649,7 @@ def units_scroll_viewport_stylesheet() -> str:
 
 
 def units_container_stylesheet() -> str:
-    return f"background-color: {P.BG_DEEP};"
+    return _page_background_qss()
 
 
 def config_panel_stylesheet() -> str:
@@ -938,7 +964,7 @@ def configure_measure_button_stylesheet() -> str:
 
 
 def config_page_stylesheet() -> str:
-    return f"background-color: {P.BG_DEEP};"
+    return _page_background_qss()
 
 
 def section_card_stylesheet(accent: str | None = None) -> str:
@@ -1202,7 +1228,7 @@ def config_preview_tree_stylesheet() -> str:
 
 
 def table_page_stylesheet() -> str:
-    return f"background-color: {P.BG_DEEP};"
+    return _page_background_qss()
 
 
 def data_table_stylesheet() -> str:
@@ -1367,7 +1393,7 @@ def settings_dialog_stylesheet() -> str:
 
 
 def runs_page_stylesheet() -> str:
-    return f"background-color: {P.BG_DEEP};"
+    return _page_background_qss()
 
 
 def setup_summary_scroll_stylesheet() -> str:
@@ -1946,7 +1972,7 @@ def status_modal_info_value_stylesheet() -> str:
 
 
 def graph_page_stylesheet() -> str:
-    return f"background-color: {P.BG_DEEP};"
+    return _page_background_qss()
 
 
 def graph_scene_tabbar_stylesheet() -> str:
