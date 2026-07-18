@@ -43,7 +43,7 @@ import pyqtgraph as pg
 from pyqtgraph.exporters import ImageExporter
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGraphicsScene, QVBoxLayout, QWidget
 
 from wizard_4155_4156.styles.theme import PALETTE as P
 
@@ -136,6 +136,8 @@ class PlotRenderSpec:
     font_axis_y: int = 10
     font_ticks: int = 9
     font_legend: int = 9
+    grid_x: bool = True
+    grid_y: bool = True
     traces: list[TraceRenderSpec] = field(default_factory=list)
     roi: tuple[float, float] | None = None  # visible when not None
     cursors: list[float] = field(default_factory=list)  # default x's
@@ -184,6 +186,14 @@ class GraphPlotArea(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self._glw = pg.GraphicsLayoutWidget()
+        # AxisItem's boundingRect spans the whole ViewBox while its grid
+        # is shown, but ViewBox resizes never prepareGeometryChange() the
+        # axis — Qt's BSP scene index then holds stale rects and paints
+        # crash natively (access violation).  Live boundingRect queries
+        # are cheap at this scene size; the index is not.
+        self._glw.scene().setItemIndexMethod(
+            QGraphicsScene.ItemIndexMethod.NoIndex
+        )
         layout.addWidget(self._glw)
 
         self._slots: dict[int, _SlotState] = {}
@@ -270,10 +280,21 @@ class GraphPlotArea(QWidget):
         ``LegendItem.setLabelTextSize`` only stores the size on each
         label — the label HTML is generated at ``setText`` time, so each
         label must be re-set for the change to actually render.
+
+        ``setText`` only refreshes size hints and lazily invalidates the
+        legend's grid layout, so the box would keep stale (larger)
+        geometry when the font shrinks.  Re-laying out inside the old
+        geometry stretches the labels to fill it, so the legend must
+        first be shrunk to the layout's preferred size — only then does
+        ``updateSize`` read true label widths and fit the box.
         """
         legend.setLabelTextSize(size)
         for _sample, label in legend.items:
             label.setText(label.text)
+        legend.layout.invalidate()
+        hint = legend.layout.effectiveSizeHint(Qt.SizeHint.PreferredSize)
+        legend.setGeometry(0, 0, hint.width(), hint.height())
+        legend.updateSize()
 
     @staticmethod
     def _set_legend_label_colors(legend: pg.LegendItem, color) -> None:
@@ -461,7 +482,7 @@ class GraphPlotArea(QWidget):
         plot = state.plot
         self._apply_axes(state)
         plot.setLogMode(x=spec.x_log, y=spec.y_log)
-        plot.showGrid(x=True, y=True, alpha=P.GRAPH_GRID_ALPHA)
+        plot.showGrid(x=spec.grid_x, y=spec.grid_y, alpha=P.GRAPH_GRID_ALPHA)
         # Before _draw_curves — labels added by plot(name=…) read the size.
         self._set_legend_label_size(state.legend, f"{spec.font_legend}pt")
         self._draw_curves(state)
@@ -552,6 +573,11 @@ class GraphPlotArea(QWidget):
 
         if spec.font_legend != old.font_legend:
             self._set_legend_label_size(state.legend, f"{spec.font_legend}pt")
+
+        if spec.grid_x != old.grid_x or spec.grid_y != old.grid_y:
+            plot.showGrid(
+                x=spec.grid_x, y=spec.grid_y, alpha=P.GRAPH_GRID_ALPHA
+            )
 
         log_changed = spec.x_log != old.x_log or spec.y_log != old.y_log
         if log_changed:

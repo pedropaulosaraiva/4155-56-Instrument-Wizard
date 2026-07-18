@@ -244,13 +244,14 @@ class CommandWizardText(StrEnum):
     GRAPH_LBL_VARIABLE = "Variable:"
     GRAPH_CHK_AUTOSCALE = "Auto scale"
     GRAPH_CHK_LOG = "Logarithmic"
+    GRAPH_CHK_GRID = "Grid"
     GRAPH_LBL_MIN = "Min:"
     GRAPH_LBL_MAX = "Max:"
     GRAPH_LBL_MULTIPLIER = "Multiplier:"
     GRAPH_NO_EXECUTIONS = "No executions in this project yet."
     GRAPH_INCOMPATIBLE_TOOLTIP = (
-        "This execution's variables differ from the ones already "
-        "plotted, so it cannot share this plot."
+        "Its variables ({exec_vars}) differ from the ones already "
+        "plotted ({plot_vars}), so it cannot share this plot."
     )
     # Plot / Tools tabs
     GRAPH_SEC_VIEW = "View"
@@ -285,6 +286,8 @@ class CommandWizardText(StrEnum):
     GRAPH_LBL_FONT_Y = "Y label:"
     GRAPH_LBL_FONT_TICKS = "Tick labels:"
     GRAPH_LBL_FONT_LEGEND = "Legend:"
+    GRAPH_LBL_LINE = "Line:"
+    GRAPH_LBL_MARKER = "Marker:"
     GRAPH_NO_TRACES = "No traces in the active plot."
     GRAPH_CURSOR_READOUT = "x = {x}    y = {y}"
     GRAPH_CURSOR_DELTA = "Δx = {dx}    Δy = {dy}    Δy/Δx = {slope}"

@@ -71,11 +71,14 @@ class GraphDataTab(QWidget):
     def display_datasets(
         self,
         groups: list[
-            tuple[str, list[tuple[int, str, bool, bool, str | None]]]
+            tuple[
+                str,
+                list[tuple[int, str, bool, bool, str | None, str | None]],
+            ]
         ],
     ) -> None:
-        """Rebuild the tree:
-        (setup label, [(id, label, checked, enabled, trace color)])."""
+        """Rebuild the tree: (setup label, [(id, label, checked, enabled,
+        trace color, disabled reason)])."""
         self._tree.blockSignals(True)
         self._tree.clear()
         for setup_label, executions in groups:
@@ -87,7 +90,7 @@ class GraphDataTab(QWidget):
             top.setFont(0, font)
             top.setForeground(0, QBrush(QColor(P.TEXT_PRIMARY)))
             self._tree.addTopLevelItem(top)
-            for exec_id, label, checked, enabled, color in executions:
+            for exec_id, label, checked, enabled, color, reason in executions:
                 child = QTreeWidgetItem([label])
                 child.setData(0, _EXEC_ID_ROLE, exec_id)
                 flags = (
@@ -98,7 +101,7 @@ class GraphDataTab(QWidget):
                     flags |= Qt.ItemFlag.ItemIsEnabled
                     child.setToolTip(0, label)  # full name when elided
                 else:
-                    child.setToolTip(0, tr_ui(TXT.GRAPH_INCOMPATIBLE_TOOLTIP))
+                    child.setToolTip(0, reason or "")
                 child.setFlags(flags)
                 child.setCheckState(
                     0,

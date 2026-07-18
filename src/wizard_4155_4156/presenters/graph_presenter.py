@@ -192,6 +192,7 @@ class GraphPresenter(QObject):
         v.y_variable_changed.connect(lambda n: self._on_variable("y", n))
         v.axis_autoscale_changed.connect(self._on_axis_autoscale)
         v.axis_log_changed.connect(self._on_axis_log)
+        v.axis_grid_changed.connect(self._on_axis_grid)
         v.axis_min_committed.connect(
             lambda a, val: self._on_axis_bound(a, "min", val)
         )
@@ -546,6 +547,12 @@ class GraphPresenter(QObject):
             cfg.multiplier = Multiplier.NONE
         self._schedule_save()
         self._render_data_tab()
+        self._render_plot_area()
+
+    def _on_axis_grid(self, axis: str, on: bool) -> None:
+        cfg = self._axis(axis)
+        cfg.grid = on
+        self._schedule_save()
         self._render_plot_area()
 
     def _on_axis_bound(self, axis: str, bound: str, value: float) -> None:
@@ -1030,6 +1037,7 @@ class GraphPresenter(QObject):
                     "variable": plot.x_var if axis == "x" else plot.y_var,
                     "auto_scale": cfg.auto_scale,
                     "log": cfg.log,
+                    "grid": cfg.grid,
                     "min_val": cfg.min_val,
                     "max_val": cfg.max_val,
                     "multiplier": cfg.multiplier.value,
@@ -1059,8 +1067,20 @@ class GraphPresenter(QObject):
                         plot.trace_by_id(f"exec:{row.id}") if checked else None
                     )
                     color = trace.style.color if trace is not None else None
+                    # signature is never None here: enabled is only False
+                    # when a selection (and thus a signature) exists.
+                    reason = (
+                        None
+                        if enabled
+                        else tr_ui(TXT.GRAPH_INCOMPATIBLE_TOOLTIP).format(
+                            exec_vars=", ".join(
+                                sorted(self._variables_of(row.id))
+                            ),
+                            plot_vars=", ".join(sorted(signature)),
+                        )
+                    )
                     executions.append(
-                        (row.id, row.name, checked, enabled, color)
+                        (row.id, row.name, checked, enabled, color, reason)
                     )
                 if executions:
                     groups.append(
@@ -1191,6 +1211,8 @@ class GraphPresenter(QObject):
             font_axis_y=plot.font_axis_y,
             font_ticks=plot.font_ticks,
             font_legend=plot.font_legend,
+            grid_x=plot.axis_x.grid,
+            grid_y=plot.axis_y.grid,
             traces=[
                 TraceRenderSpec(
                     trace_id=t.id,

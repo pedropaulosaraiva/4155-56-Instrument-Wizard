@@ -24,6 +24,7 @@ from wizard_4155_4156.styles.theme import PALETTE as P
 
 _ARROW_POINTS = {"up": "0,5 8,5 4,1", "down": "0,1 8,1 4,5"}
 _arrow_cache: dict[tuple[str, str], str] = {}
+_check_cache: dict[str, str] = {}
 
 
 def _rgba(hex_color: str, alpha: float) -> str:
@@ -49,6 +50,25 @@ def _arrow_url(direction: str, color: str) -> str:
         )
         file.write_text(svg, encoding="utf-8")
         path = _arrow_cache[key] = file.as_posix()
+    return path
+
+
+def _check_url(color: str) -> str:
+    """Filesystem path (QSS url form) of a 10×10 SVG checkmark."""
+    path = _check_cache.get(color)
+    if path is None:
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            'width="10" height="10">'
+            '<polyline points="2,5.5 4.2,7.8 8,3" fill="none" '
+            f'stroke="{color}" stroke-width="1.8" '
+            'stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        )
+        file = Path(tempfile.gettempdir()) / (
+            f"wiz4155_check_{color.lstrip('#')}.svg"
+        )
+        file.write_text(svg, encoding="utf-8")
+        path = _check_cache[color] = file.as_posix()
     return path
 
 
@@ -2130,6 +2150,29 @@ def graph_dataset_tree_stylesheet() -> str:
         }}
         QTreeWidget::item:disabled {{
             color: {P.TEXT_DISABLED_SOFT};
+        }}
+        /* Themed check indicators — native ones ignore PALETTE.  The
+           glyph is a generated SVG stroked with TEXT_WHITE, which flips
+           to near-black in light themes. */
+        QTreeWidget::indicator {{
+            width: 15px; height: 15px;
+            border-radius: {P.RADIUS_SM};
+            border: 1px solid {P.BORDER};
+        }}
+        QTreeWidget::indicator:unchecked {{ background-color: {P.BG_DEEP}; }}
+        QTreeWidget::indicator:checked {{
+            background-color: {P.ACCENT};
+            border-color: {P.ACCENT};
+            image: url({_check_url(P.TEXT_WHITE)});
+        }}
+        QTreeWidget::indicator:disabled {{
+            background-color: {P.BG_ELEVATED};
+            border-color: {P.BG_ELEVATED};
+        }}
+        QTreeWidget::indicator:checked:disabled {{
+            background-color: {P.ACCENT_MUTED};
+            border-color: {P.ACCENT_MUTED};
+            image: url({_check_url(P.TEXT_WHITE)});
         }}
         {_graph_thin_vscrollbar_qss()}
     """

@@ -159,6 +159,7 @@ class AxisConfig:
     label: str = ""  # custom label; empty → derived from the variable
     auto_scale: bool = True
     log: bool = False
+    grid: bool = True
     min_val: float | None = None
     max_val: float | None = None
     multiplier: Multiplier = Multiplier.NONE
@@ -168,6 +169,7 @@ class AxisConfig:
             "label": self.label,
             "auto_scale": self.auto_scale,
             "log": self.log,
+            "grid": self.grid,
             "min_val": self.min_val,
             "max_val": self.max_val,
             "multiplier": self.multiplier.value,
@@ -180,6 +182,7 @@ class AxisConfig:
             label=data.get("label", default.label),
             auto_scale=bool(data.get("auto_scale", default.auto_scale)),
             log=bool(data.get("log", default.log)),
+            grid=bool(data.get("grid", default.grid)),
             min_val=data.get("min_val"),
             max_val=data.get("max_val"),
             multiplier=Multiplier(

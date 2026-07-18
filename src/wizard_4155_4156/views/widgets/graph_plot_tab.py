@@ -59,6 +59,9 @@ from wizard_4155_4156.views.widgets.config_sections import (
 _MULTIPLIER_OPTIONS = ["p", "n", "µ", "m", "1", "k", "M", "G"]
 
 _LABEL_WIDTH = 90
+#: Shared width of the "Line:"/"Marker:" trace-row labels so the combos
+#: in both rows stay vertically aligned.
+_TRACE_ROW_LABEL_WIDTH = 48
 _BOUND_LIMIT = 1e300
 _FONT_PT_MIN = 6
 _FONT_PT_MAX = 32
@@ -132,8 +135,11 @@ class _AxisSection:
         self.auto_chk.setStyleSheet(global_option_checkbox_stylesheet())
         self.log_chk = QCheckBox(tr_ui(TXT.GRAPH_CHK_LOG))
         self.log_chk.setStyleSheet(global_option_checkbox_stylesheet())
+        self.grid_chk = QCheckBox(tr_ui(TXT.GRAPH_CHK_GRID))
+        self.grid_chk.setStyleSheet(global_option_checkbox_stylesheet())
         body.addWidget(self.auto_chk)
         body.addWidget(self.log_chk)
+        body.addWidget(self.grid_chk)
 
         self.min_edit = SciDoubleEdit(
             0.0, -_BOUND_LIMIT, _BOUND_LIMIT, dim_when_disabled=True
@@ -167,6 +173,9 @@ class _AxisSection:
         self.log_chk.toggled.connect(
             lambda on: owner.axis_log_changed.emit(axis, on)
         )
+        self.grid_chk.toggled.connect(
+            lambda on: owner.axis_grid_changed.emit(axis, on)
+        )
         self.min_edit.value_committed.connect(
             lambda v: owner.axis_min_committed.emit(axis, v)
         )
@@ -183,16 +192,19 @@ class _AxisSection:
             self.var_combo,
             self.auto_chk,
             self.log_chk,
+            self.grid_chk,
         ):
             widget.blockSignals(True)
         idx = self.var_combo.findText(cfg.get("variable") or "")
         self.var_combo.setCurrentIndex(idx)
         self.auto_chk.setChecked(bool(cfg.get("auto_scale", True)))
         self.log_chk.setChecked(bool(cfg.get("log", False)))
+        self.grid_chk.setChecked(bool(cfg.get("grid", True)))
         for widget in (
             self.var_combo,
             self.auto_chk,
             self.log_chk,
+            self.grid_chk,
         ):
             widget.blockSignals(False)
 
@@ -230,8 +242,8 @@ class _TraceRow(QFrame):
     their type with its size:
 
     [visible] [swatch] [name………………]
-    [line style combo] [line width]
-    [marker combo] [marker size]
+    [Line:]   [line style combo] [line width]
+    [Marker:] [marker combo] [marker size]
     """
 
     def __init__(self, owner: "GraphPlotTab", spec: dict) -> None:
@@ -279,6 +291,11 @@ class _TraceRow(QFrame):
         )
         top.addWidget(name, stretch=1)
 
+        line_lbl = QLabel(tr_ui(TXT.GRAPH_LBL_LINE))
+        line_lbl.setStyleSheet(form_label_stylesheet())
+        line_lbl.setFixedWidth(_TRACE_ROW_LABEL_WIDTH)
+        line_row.addWidget(line_lbl)
+
         line = _id_combo(_LINE_STYLE_OPTIONS)
         line.setCurrentIndex(max(0, line.findData(spec["line_style"])))
         line.currentIndexChanged.connect(
@@ -299,6 +316,11 @@ class _TraceRow(QFrame):
             lambda v: owner.trace_width_changed.emit(trace_id, v)
         )
         line_row.addWidget(width)
+
+        marker_lbl = QLabel(tr_ui(TXT.GRAPH_LBL_MARKER))
+        marker_lbl.setStyleSheet(form_label_stylesheet())
+        marker_lbl.setFixedWidth(_TRACE_ROW_LABEL_WIDTH)
+        marker_row.addWidget(marker_lbl)
 
         marker = _id_combo(_MARKER_OPTIONS)
         marker.setCurrentIndex(max(0, marker.findData(spec["marker"])))
@@ -329,6 +351,7 @@ class GraphPlotTab(QWidget):
     y_variable_changed = Signal(str)
     axis_autoscale_changed = Signal(str, bool)  # (axis, on)
     axis_log_changed = Signal(str, bool)
+    axis_grid_changed = Signal(str, bool)
     axis_min_committed = Signal(str, float)
     axis_max_committed = Signal(str, float)
     axis_multiplier_changed = Signal(str, str)  # (axis, label)
@@ -436,7 +459,7 @@ class GraphPlotTab(QWidget):
         self._axis_y.display({"variable": y_var, **self._axis_state("y")})
 
     def display_axis(self, axis: str, cfg: dict) -> None:
-        """cfg keys: variable, auto_scale, log, min_val, max_val,
+        """cfg keys: variable, auto_scale, log, grid, min_val, max_val,
         multiplier."""
         (self._axis_x if axis == "x" else self._axis_y).display(cfg)
 
@@ -476,6 +499,7 @@ class GraphPlotTab(QWidget):
         return {
             "auto_scale": section.auto_chk.isChecked(),
             "log": section.log_chk.isChecked(),
+            "grid": section.grid_chk.isChecked(),
             "min_val": section.min_edit.get_value(),
             "max_val": section.max_edit.get_value(),
             "multiplier": section.mult_group.current_value(),
