@@ -25,7 +25,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QPoint, QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
+    QToolTip,
     QVBoxLayout,
     QWidget,
 )
@@ -53,7 +54,6 @@ from wizard_4155_4156.styles.stylesheets import (
     export_btn_stylesheet,
     global_option_checkbox_stylesheet,
     runs_secondary_button_stylesheet,
-    section_title_stylesheet,
     table_code_view_stylesheet,
     table_empty_label_stylesheet,
     table_page_stylesheet,
@@ -75,8 +75,9 @@ class TablePageView(BasePage):
     setup_changed = Signal(int)
     execution_changed = Signal(int)
     format_changed = Signal(int)  # carries the format combo index
-    action_requested = Signal()  # Download or Copy (presenter decides which)
-    save_all_requested = Signal()  # export every execution as a .zip
+    action_requested = Signal()  # Export run or Copy (presenter decides)
+    save_all_requested = Signal()  # export every run as a .zip
+    csv_option_changed = Signal(str)  # "delimiter" | "decimal" | "quote"
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -94,10 +95,6 @@ class TablePageView(BasePage):
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(14)
-
-        title = QLabel(tr_ui(CommandWizardText.TABLE_PAGE_TITLE))
-        title.setStyleSheet(section_title_stylesheet())
-        root.addWidget(title)
 
         root.addLayout(self._build_selectors())
         root.addWidget(self._build_options_row())
@@ -131,16 +128,6 @@ class TablePageView(BasePage):
         row.addWidget(self._format_combo)
         row.addStretch()
 
-        self._save_all_btn = QPushButton(
-            tr_ui(CommandWizardText.TABLE_BTN_SAVE_ALL)
-        )
-        self._save_all_btn.setStyleSheet(runs_secondary_button_stylesheet())
-        self._save_all_btn.setIcon(app_icon(AppIcon24.SAVE))
-        self._save_all_btn.setIconSize(QSize(16, 16))
-        self._save_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._save_all_btn.clicked.connect(self.save_all_requested.emit)
-        row.addWidget(self._save_all_btn)
-
         self._action_btn = QPushButton()
         self._action_btn.setStyleSheet(export_btn_stylesheet())
         self._action_btn.setIconSize(QSize(16, 16))
@@ -158,8 +145,17 @@ class TablePageView(BasePage):
         row.setSpacing(8)
 
         self._delim_combo = self._make_option_combo()
+        self._delim_combo.currentIndexChanged.connect(
+            lambda _i: self.csv_option_changed.emit("delimiter")
+        )
         self._decimal_combo = self._make_option_combo()
+        self._decimal_combo.currentIndexChanged.connect(
+            lambda _i: self.csv_option_changed.emit("decimal")
+        )
         self._quote_combo = self._make_option_combo()
+        self._quote_combo.currentIndexChanged.connect(
+            lambda _i: self.csv_option_changed.emit("quote")
+        )
 
         delim_label = self._label(CommandWizardText.TABLE_DELIM_LABEL)
         decimal_label = self._label(CommandWizardText.TABLE_DECIMAL_LABEL)
@@ -184,6 +180,16 @@ class TablePageView(BasePage):
         self._datetime_check.setCursor(Qt.CursorShape.PointingHandCursor)
         row.addWidget(self._datetime_check)
         row.addStretch()
+
+        self._save_all_btn = QPushButton(
+            tr_ui(CommandWizardText.TABLE_BTN_SAVE_ALL)
+        )
+        self._save_all_btn.setStyleSheet(runs_secondary_button_stylesheet())
+        self._save_all_btn.setIcon(app_icon(AppIcon24.SAVE))
+        self._save_all_btn.setIconSize(QSize(16, 16))
+        self._save_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._save_all_btn.clicked.connect(self.save_all_requested.emit)
+        row.addWidget(self._save_all_btn)
 
         self._csv_only = [
             delim_label,
@@ -276,6 +282,30 @@ class TablePageView(BasePage):
         self._options_row.setVisible(mode in ("csv", "xlsx"))
         for widget in self._csv_only:
             widget.setVisible(mode == "csv")
+
+    def select_csv_options(
+        self, delimiter_index: int, decimal_index: int, quote_index: int
+    ) -> None:
+        """Programmatically set the CSV dialect combos (no signals)."""
+        for combo, index in (
+            (self._delim_combo, delimiter_index),
+            (self._decimal_combo, decimal_index),
+            (self._quote_combo, quote_index),
+        ):
+            combo.blockSignals(True)
+            combo.setCurrentIndex(index)
+            combo.blockSignals(False)
+
+    def show_csv_option_tooltip(self, which: str, text: str) -> None:
+        """Balloon *text* under the combo named by *which* (rejected combo)."""
+        combo = {
+            "delimiter": self._delim_combo,
+            "decimal": self._decimal_combo,
+            "quote": self._quote_combo,
+        }.get(which, self._delim_combo)
+        QToolTip.showText(
+            combo.mapToGlobal(QPoint(0, combo.height())), text, combo
+        )
 
     def select_setup(self, setup_id: int) -> None:
         self._select_by_data(self._setup_combo, setup_id)

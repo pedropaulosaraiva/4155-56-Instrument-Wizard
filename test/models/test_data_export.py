@@ -18,6 +18,7 @@ from wizard_4155_4156.models.data_export import (
     DataFormat,
     FormatKind,
     build_zip,
+    csv_dialect_is_valid,
     export_filename,
     generate_bytes,
     generate_text,
@@ -182,6 +183,19 @@ def test_csv_single_quote_char():
         CsvOptions(decimal_separator=",", quotechar="'"),
     )
     assert text.splitlines()[1] == "'1,5'"
+
+
+def test_csv_dialect_rule_comma_comma_requires_quoting():
+    # The one restricted combination: comma delimiter + comma decimal
+    # without a quote character (unparseable on import).
+    assert not csv_dialect_is_valid(",", ",", None)
+    assert csv_dialect_is_valid(",", ",", '"')
+    assert csv_dialect_is_valid(",", ",", "'")
+    # Distinct delimiter/decimal is always fine, quoted or not.
+    assert csv_dialect_is_valid(";", ",", None)
+    assert csv_dialect_is_valid(",", ".", None)
+    assert csv_dialect_is_valid(" ", ",", None)
+    assert csv_dialect_is_valid("\t", ".", '"')
 
 
 def test_generate_bytes_passes_csv_options():

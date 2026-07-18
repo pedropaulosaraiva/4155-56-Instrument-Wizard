@@ -34,9 +34,10 @@ class CsvOptions:
     """User-selected CSV dialect options.
 
     ``decimal`` is the character the files use as decimal separator; when it
-    is ``","`` the delimiter must not also be a comma (the dialog enforces
-    this — here it would make every row unparseable).  With the whitespace
-    delimiter the quote character is ignored (columns are plain tokens).
+    is ``","`` the delimiter may only also be a comma if a quote character is
+    set (``data_export.csv_dialect_is_valid`` — the dialog enforces this;
+    unquoted, every row would be unparseable).  With the whitespace delimiter
+    the quote character is ignored (columns are plain tokens).
     """
 
     delimiter: str = ","  # "," | ";" | "\t" | WHITESPACE_DELIMITER

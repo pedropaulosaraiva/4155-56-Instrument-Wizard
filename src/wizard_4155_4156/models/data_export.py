@@ -103,6 +103,19 @@ class CsvOptions:
 DEFAULT_CSV_OPTIONS = CsvOptions()
 
 
+def csv_dialect_is_valid(
+    delimiter: str, decimal_separator: str, quotechar: str | None
+) -> bool:
+    """Uniform dialect rule shared by the export UI and the import dialog.
+
+    Comma may serve as both the delimiter and the decimal separator only
+    when fields are quoted — quoting makes the combination round-trip
+    losslessly in both directions, while without quoting an imported row
+    could not be split unambiguously.
+    """
+    return quotechar is not None or delimiter != decimal_separator
+
+
 #: Minimum columns before the NumPy export adds an x/y plot scaffold.
 _PLOT_MIN_COLUMNS = 2
 

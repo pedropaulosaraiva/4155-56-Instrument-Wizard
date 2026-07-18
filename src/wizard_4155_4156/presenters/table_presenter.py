@@ -40,6 +40,7 @@ from wizard_4155_4156.models.data_export import (
     DataFormat,
     FormatKind,
     build_zip,
+    csv_dialect_is_valid,
     export_filename,
     generate_bytes,
     generate_text,
@@ -159,6 +160,9 @@ class TablePresenter(QObject):
             [tr_ui(t) for t in _DECIMAL_LABELS],
             [tr_ui(t) for t in _QUOTE_LABELS],
         )
+        #: Last accepted (delimiter, decimal, quote) combo indices — the
+        #: fallback when the user picks a conflicting dialect combination.
+        self._valid_csv_indices = (0, 0, 0)
 
     def _connect(self) -> None:
         v = self._view
@@ -168,6 +172,7 @@ class TablePresenter(QObject):
         v.format_changed.connect(self._on_format_changed)
         v.action_requested.connect(self._on_action)
         v.save_all_requested.connect(self._on_save_all)
+        v.csv_option_changed.connect(self._on_csv_option_changed)
         self._connector.data_ready.connect(self.show_live_data)
 
     # ── View-signal handlers ─────────────────────────────────────────────────
@@ -188,6 +193,23 @@ class TablePresenter(QObject):
 
     def _on_format_changed(self, _index: int) -> None:
         self._refresh_content()
+
+    def _on_csv_option_changed(self, which: str) -> None:
+        """Accept the new dialect, or revert it and explain why."""
+        opts = self._current_csv_options()
+        if csv_dialect_is_valid(
+            opts.delimiter, opts.decimal_separator, opts.quotechar
+        ):
+            self._valid_csv_indices = (
+                self._view.current_delimiter_index(),
+                self._view.current_decimal_index(),
+                self._view.current_quote_index(),
+            )
+            return
+        self._view.select_csv_options(*self._valid_csv_indices)
+        self._view.show_csv_option_tooltip(
+            which, tr_ui(CommandWizardText.CSV_DIALECT_CONFLICT)
+        )
 
     def _on_action(self) -> None:
         data = self._resolve_dataset()

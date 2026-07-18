@@ -73,12 +73,11 @@ class CommandWizardText(StrEnum):
     CFG_SAVED_TOAST = "Saved to {name}"  # save icon supplied by the view
 
     # ── Table View page ──────────────────────────────────────────────────────
-    TABLE_PAGE_TITLE = "Table View"
     TABLE_EMPTY = "No measurement data yet. Run a measurement to populate."
     TABLE_SETUP_LABEL = "Setup:"
-    TABLE_EXEC_LABEL = "Execution:"
+    TABLE_EXEC_LABEL = "Run:"
     TABLE_FORMAT_LABEL = "Format:"
-    TABLE_BTN_DOWNLOAD = "Download"  # download icon supplied by the view
+    TABLE_BTN_DOWNLOAD = "Export run"  # download icon supplied by the view
     TABLE_BTN_COPY = "Copy"  # copy icon supplied by the view
     TABLE_NO_SETUP = "No setups in this project yet."
     TABLE_NO_EXEC = "No executions for this setup yet."
@@ -111,10 +110,17 @@ class CommandWizardText(StrEnum):
     TABLE_DATETIME_CHECK = (
         "Include measurement date and time in the exported filename"
     )
-    TABLE_BTN_SAVE_ALL = "Save All"  # save icon supplied by the view
-    TABLE_SAVE_ALL_TITLE = "Save all executions (.zip)"
+    TABLE_BTN_SAVE_ALL = (
+        "Export all runs (.zip)"  # save icon supplied by the view
+    )
+    TABLE_SAVE_ALL_TITLE = "Export all runs (.zip)"
     TABLE_SAVE_ALL_FILTER = "ZIP archive (*.zip)"
-    TABLE_SAVED_ALL = "Saved {count} executions to {path}"
+    TABLE_SAVED_ALL = "Saved {count} runs to {path}"
+    # Shared with the import dialog (uniform CSV dialect rule).
+    CSV_DIALECT_CONFLICT = (
+        "Comma can be both the delimiter and the decimal separator only "
+        "when a quote character is used."
+    )
 
     # ── Measurement Runs (CRUD) page ─────────────────────────────────────────
     RUNS_BTN_CREATE = "Save current config as setup"

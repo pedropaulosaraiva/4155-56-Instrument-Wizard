@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 from typing import Callable, Optional
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QPoint, QSize, Qt, Signal
 from PySide6.QtGui import (
     QDragEnterEvent,
     QDragLeaveEvent,
@@ -38,11 +38,13 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QToolButton,
+    QToolTip,
     QVBoxLayout,
     QWidget,
 )
 
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
+from wizard_4155_4156.models.data_export import csv_dialect_is_valid
 from wizard_4155_4156.models.data_import import (
     WHITESPACE_DELIMITER,
     CsvOptions,
@@ -286,9 +288,6 @@ class ImportMeasureDialog(QDialog):
         self._delimiter.addItem(
             tr_ui(_T.RUNS_IMPORT_DELIM_WS), WHITESPACE_DELIMITER
         )
-        self._delimiter.currentIndexChanged.connect(
-            self._sync_option_constraints
-        )
 
         self._quote = QComboBox()
         self._quote.addItem(tr_ui(_T.RUNS_IMPORT_QUOTE_DOUBLE), '"')
@@ -298,6 +297,19 @@ class ImportMeasureDialog(QDialog):
         self._decimal = QComboBox()
         self._decimal.addItem(tr_ui(_T.RUNS_IMPORT_DECIMAL_POINT), ".")
         self._decimal.addItem(tr_ui(_T.RUNS_IMPORT_DECIMAL_COMMA), ",")
+
+        self._dialect_combos = (
+            self._delimiter,
+            self._decimal,
+            self._quote,
+        )
+        self._valid_dialect = tuple(
+            combo.currentIndex() for combo in self._dialect_combos
+        )
+        for combo in self._dialect_combos:
+            combo.currentIndexChanged.connect(
+                lambda _i, c=combo: self._on_dialect_changed(c)
+            )
 
         cells = [
             (_T.RUNS_IMPORT_FORMAT_LABEL, self._format, 0, 0),
@@ -310,28 +322,38 @@ class ImportMeasureDialog(QDialog):
             grid.addWidget(combo, r, c + 1)
         grid.setColumnStretch(1, 1)
         grid.setColumnStretch(3, 1)
-        self._sync_option_constraints()
         return grid
 
-    def _sync_option_constraints(self) -> None:
-        """Keep the option combos mutually consistent.
+    def _on_dialect_changed(self, combo: QComboBox) -> None:
+        """Accept the new dialect or revert *combo* with an explanation.
 
-        Comma cannot be both the delimiter and the decimal separator, and
-        quoting does not apply when splitting on whitespace.
+        Same uniform rule as the Table page export options
+        (``csv_dialect_is_valid``): comma may be both the delimiter and the
+        decimal separator only when fields are quoted.  Quoting does not
+        apply when splitting on whitespace, so the quote combo is disabled
+        there.
         """
-        delimiter = self._delimiter.currentData()
-        comma_item = self._decimal.model().item(1)  # the "Comma (,)" entry
-        if delimiter == ",":
-            if self._decimal.currentData() == ",":
-                self._decimal.setCurrentIndex(0)  # fall back to point
-            comma_item.setFlags(
-                comma_item.flags() & ~Qt.ItemFlag.ItemIsEnabled
+        if csv_dialect_is_valid(
+            self._delimiter.currentData(),
+            self._decimal.currentData(),
+            self._quote.currentData(),
+        ):
+            self._valid_dialect = tuple(
+                c.currentIndex() for c in self._dialect_combos
             )
         else:
-            comma_item.setFlags(
-                comma_item.flags() | Qt.ItemFlag.ItemIsEnabled
+            for c, index in zip(self._dialect_combos, self._valid_dialect):
+                c.blockSignals(True)
+                c.setCurrentIndex(index)
+                c.blockSignals(False)
+            QToolTip.showText(
+                combo.mapToGlobal(QPoint(0, combo.height())),
+                tr_ui(_T.CSV_DIALECT_CONFLICT),
+                combo,
             )
-        self._quote.setEnabled(delimiter != WHITESPACE_DELIMITER)
+        self._quote.setEnabled(
+            self._delimiter.currentData() != WHITESPACE_DELIMITER
+        )
 
     def _build_drop_zone(self) -> QWidget:
         self._drop_zone = _FileDropZone(tr_ui(_T.RUNS_IMPORT_DROP_HINT))
