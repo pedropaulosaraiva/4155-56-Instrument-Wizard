@@ -20,6 +20,7 @@ MVP rules
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 
 from PySide6.QtCore import QSize, Qt, Signal
@@ -242,7 +243,13 @@ class TablePageView(BasePage):
         for col, name in enumerate(columns):
             values = data[name]
             for row in range(row_count):
-                text = f"{values[row]:.6g}" if row < len(values) else ""
+                # Non-finite points (e.g. blank cells in imported files) are
+                # shown blank, matching the CSV/XLSX export convention.
+                text = (
+                    f"{values[row]:.6g}"
+                    if row < len(values) and math.isfinite(values[row])
+                    else ""
+                )
                 item = QTableWidgetItem(text)
                 item.setTextAlignment(
                     Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter

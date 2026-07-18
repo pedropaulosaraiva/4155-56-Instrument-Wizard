@@ -33,6 +33,7 @@ SETUP_TYPE_LABELS: dict[str, str] = {
     "SAMP": "Sampling",
     "QSCV": "QSCV",
     "HYST": "Hysteresis",
+    "IMPORT": "Imported",
 }
 
 

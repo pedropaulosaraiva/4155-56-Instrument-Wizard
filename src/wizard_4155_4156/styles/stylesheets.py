@@ -1325,12 +1325,21 @@ def settings_dialog_stylesheet() -> str:
             background-color: {P.BG_ELEVATED};
             border-color: {P.ACCENT};
         }}
+        QPushButton:disabled {{
+            background-color: {P.BG_DEEP};
+            color: {P.TEXT_DISABLED};
+            border-color: {P.BG_ELEVATED};
+        }}
         QPushButton#primary {{
             background-color: {P.ACCENT};
             color: {P.TEXT_ON_ACCENT};
             border: none;
         }}
         QPushButton#primary:hover {{ background-color: {P.ACCENT_HOVER}; }}
+        QPushButton#primary:disabled {{
+            background-color: {P.BORDER};
+            color: {P.TEXT_DISABLED};
+        }}
     """
 
 
@@ -1478,6 +1487,97 @@ def runs_secondary_button_stylesheet() -> str:
             color: {P.TEXT_DISABLED};
             border-color: {P.BG_ELEVATED};
             background-color: {P.BG_DEEP};
+        }}
+    """
+
+
+def import_drop_zone_stylesheet(active: bool = False) -> str:
+    """Dashed drag-and-drop target in the Import Measure dialog.
+
+    ``active`` switches to the accent border while a drag hovers the zone.
+    """
+    border = P.ACCENT if active else P.BORDER
+    return f"""
+        QFrame#drop_zone {{
+            background-color: {P.BG_INPUT};
+            border: 2px dashed {border};
+            border-radius: {P.RADIUS_MD};
+        }}
+        QFrame#drop_zone QLabel {{
+            background: transparent;
+            border: none;
+            color: {P.TEXT_DISABLED};
+            font-size: {P.FONT_SIZE_MD};
+        }}
+    """
+
+
+def runs_import_button_stylesheet() -> str:
+    """The Import Measure button in the Setups pane header.
+
+    Like the secondary buttons but on the input background (white in the
+    light theme) so it stands out against the panel.
+    """
+    return f"""
+        QPushButton {{
+            background-color: {P.BG_INPUT};
+            color: {P.TEXT_SECONDARY};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_SM};
+            padding: 5px 12px;
+            font-size: {P.FONT_SIZE_SM};
+        }}
+        QPushButton:hover {{
+            background-color: {P.BG_ELEVATED};
+            border-color: {P.ACCENT};
+            color: {P.TEXT_WHITE};
+        }}
+        QPushButton:pressed {{ background-color: {P.ACCENT_MUTED}; }}
+        QPushButton:disabled {{
+            color: {P.TEXT_DISABLED};
+            border-color: {P.BG_ELEVATED};
+            background-color: {P.BG_DEEP};
+        }}
+    """
+
+
+def import_file_list_stylesheet() -> str:
+    """Flat file list in the Import Measure dialog.
+
+    Rows are widget-based (name + remove button), so unlike the runs lists
+    the items carry no padding of their own — padding would clip the
+    embedded row widget.
+    """
+    return f"""
+        QListWidget {{
+            background-color: {P.BG_INPUT};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+            outline: 0;
+            padding: 2px;
+        }}
+        QListWidget::item {{
+            padding: 0px;
+            margin: 1px 0px;
+            border: 1px solid transparent;
+            border-radius: {P.RADIUS_SM};
+            background: transparent;
+        }}
+        QListWidget::item:selected {{
+            background-color: {P.ACCENT_MUTED};
+            border-color: {P.ACCENT};
+        }}
+        QWidget#import_row {{
+            background: transparent;
+            border-radius: {P.RADIUS_SM};
+        }}
+        QWidget#import_row:hover {{
+            background-color: {P.BG_ELEVATED};
+        }}
+        QListWidget QLabel {{
+            color: {P.TEXT_PRIMARY};
+            font-size: {P.FONT_SIZE_SM};
+            background: transparent;
         }}
     """
 

@@ -44,6 +44,7 @@ from wizard_4155_4156.styles.icons import (
 )
 from wizard_4155_4156.styles.stylesheets import (
     error_bar_stylesheet,
+    runs_import_button_stylesheet,
     runs_list_stylesheet,
     runs_menu_button_stylesheet,
     runs_page_stylesheet,
@@ -74,6 +75,7 @@ class RunsPageView(BasePage):
     apply_setup_requested = Signal(int)  # setup id (hardware)
     apply_run_fetch_requested = Signal(int)  # setup id (hardware)
     copy_to_config_requested = Signal(int)  # setup id (copy)
+    import_measure_requested = Signal()  # presenter opens the import modal
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -211,6 +213,12 @@ class RunsPageView(BasePage):
         self._setups_title.setStyleSheet(runs_panel_title_stylesheet())
         head.addWidget(self._setups_title)
         head.addStretch()
+        self._btn_import = QPushButton(tr_ui(_T.RUNS_BTN_IMPORT))
+        self._btn_import.setIcon(app_icon(AppIcon24.BOOKMARK))
+        self._btn_import.setIconSize(QSize(16, 16))
+        self._btn_import.setStyleSheet(runs_import_button_stylesheet())
+        self._btn_import.clicked.connect(self.import_measure_requested)
+        head.addWidget(self._btn_import)
         self._setups_menu_btn = self._make_menu_button(self._show_setups_menu)
         head.addWidget(self._setups_menu_btn)
         col.addLayout(head)
@@ -289,12 +297,16 @@ class RunsPageView(BasePage):
             available=has_setup,
             unavailable_reason=reason,
         )
+        # Imported setups carry no instrument configuration to edit.
+        is_import = self._current_setup_is_import()
         menu.add_item(
             tr_ui(_T.RUNS_MENU_EDIT_AS_NEW),
             icon=app_icon(AppIcon24.EDIT),
             callback=self._on_copy_clicked,
-            available=has_setup,
-            unavailable_reason=reason,
+            available=has_setup and not is_import,
+            unavailable_reason=(
+                tr_ui(_T.RUNS_IMPORT_NO_COPY) if is_import else reason
+            ),
         )
         menu.add_item(
             tr_ui(_T.RUNS_MENU_SEE_DESC),
@@ -411,9 +423,20 @@ class RunsPageView(BasePage):
     def _update_button_state(self) -> None:
         # The ⋮ menus stay clickable at all times — per-entry availability (and
         # the "why disabled" tooltips) is resolved when each menu is opened.
-        can_run = self._current_setup_id() is not None and self._hardware_ready
+        # Imported setups hold external data only — nothing to send to
+        # hardware, so the apply/run actions stay off for them.
+        can_run = (
+            self._current_setup_id() is not None
+            and self._hardware_ready
+            and not self._current_setup_is_import()
+        )
         self._btn_apply.setEnabled(can_run)
         self._btn_run.setEnabled(can_run)
+
+    def _current_setup_is_import(self) -> bool:
+        setup_id = self._current_setup_id()
+        row = self._setup_rows.get(setup_id) if setup_id is not None else None
+        return row is not None and row.setup_type == "IMPORT"
 
     # ── Qt slots → signals ───────────────────────────────────────────────────
 

@@ -137,6 +137,46 @@ class CommandWizardText(StrEnum):
     )
     RUNS_DELETE_RUN_TITLE = "Delete run"
     RUNS_DELETE_RUN_MSG = "Delete this run and its data?"
+    # Import Measure (external data files → setup + runs)
+    RUNS_BTN_IMPORT = "Import Measure"
+    RUNS_IMPORT_TITLE = "Import measure"
+    RUNS_IMPORT_NAME_LABEL = "Name"
+    RUNS_IMPORT_NAME_PLACEHOLDER = "Unique setup name for the imported data"
+    RUNS_IMPORT_DESC_LABEL = "Description (optional)"
+    RUNS_IMPORT_DESC_PLACEHOLDER = (
+        "Where this data comes from, instrument, conditions…"
+    )
+    RUNS_IMPORT_FORMAT_LABEL = "File format"
+    RUNS_IMPORT_FMT_CSV = "CSV"
+    RUNS_IMPORT_DELIM_LABEL = "Delimiter"
+    RUNS_IMPORT_DELIM_COMMA = "Comma (,)"
+    RUNS_IMPORT_DELIM_SEMI = "Semicolon (;)"
+    RUNS_IMPORT_DELIM_TAB = "Tab"
+    RUNS_IMPORT_DELIM_WS = "Whitespace (spaces/tabs)"
+    RUNS_IMPORT_DECIMAL_LABEL = "Decimal separator"
+    RUNS_IMPORT_DECIMAL_POINT = "Point (.)"
+    RUNS_IMPORT_DECIMAL_COMMA = "Comma (,)"
+    RUNS_IMPORT_QUOTE_LABEL = "Quote character"
+    RUNS_IMPORT_QUOTE_DOUBLE = 'Double quote (")'
+    RUNS_IMPORT_QUOTE_SINGLE = "Single quote (')"
+    RUNS_IMPORT_QUOTE_NONE = "None"
+    RUNS_IMPORT_DROP_HINT = "Drag & drop data files here"
+    RUNS_IMPORT_BROWSE = "Browse…"
+    RUNS_IMPORT_BROWSE_TITLE = "Select data files"
+    RUNS_IMPORT_FILE_FILTER = "CSV files (*.csv);;All files (*)"
+    RUNS_IMPORT_HINT = (
+        "Each run will be named after its file. All files must contain "
+        "the same variables (columns)."
+    )
+    RUNS_IMPORT_BTN_OK = "Import"
+    RUNS_IMPORT_ERR_HEADER = (
+        "Some files could not be imported — nothing was saved:"
+    )
+    RUNS_IMPORT_ERR_STANDARD_VARS = "Standard variables: {vars}"
+    RUNS_IMPORT_ERR_NO_STANDARD = "Standard variables: none (no valid file)"
+    RUNS_IMPORT_NO_COPY = (
+        "Imported setups have no instrument configuration."
+    )
 
     # ── Graphs page ──────────────────────────────────────────────────────────
     GRAPH_SCENE_DEFAULT = "Scene {n}"

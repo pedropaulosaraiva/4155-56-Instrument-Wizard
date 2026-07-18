@@ -13,6 +13,7 @@ worker (no ``Session`` is ever handed to a worker).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -28,10 +29,19 @@ from wizard_4155_4156.db.repository import (
     ExecutionRepository,
     SetupRepository,
 )
+from wizard_4155_4156.extra_widgets.import_measure_dialog import (
+    ImportMeasureDialog,
+)
 from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
     SetupMetadataDialog,
 )
+from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.models.config_loader import channels_config_from_setup
+from wizard_4155_4156.models.data_import import (
+    CsvOptions,
+    ImportResult,
+    parse_import_files,
+)
 from wizard_4155_4156.SCPI.measurement_run_director import (
     MeasurementRunDirector,
 )
@@ -41,6 +51,9 @@ from wizard_4155_4156.SCPI.measurement_setup_director import (
 from wizard_4155_4156.views.pages.runs_page import RunsPageView
 
 _SAMPLE_POINTS = 21
+
+#: instrument_model recorded on setups/executions imported from data files.
+_IMPORT_INSTRUMENT = "External"
 
 # Trace-fetch defaults
 # (mirror LiveMeasurementRunner / MeasureRunCommandBuilder).
@@ -117,6 +130,7 @@ class RunsPresenter(QObject):
         v.apply_setup_requested.connect(self._on_apply_setup)
         v.apply_run_fetch_requested.connect(self._on_apply_run_fetch)
         v.copy_to_config_requested.connect(self._on_copy_to_config)
+        v.import_measure_requested.connect(self._on_import_measure)
 
         self._connector.connection_changed.connect(self._on_connection_changed)
         self._connector.hardware_busy.connect(self._on_hardware_busy)
@@ -309,6 +323,93 @@ class RunsPresenter(QObject):
         self._view.display_error("")
         self._refresh(select_setup_id=setup_id)
 
+    # ── Import Measure (external data files → setup + runs) ──────────────────
+
+    def _on_import_measure(self) -> None:
+        # As with create, the dialog drives the save via on_submit so the
+        # per-file validation report is shown inside the still-open modal.
+        dlg = ImportMeasureDialog(
+            parent=self._view,
+            on_submit=self._import_measure_files,
+        )
+        dlg.exec()
+
+    def _import_measure_files(
+        self,
+        name: str,
+        description: str,
+        paths: list[str],
+        options: CsvOptions,
+    ) -> Optional[str]:
+        """Validate + persist an import; error string keeps the modal open."""
+        db = self._projects.current_db
+        if db is None:
+            return "Open or create a project first."
+        with db.session() as s:
+            if SetupRepository.name_exists(s, name):
+                return f"A setup named '{name}' already exists."
+            taken = {
+                stem
+                for stem in (Path(p).stem for p in paths)
+                if ExecutionRepository.name_exists(s, stem)
+            }
+        result = parse_import_files(paths, options, taken_names=taken)
+        if not result.all_ok:
+            return self._format_import_errors(result)
+
+        settings = self._settings.get()
+        new_id: Optional[int] = None
+        try:
+            # One session ⇒ one transaction: either the setup and every file's
+            # execution land together, or nothing is saved.
+            with db.session() as s:
+                setup = config_dict_to_setup(
+                    {
+                        "mode": "IMPORT",
+                        "display_vars": list(result.variables),
+                    },
+                    name=name,
+                    description=description or None,
+                    author=settings.author or None,
+                    organization=settings.organization or None,
+                    instrument_model=_IMPORT_INSTRUMENT,
+                )
+                SetupRepository.add(s, setup)
+                for file in result.files:
+                    execution = fetch_result_to_execution(
+                        file.data,
+                        setup=setup,
+                        name=file.stem,
+                        instrument_model=_IMPORT_INSTRUMENT,
+                        is_synthetic=True,
+                    )
+                    ExecutionRepository.add(s, execution)
+                new_id = setup.id
+        except IntegrityError:
+            return "A setup or run with one of these names already exists."
+        self._refresh(select_setup_id=new_id)
+        return None
+
+    @staticmethod
+    def _format_import_errors(result: ImportResult) -> str:
+        lines = [tr_ui(CommandWizardText.RUNS_IMPORT_ERR_HEADER)]
+        lines += [
+            f"• {file.stem}: {file.error}"
+            for file in result.files
+            if file.error
+        ]
+        if result.variables:
+            lines.append(
+                tr_ui(
+                    CommandWizardText.RUNS_IMPORT_ERR_STANDARD_VARS
+                ).format(vars=", ".join(result.variables))
+            )
+        else:
+            lines.append(
+                tr_ui(CommandWizardText.RUNS_IMPORT_ERR_NO_STANDARD)
+            )
+        return "\n".join(lines)
+
     def _on_view_data(self, execution_id: int) -> None:
         if self._current_setup_id is None:
             return
@@ -324,7 +425,9 @@ class RunsPresenter(QObject):
         if not self._confirm_instrument_match(setup_id):
             return
         config = self._config_for(setup_id)
-        if config is None:
+        if config is None or config.get("mode") == "IMPORT":
+            # Imported setups have no instrument configuration; the view keeps
+            # the button disabled, this is a belt-and-suspenders guard.
             return
         setup_cmds = self._setup_director.build_full_setup(config)
         self._connector.trigger_setup_only(setup_cmds)
@@ -350,7 +453,7 @@ class RunsPresenter(QObject):
     ) -> None:
         """Setup → run → fetch; the fetched data is persisted on return."""
         config = self._config_for(setup_id)
-        if config is None:
+        if config is None or config.get("mode") == "IMPORT":
             return
         setup_cmds = self._setup_director.build_full_setup(config)
         run_cmds = self._run_director.run_measurement({"standby": "OFF"})
