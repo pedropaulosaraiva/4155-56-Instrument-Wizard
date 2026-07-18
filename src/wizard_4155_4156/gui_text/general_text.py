@@ -95,6 +95,26 @@ class CommandWizardText(StrEnum):
     TABLE_FMT_PY_NUMPY = "Python (NumPy + Matplotlib)"
     TABLE_FMT_C_ARRAY = "C/C++ array"
     TABLE_FMT_MATLAB = "MATLAB vectors"
+    # Export options row (CSV/XLSX only).
+    TABLE_DELIM_LABEL = "Delimiter:"
+    TABLE_DECIMAL_LABEL = "Decimal:"
+    TABLE_QUOTE_LABEL = "Quote:"
+    TABLE_DELIM_COMMA = "Comma (,)"
+    TABLE_DELIM_SEMICOLON = "Semicolon (;)"
+    TABLE_DELIM_TAB = "Tab"
+    TABLE_DELIM_SPACE = "Space"
+    TABLE_DEC_DOT = "Dot (.)"
+    TABLE_DEC_COMMA = "Comma (,)"
+    TABLE_QUOTE_DOUBLE = 'Double quote (")'
+    TABLE_QUOTE_SINGLE = "Single quote (')"
+    TABLE_QUOTE_NONE = "None"
+    TABLE_DATETIME_CHECK = (
+        "Include measurement date and time in the exported filename"
+    )
+    TABLE_BTN_SAVE_ALL = "Save All"  # save icon supplied by the view
+    TABLE_SAVE_ALL_TITLE = "Save all executions (.zip)"
+    TABLE_SAVE_ALL_FILTER = "ZIP archive (*.zip)"
+    TABLE_SAVED_ALL = "Saved {count} executions to {path}"
 
     # ── Measurement Runs (CRUD) page ─────────────────────────────────────────
     RUNS_BTN_CREATE = "Save current config as setup"
@@ -176,6 +196,20 @@ class CommandWizardText(StrEnum):
     RUNS_IMPORT_ERR_NO_STANDARD = "Standard variables: none (no valid file)"
     RUNS_IMPORT_NO_COPY = (
         "Imported setups have no instrument configuration."
+    )
+    # Import Execution (external data files → runs of an existing setup)
+    RUNS_BTN_IMPORT_EXEC = "Import Execution"
+    RUNS_IMPORT_EXEC_TITLE = 'Import runs into "{setup}"'
+    RUNS_IMPORT_EXEC_NAME_LABEL = "Run name (applies to a single file)"
+    RUNS_IMPORT_EXEC_NAME_PLACEHOLDER = "Name for the imported run"
+    RUNS_IMPORT_EXEC_HINT = (
+        "Files must contain exactly the setup's variables: {vars}. "
+        "When multiple files are selected, each run is named after its "
+        "file."
+    )
+    RUNS_IMPORT_EXEC_NO_VARS = (
+        "This setup defines no display variables — imported files cannot "
+        "be validated against it."
     )
 
     # ── Graphs page ──────────────────────────────────────────────────────────

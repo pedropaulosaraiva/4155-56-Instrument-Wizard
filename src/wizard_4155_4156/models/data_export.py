@@ -27,6 +27,7 @@ import re
 import zipfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 Dataset = Mapping[str, Sequence[float]]
@@ -87,6 +88,19 @@ SPECS: dict[DataFormat, FormatSpec] = {
 def is_code(fmt: DataFormat) -> bool:
     """True if *fmt* is rendered as a code snippet (Copy), not a table."""
     return SPECS[fmt].kind is FormatKind.CODE
+
+
+@dataclass(frozen=True)
+class CsvOptions:
+    """User-selectable CSV dialect.  Defaults reproduce the historical
+    RFC-4180 output (comma delimiter, dot decimals, double-quote quoting)."""
+
+    delimiter: str = ","  # "," | ";" | "\t" | " "
+    decimal_separator: str = "."  # "." | ","
+    quotechar: str | None = '"'  # '"' | "'" | None (no quoting)
+
+
+DEFAULT_CSV_OPTIONS = CsvOptions()
 
 
 #: Minimum columns before the NumPy export adds an x/y plot scaffold.
@@ -152,14 +166,40 @@ def _num(value: float, nan_token: str) -> str:
 # =============================================================================
 
 
-def to_csv(data: Dataset) -> str:
-    """RFC-4180 CSV: header row + one row per sample; blanks for nan."""
+def to_csv(data: Dataset, options: CsvOptions = DEFAULT_CSV_OPTIONS) -> str:
+    """CSV: header row + one row per sample; blanks for nan.
+
+    With a quote character, fields containing the delimiter (e.g. comma
+    decimals under a comma delimiter) are quoted per RFC 4180.  With
+    ``quotechar=None`` nothing is ever quoted and collisions are
+    backslash-escaped instead — the user's explicit choice.
+    """
     cols = _columns(data)
     buf = io.StringIO()
-    writer = csv.writer(buf)
+    if options.quotechar is None:
+        writer = csv.writer(
+            buf,
+            delimiter=options.delimiter,
+            quoting=csv.QUOTE_NONE,
+            escapechar="\\",
+        )
+    else:
+        writer = csv.writer(
+            buf,
+            delimiter=options.delimiter,
+            quotechar=options.quotechar,
+            quoting=csv.QUOTE_MINIMAL,
+        )
+
+    def cell(value: float) -> str:
+        text = _num(value, "")
+        if options.decimal_separator != ".":
+            text = text.replace(".", options.decimal_separator)
+        return text
+
     writer.writerow([name for name, _ in cols])
     for i in range(_row_count(cols)):
-        writer.writerow([_num(values[i], "") for _, values in cols])
+        writer.writerow([cell(values[i]) for _, values in cols])
     return buf.getvalue()
 
 
@@ -356,10 +396,86 @@ def generate_text(data: Dataset, fmt: DataFormat) -> str:
         raise ValueError(f"{fmt} has no text representation") from None
 
 
-def generate_bytes(data: Dataset, fmt: DataFormat) -> bytes:
+def generate_bytes(
+    data: Dataset,
+    fmt: DataFormat,
+    csv_options: CsvOptions = DEFAULT_CSV_OPTIONS,
+) -> bytes:
     """Encoded file payload for a table-format download (CSV or XLSX)."""
     if fmt is DataFormat.XLSX:
         return to_xlsx_bytes(data)
     if fmt is DataFormat.CSV:
-        return to_csv(data).encode("utf-8")
+        return to_csv(data, csv_options).encode("utf-8")
     raise ValueError(f"{fmt} is not a downloadable table format")
+
+
+# =============================================================================
+# Export filenames / dataset ordering / zip bundling
+# =============================================================================
+
+#: Timestamp suffix appended to exported filenames (filesystem-safe).
+_TIMESTAMP_FMT = "%Y-%m-%d_%H-%M"
+
+#: Characters illegal in Windows filenames (superset of POSIX restrictions).
+_ILLEGAL_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def sanitize_filename(name: str, fallback: str = "data") -> str:
+    """Coerce *name* into a filesystem-safe base name (no extension)."""
+    cleaned = _ILLEGAL_FILENAME_CHARS.sub("", name)
+    cleaned = re.sub(r"\s+", "_", cleaned.strip())
+    cleaned = cleaned.rstrip(". ")
+    return cleaned or fallback
+
+
+def export_filename(
+    base: str, fmt: DataFormat, timestamp: datetime | None = None
+) -> str:
+    """Suggested filename: sanitized base, optional timestamp, extension."""
+    name = sanitize_filename(base)
+    if timestamp is not None:
+        name += f"_{timestamp:{_TIMESTAMP_FMT}}"
+    return f"{name}.{SPECS[fmt].extension}"
+
+
+def ordered_dataset(
+    data: Dataset, order: Sequence[str]
+) -> dict[str, list[float]]:
+    """Copy of *data* with columns from *order* first (those present), then
+    any remaining columns in their original order."""
+    result: dict[str, list[float]] = {}
+    for name in order:
+        if name in data:
+            result[name] = list(data[name])
+    for name, values in data.items():
+        if name not in result:
+            result[name] = list(values)
+    return result
+
+
+def build_zip(
+    entries: Sequence[tuple[str, datetime | None, Dataset]],
+    fmt: DataFormat,
+    csv_options: CsvOptions = DEFAULT_CSV_OPTIONS,
+    include_timestamp: bool = False,
+) -> bytes:
+    """Bundle ``(name, date, dataset)`` entries into one zip archive.
+
+    Each entry becomes an individual CSV/XLSX file named after its
+    (sanitized) name, optionally suffixed with its timestamp; name
+    collisions are disambiguated with ``_2``, ``_3``, …
+    """
+    used: set[str] = set()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, date, dataset in entries:
+            ts = date if include_timestamp else None
+            filename = export_filename(name, fmt, ts)
+            stem, dot, ext = filename.rpartition(".")
+            k = 2
+            while filename in used:
+                filename = f"{stem}_{k}{dot}{ext}"
+                k += 1
+            used.add(filename)
+            zf.writestr(filename, generate_bytes(dataset, fmt, csv_options))
+    return buf.getvalue()

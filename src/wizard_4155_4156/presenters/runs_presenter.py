@@ -131,6 +131,7 @@ class RunsPresenter(QObject):
         v.apply_run_fetch_requested.connect(self._on_apply_run_fetch)
         v.copy_to_config_requested.connect(self._on_copy_to_config)
         v.import_measure_requested.connect(self._on_import_measure)
+        v.import_execution_requested.connect(self._on_import_execution)
 
         self._connector.connection_changed.connect(self._on_connection_changed)
         self._connector.hardware_busy.connect(self._on_hardware_busy)
@@ -388,6 +389,101 @@ class RunsPresenter(QObject):
         except IntegrityError:
             return "A setup or run with one of these names already exists."
         self._refresh(select_setup_id=new_id)
+        return None
+
+    def _on_import_execution(self, setup_id: int) -> None:
+        """Import CSV files as runs of the selected (existing) setup."""
+        db = self._projects.current_db
+        if db is None:
+            return
+        with db.session() as s:
+            setup = SetupRepository.get(s, setup_id)
+            if setup is None:
+                return
+            setup_name = setup.name
+            expected = [
+                str(v)
+                for v in setup_to_config_dict(setup).get("display_vars", [])
+            ]
+            suggested = self._unique_exec_name(
+                s, setup_name, suffix="import"
+            )
+        if not expected:
+            self._view.display_error(
+                tr_ui(CommandWizardText.RUNS_IMPORT_EXEC_NO_VARS)
+            )
+            return
+        dlg = ImportMeasureDialog(
+            parent=self._view,
+            on_submit=lambda name, desc, paths, options: (
+                self._import_execution_files(
+                    setup_id, expected, name, desc, paths, options
+                )
+            ),
+            title=tr_ui(CommandWizardText.RUNS_IMPORT_EXEC_TITLE).format(
+                setup=setup_name
+            ),
+            name_label=tr_ui(CommandWizardText.RUNS_IMPORT_EXEC_NAME_LABEL),
+            name_placeholder=tr_ui(
+                CommandWizardText.RUNS_IMPORT_EXEC_NAME_PLACEHOLDER
+            ),
+            suggested_name=suggested,
+            hint=tr_ui(CommandWizardText.RUNS_IMPORT_EXEC_HINT).format(
+                vars=", ".join(expected)
+            ),
+            name_for_single_file=True,
+        )
+        dlg.exec()
+
+    def _import_execution_files(
+        self,
+        setup_id: int,
+        expected: list[str],
+        name: str,
+        description: str,
+        paths: list[str],
+        options: CsvOptions,
+    ) -> Optional[str]:
+        """Validate + persist runs into *setup_id*; error keeps modal open."""
+        db = self._projects.current_db
+        if db is None:
+            return "Open or create a project first."
+        single_name = name if len(paths) == 1 and name else None
+        with db.session() as s:
+            if single_name and ExecutionRepository.name_exists(
+                s, single_name
+            ):
+                return f"A run named '{single_name}' already exists."
+            taken = ()
+            if single_name is None:
+                taken = {
+                    stem
+                    for stem in (Path(p).stem for p in paths)
+                    if ExecutionRepository.name_exists(s, stem)
+                }
+        result = parse_import_files(
+            paths, options, taken_names=taken, expected_variables=expected
+        )
+        if not result.all_ok:
+            return self._format_import_errors(result)
+        try:
+            with db.session() as s:
+                setup = SetupRepository.get(s, setup_id)
+                if setup is None:
+                    return "The selected setup no longer exists."
+                for file in result.files:
+                    execution = fetch_result_to_execution(
+                        file.data,
+                        setup=setup,
+                        name=single_name or file.stem,
+                        description=description or None,
+                        instrument_model=_IMPORT_INSTRUMENT,
+                        is_synthetic=True,
+                    )
+                    ExecutionRepository.add(s, execution)
+        except IntegrityError:
+            return "A run with one of these names already exists."
+        self._refresh(select_setup_id=setup_id)
         return None
 
     @staticmethod

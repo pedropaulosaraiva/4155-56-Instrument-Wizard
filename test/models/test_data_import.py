@@ -234,6 +234,25 @@ def test_empty_selection_is_not_ok():
     assert result.variables is None
 
 
+def test_expected_variables_match(tmp_path):
+    path = _write(tmp_path, "a.csv", "V1,I1\n1.0,2.0\n")
+    result = parse_import_files(
+        [path], OPTS, expected_variables=["V1", "I1"]
+    )
+    assert result.all_ok
+    assert result.variables == ["V1", "I1"]
+
+
+def test_expected_variables_mismatch(tmp_path):
+    path = _write(tmp_path, "a.csv", "V1,I1\n1.0,2.0\n")
+    result = parse_import_files(
+        [path], OPTS, expected_variables=["V2", "I2"]
+    )
+    assert "variables do not match" in result.files[0].error
+    # The standard stays the setup's list even though no file was valid.
+    assert result.variables == ["V2", "I2"]
+
+
 # ── Name collisions ──────────────────────────────────────────────────────────
 
 

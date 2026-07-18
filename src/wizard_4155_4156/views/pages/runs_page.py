@@ -76,6 +76,7 @@ class RunsPageView(BasePage):
     apply_run_fetch_requested = Signal(int)  # setup id (hardware)
     copy_to_config_requested = Signal(int)  # setup id (copy)
     import_measure_requested = Signal()  # presenter opens the import modal
+    import_execution_requested = Signal(int)  # setup id (import runs into)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -246,6 +247,13 @@ class RunsPageView(BasePage):
         self._exec_title.setStyleSheet(runs_panel_title_stylesheet())
         head.addWidget(self._exec_title)
         head.addStretch()
+        self._btn_import_exec = QPushButton(tr_ui(_T.RUNS_BTN_IMPORT_EXEC))
+        self._btn_import_exec.setIcon(app_icon(AppIcon24.BOOKMARK))
+        self._btn_import_exec.setIconSize(QSize(16, 16))
+        self._btn_import_exec.setStyleSheet(runs_import_button_stylesheet())
+        self._btn_import_exec.setToolTip(tr_ui(_T.RUNS_NEED_SETUP))
+        self._btn_import_exec.clicked.connect(self._on_import_exec_clicked)
+        head.addWidget(self._btn_import_exec)
         self._runs_menu_btn = self._make_menu_button(self._show_runs_menu)
         head.addWidget(self._runs_menu_btn)
         col.addLayout(head)
@@ -379,6 +387,9 @@ class RunsPageView(BasePage):
             f"{row.execution_count} run(s) · created {created}"
         )
         item = QListWidgetItem(label)
+        if row.setup_type == "IMPORT":
+            # Same external-data badge the imported runs carry.
+            item.setIcon(app_icon(AppIcon24.BOOKMARK))
         item.setData(_ID_ROLE, row.id)
         return item
 
@@ -425,13 +436,18 @@ class RunsPageView(BasePage):
         # the "why disabled" tooltips) is resolved when each menu is opened.
         # Imported setups hold external data only — nothing to send to
         # hardware, so the apply/run actions stay off for them.
+        has_setup = self._current_setup_id() is not None
         can_run = (
-            self._current_setup_id() is not None
+            has_setup
             and self._hardware_ready
             and not self._current_setup_is_import()
         )
         self._btn_apply.setEnabled(can_run)
         self._btn_run.setEnabled(can_run)
+        self._btn_import_exec.setEnabled(has_setup)
+        self._btn_import_exec.setToolTip(
+            "" if has_setup else tr_ui(_T.RUNS_NEED_SETUP)
+        )
 
     def _current_setup_is_import(self) -> bool:
         setup_id = self._current_setup_id()
@@ -497,6 +513,11 @@ class RunsPageView(BasePage):
         setup_id = self._current_setup_id()
         if setup_id is not None:
             self.copy_to_config_requested.emit(setup_id)
+
+    def _on_import_exec_clicked(self) -> None:
+        setup_id = self._current_setup_id()
+        if setup_id is not None:
+            self.import_execution_requested.emit(setup_id)
 
     def _on_delete_exec_clicked(self) -> None:
         exec_id = self._current_execution_id()

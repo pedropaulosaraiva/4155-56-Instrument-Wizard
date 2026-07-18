@@ -8,7 +8,9 @@ through three combo boxes (Setup → Execution → Format) and rendered in the
 central area either as a spreadsheet-like table (CSV / XLSX formats) or as a
 syntax-highlighted code snippet (Pure Python / NumPy+Matplotlib / C / MATLAB).
 A single action button toggles between **Download** (table formats) and
-**Copy** (code formats).
+**Copy** (code formats); table formats add a **Save All** button (zip of every
+execution) plus a format-specific export-options row, and the table columns
+can be drag-reordered (exports follow the visual order).
 
 MVP rules
 ---------
@@ -25,6 +27,7 @@ from collections.abc import Sequence
 
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -48,11 +51,14 @@ from wizard_4155_4156.styles.stylesheets import (
     data_table_stylesheet,
     error_bar_stylesheet,
     export_btn_stylesheet,
+    global_option_checkbox_stylesheet,
+    runs_secondary_button_stylesheet,
     section_title_stylesheet,
     table_code_view_stylesheet,
     table_empty_label_stylesheet,
     table_page_stylesheet,
     table_selector_label_stylesheet,
+    unit_card_combo_stylesheet,
 )
 from wizard_4155_4156.views.pages import BasePage
 from wizard_4155_4156.views.widgets.code_highlighter import CodeHighlighter
@@ -70,6 +76,7 @@ class TablePageView(BasePage):
     execution_changed = Signal(int)
     format_changed = Signal(int)  # carries the format combo index
     action_requested = Signal()  # Download or Copy (presenter decides which)
+    save_all_requested = Signal()  # export every execution as a .zip
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -93,6 +100,7 @@ class TablePageView(BasePage):
         root.addWidget(title)
 
         root.addLayout(self._build_selectors())
+        root.addWidget(self._build_options_row())
 
         self._error = QLabel("")
         self._error.setStyleSheet(error_bar_stylesheet())
@@ -123,6 +131,16 @@ class TablePageView(BasePage):
         row.addWidget(self._format_combo)
         row.addStretch()
 
+        self._save_all_btn = QPushButton(
+            tr_ui(CommandWizardText.TABLE_BTN_SAVE_ALL)
+        )
+        self._save_all_btn.setStyleSheet(runs_secondary_button_stylesheet())
+        self._save_all_btn.setIcon(app_icon(AppIcon24.SAVE))
+        self._save_all_btn.setIconSize(QSize(16, 16))
+        self._save_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._save_all_btn.clicked.connect(self.save_all_requested.emit)
+        row.addWidget(self._save_all_btn)
+
         self._action_btn = QPushButton()
         self._action_btn.setStyleSheet(export_btn_stylesheet())
         self._action_btn.setIconSize(QSize(16, 16))
@@ -131,6 +149,52 @@ class TablePageView(BasePage):
         self.set_action_mode("download")
         row.addWidget(self._action_btn)
         return row
+
+    def _build_options_row(self) -> QWidget:
+        """Format-specific export options (visible for CSV/XLSX only)."""
+        self._options_row = QWidget()
+        row = QHBoxLayout(self._options_row)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(8)
+
+        self._delim_combo = self._make_option_combo()
+        self._decimal_combo = self._make_option_combo()
+        self._quote_combo = self._make_option_combo()
+
+        delim_label = self._label(CommandWizardText.TABLE_DELIM_LABEL)
+        decimal_label = self._label(CommandWizardText.TABLE_DECIMAL_LABEL)
+        quote_label = self._label(CommandWizardText.TABLE_QUOTE_LABEL)
+
+        row.addWidget(delim_label)
+        row.addWidget(self._delim_combo)
+        row.addSpacing(12)
+        row.addWidget(decimal_label)
+        row.addWidget(self._decimal_combo)
+        row.addSpacing(12)
+        row.addWidget(quote_label)
+        row.addWidget(self._quote_combo)
+        row.addSpacing(16)
+
+        self._datetime_check = QCheckBox(
+            tr_ui(CommandWizardText.TABLE_DATETIME_CHECK)
+        )
+        self._datetime_check.setStyleSheet(
+            global_option_checkbox_stylesheet()
+        )
+        self._datetime_check.setCursor(Qt.CursorShape.PointingHandCursor)
+        row.addWidget(self._datetime_check)
+        row.addStretch()
+
+        self._csv_only = [
+            delim_label,
+            self._delim_combo,
+            decimal_label,
+            self._decimal_combo,
+            quote_label,
+            self._quote_combo,
+        ]
+        self._options_row.setVisible(False)
+        return self._options_row
 
     def _build_content(self) -> QWidget:
         self._stack = QStackedWidget()
@@ -145,7 +209,11 @@ class TablePageView(BasePage):
         self._table.setAlternatingRowColors(True)
         self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table.setSortingEnabled(False)
-        self._table.horizontalHeader().setStretchLastSection(True)
+        header = self._table.horizontalHeader()
+        header.setStretchLastSection(True)
+        header.setSectionsMovable(True)
+        header.sectionMoved.connect(self._on_section_moved)
+        self._column_order: list[str] = []
         self._stack.addWidget(self._table)  # _PAGE_TABLE
 
         self._code = QPlainTextEdit()
@@ -184,6 +252,31 @@ class TablePageView(BasePage):
             self._format_combo.addItem(label)
         self._format_combo.blockSignals(False)
 
+    def set_csv_option_items(
+        self,
+        delimiters: Sequence[str],
+        decimals: Sequence[str],
+        quotes: Sequence[str],
+    ) -> None:
+        for combo, labels in (
+            (self._delim_combo, delimiters),
+            (self._decimal_combo, decimals),
+            (self._quote_combo, quotes),
+        ):
+            combo.blockSignals(True)
+            combo.clear()
+            for label in labels:
+                combo.addItem(label)
+            combo.setCurrentIndex(0)
+            combo.blockSignals(False)
+
+    def set_export_options_mode(self, mode: str) -> None:
+        """Show the options row for ``"csv"`` (all options) or ``"xlsx"``
+        (filename checkbox only); ``"hidden"`` hides the whole row."""
+        self._options_row.setVisible(mode in ("csv", "xlsx"))
+        for widget in self._csv_only:
+            widget.setVisible(mode == "csv")
+
     def select_setup(self, setup_id: int) -> None:
         self._select_by_data(self._setup_combo, setup_id)
 
@@ -206,6 +299,30 @@ class TablePageView(BasePage):
     def current_format_index(self) -> int:
         return self._format_combo.currentIndex()
 
+    def current_delimiter_index(self) -> int:
+        return self._delim_combo.currentIndex()
+
+    def current_decimal_index(self) -> int:
+        return self._decimal_combo.currentIndex()
+
+    def current_quote_index(self) -> int:
+        return self._quote_combo.currentIndex()
+
+    def datetime_in_filename(self) -> bool:
+        return self._datetime_check.isChecked()
+
+    def current_column_order(self) -> list[str]:
+        """Column names in the current *visual* (drag-adjusted) order."""
+        header = self._table.horizontalHeader()
+        order: list[str] = []
+        for visual in range(self._table.columnCount()):
+            item = self._table.horizontalHeaderItem(
+                header.logicalIndex(visual)
+            )
+            if item is not None:
+                order.append(item.text())
+        return order
+
     def set_action_mode(self, mode: str) -> None:
         """Switch the action button persona: ``"download"`` or ``"copy"``."""
         if mode == "copy":
@@ -220,6 +337,12 @@ class TablePageView(BasePage):
 
     def set_action_enabled(self, enabled: bool) -> None:
         self._action_btn.setEnabled(enabled)
+
+    def set_save_all_visible(self, visible: bool) -> None:
+        self._save_all_btn.setVisible(visible)
+
+    def set_save_all_enabled(self, enabled: bool) -> None:
+        self._save_all_btn.setEnabled(enabled)
 
     def display_error(self, text: str) -> None:
         self._error.setText(text)
@@ -255,6 +378,7 @@ class TablePageView(BasePage):
                     Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
                 )
                 self._table.setItem(row, col, item)
+        self._apply_column_order(columns)
         self._stack.setCurrentIndex(_PAGE_TABLE)
 
     def display_code(self, text: str, language: str | None) -> None:
@@ -269,6 +393,32 @@ class TablePageView(BasePage):
         combo = QComboBox()
         combo.setStyleSheet(config_combo_stylesheet())
         return combo
+
+    @staticmethod
+    def _make_option_combo() -> QComboBox:
+        combo = QComboBox()
+        combo.setStyleSheet(unit_card_combo_stylesheet())
+        return combo
+
+    def _apply_column_order(self, columns: Sequence[str]) -> None:
+        """Re-apply the remembered visual order after a table re-render."""
+        header = self._table.horizontalHeader()
+        header.blockSignals(True)
+        # Reset any stale visual mapping left over from the previous render.
+        for logical in range(self._table.columnCount()):
+            visual = header.visualIndex(logical)
+            if visual != logical:
+                header.moveSection(visual, logical)
+        if set(self._column_order) == set(columns):
+            name_to_logical = {name: i for i, name in enumerate(columns)}
+            for target_visual, name in enumerate(self._column_order):
+                visual = header.visualIndex(name_to_logical[name])
+                if visual != target_visual:
+                    header.moveSection(visual, target_visual)
+        else:
+            # Different variable set — forget the stale order.
+            self._column_order = list(columns)
+        header.blockSignals(False)
 
     @staticmethod
     def _label(text: CommandWizardText) -> QLabel:
@@ -310,3 +460,6 @@ class TablePageView(BasePage):
         index = self._format_combo.currentIndex()
         if index >= 0:
             self.format_changed.emit(index)
+
+    def _on_section_moved(self, *_args) -> None:
+        self._column_order = self.current_column_order()
