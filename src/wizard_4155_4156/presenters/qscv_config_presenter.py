@@ -39,6 +39,16 @@ from wizard_4155_4156.models.qscv_config import (
     leak_integration_bounds,
     ranges_for_model,
 )
+from wizard_4155_4156.models.qscv_reference import (
+    MIN_ACCURATE_CSTEP,
+    SAFETY_MARGIN_MAX,
+    SAFETY_MARGIN_MIN,
+    format_capacitance,
+    format_integration_time,
+    max_capacitance,
+    nearest_supported_time,
+    supported_integration_times,
+)
 from wizard_4155_4156.models.sweep_config import (
     DISPLAY_VARS_MAX,
     measured_variable,
@@ -143,6 +153,8 @@ class QscvConfigPresenter(QObject):
         v.cap_name_changed.connect(self._on_cap_name)
         v.leak_name_changed.connect(self._on_leak_name)
         v.leak_comp_changed.connect(self._on_leak_comp)
+        v.referenced_mode_changed.connect(self._on_referenced_mode)
+        v.referenced_int_changed.connect(self._on_referenced_int)
 
         v.delay_committed.connect(self._on_delay)
         v.hold_time_committed.connect(self._on_hold_time)
@@ -232,6 +244,8 @@ class QscvConfigPresenter(QObject):
         allowed_values = [v for _, v, _ in ranges_for_model(instrument_model)]
         if self._config.meas_range not in allowed_values and allowed_values:
             self._config.meas_range = allowed_values[0]
+            # The reference grid follows the range — re-snap after clamping.
+            self._snap_referenced_time()
 
         # Clamp the measuring unit if it no longer references an enabled SMU.
         if (
@@ -326,6 +340,7 @@ class QscvConfigPresenter(QObject):
             leak_bounds=self._leak_bounds(),
         )
         self._view.display_config(self._config_snapshot())
+        self._push_referenced_state()
 
         var1_label = ctx.get("var1_channel") or "—"
         self._view.display_var1_context(
@@ -341,6 +356,71 @@ class QscvConfigPresenter(QObject):
             self._available_vars(), cfg.display_vars
         )
         self._update_validation()
+
+    # ── Referenced Mode (maximum measurable capacitance) ───────────────
+
+    def _referenced_times(self) -> List[float]:
+        return supported_integration_times(
+            self._config.meas_range, self._line_frequency_hz
+        )
+
+    def _snap_referenced_time(self) -> None:
+        """Pull both integration times onto the reference grid.
+
+        No-op outside Referenced Mode.  Called when the mode is switched on and
+        whenever the range changes, since the grid is range-dependent.
+        """
+        if not self._config.referenced_mode:
+            return
+        snapped = nearest_supported_time(
+            self._config.cap_integration_time,
+            self._config.meas_range,
+            self._line_frequency_hz,
+        )
+        if snapped is None:
+            return
+        self._config.cap_integration_time = snapped
+        self._config.leak_integration_time = snapped
+
+    def _push_referenced_state(self) -> None:
+        """Refresh the mode widgets and the maximum-capacitance readout."""
+        cfg = self._config
+        times = self._referenced_times()
+        self._view.display_referenced_mode(
+            cfg.referenced_mode,
+            [(format_integration_time(t), t) for t in times],
+            cfg.cap_integration_time,
+        )
+
+        if not cfg.referenced_mode:
+            self._view.display_max_capacitance("", "")
+            return
+
+        c_max = max_capacitance(
+            cfg.meas_range, cfg.cap_integration_time, cfg.var1.cstep
+        )
+        if c_max is None:
+            self._view.display_max_capacitance(
+                "Max measurable C — not available",
+                "No manufacturer reference curve for this range, integration "
+                "time and measurement voltage.",
+            )
+            return
+
+        headline = f"Max measurable C ≈ {format_capacitance(c_max)}"
+        note = (
+            "Manufacturer reference value, not a guaranteed limit — keep the "
+            f"device under test {SAFETY_MARGIN_MIN:g}×–{SAFETY_MARGIN_MAX:g}× "
+            f"below it ({format_capacitance(c_max / SAFETY_MARGIN_MIN)} – "
+            f"{format_capacitance(c_max / SAFETY_MARGIN_MAX)}) for reliable, "
+            "oscillation-free measurements."
+        )
+        if cfg.var1.cstep < MIN_ACCURATE_CSTEP:
+            note += (
+                f"  Best accuracy needs a QSCV Meas Voltage of at least "
+                f"{MIN_ACCURATE_CSTEP:g} V."
+            )
+        self._view.display_max_capacitance(headline, note)
 
     def _cap_bounds(self):
         return cap_integration_bounds(self._line_frequency_hz)
@@ -383,6 +463,27 @@ class QscvConfigPresenter(QObject):
 
     def _on_range(self, val: float) -> None:
         self._config.meas_range = val
+        # The reference grid is range-dependent: the 10 pA / 100 pA curves stop
+        # at 300 ms, so a shorter time selected on a wider range must re-snap.
+        self._snap_referenced_time()
+        self._push_referenced_state()
+        self._update_validation()
+
+    def _on_referenced_mode(self, enabled: bool) -> None:
+        self._config.referenced_mode = enabled
+        if enabled:
+            self._snap_referenced_time()
+            self._view.display_config(self._config_snapshot())
+        self._push_referenced_state()
+        self._update_validation()
+
+    def _on_referenced_int(self, seconds: float) -> None:
+        # Referenced Mode keeps both integration times equal — that is how the
+        # manufacturer's reference curves were measured.
+        self._config.cap_integration_time = seconds
+        self._config.leak_integration_time = seconds
+        self._view.display_config(self._config_snapshot())
+        self._push_referenced_state()
         self._update_validation()
 
     def _on_cap_int(self, val: float) -> None:
@@ -446,6 +547,8 @@ class QscvConfigPresenter(QObject):
 
     def _on_var1_cstep(self, val: float) -> None:
         self._config.var1.cstep = val
+        # cstep is the V in C_max = A / V — the readout must track it live.
+        self._push_referenced_state()
         self._update_validation()
 
     def _on_var1_comp(self, val: float) -> None:
@@ -539,14 +642,25 @@ class QscvConfigPresenter(QObject):
             errors[f"model_err_{i}"] = err
         return errors
 
+    def _warnings(self) -> List[str]:
+        """Non-blocking advisories shown in amber on the top bar."""
+        cfg = self._config
+        warnings: List[str] = []
+        if cfg.referenced_mode and 0 < cfg.var1.cstep < MIN_ACCURATE_CSTEP:
+            warnings.append(
+                f"QSCV Meas Voltage: {cfg.var1.cstep:.3g} V is below "
+                f"{MIN_ACCURATE_CSTEP:g} V — the manufacturer's capacitance "
+                f"accuracy specification no longer applies."
+            )
+        return warnings
+
     def _update_validation(self) -> None:
         criticals = list(self._run_validation().values())
         indexes, points, exec_time = measurement_stat_values(
             qscv_measurement_stats(self._config)
         )
-        # QSCV has no non-blocking warnings yet (reserved for future rules).
         self._view.display_measurement_status(
-            criticals, [], indexes, points, exec_time
+            criticals, self._warnings(), indexes, points, exec_time
         )
 
     # ── JSON builder ───────────────────────────────────────────────────

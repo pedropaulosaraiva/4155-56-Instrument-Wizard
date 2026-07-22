@@ -206,6 +206,10 @@ class QscvConfig:
     leak_compensation: bool = False  # LCAN
     zero_cancel: bool = False  # ZCAN
     sweep_stop: SweepStop = SweepStop.OFF
+    # Referenced Mode is a UI-only aid: it restricts the integration times to
+    # the manufacturer's reference grid (and keeps cap/leak equal) so a maximum
+    # measurable capacitance can be derived.  Never persisted to JSON.
+    referenced_mode: bool = False
     var1: QscvVar1Config = field(default_factory=QscvVar1Config)
     channel_standby: Dict[str, bool] = field(default_factory=dict)
     display_vars: List[str] = field(default_factory=list)
@@ -283,9 +287,7 @@ class QscvConstraints:
                 errors.append(below("VAR1 Step", abs(v1.step), True))
         if not any(e.startswith("QSCV Meas Voltage") for e in prior_errors):
             if abs(v1.cstep) < 2 * res:
-                errors.append(
-                    below("QSCV Meas Voltage", abs(v1.cstep), True)
-                )
+                errors.append(below("QSCV Meas Voltage", abs(v1.cstep), True))
         return errors
 
     @staticmethod
@@ -316,6 +318,43 @@ class QscvConstraints:
                 f"Leak Integration Time: invalid value "
                 f"(range: {lmin:.4g} – {lmax:.4g} s at {line_frequency_hz} Hz)"
             )
+
+        # 1b. Referenced Mode restricts the integration time to the reference
+        # grid and keeps both times equal.  Imported inside the function:
+        # models/qscv_reference.py depends on this module's integration bounds,
+        # so a module-level import would be circular.
+        if cfg.referenced_mode:
+            from wizard_4155_4156.models.qscv_reference import (  # noqa: PLC0415
+                format_integration_time,
+                supported_integration_times,
+            )
+
+            allowed_times = supported_integration_times(
+                cfg.meas_range, line_frequency_hz
+            )
+            if not any(
+                math.isclose(cfg.cap_integration_time, t, rel_tol=1e-9)
+                for t in allowed_times
+            ):
+                shown = (
+                    ", ".join(
+                        format_integration_time(t) for t in allowed_times
+                    )
+                    or "none for this range"
+                )
+                errors.append(
+                    f"QSCV Integration Time: Referenced Mode allows only the "
+                    f"manufacturer reference times ({shown})"
+                )
+            elif not math.isclose(
+                cfg.cap_integration_time,
+                cfg.leak_integration_time,
+                rel_tol=1e-9,
+            ):
+                errors.append(
+                    "Referenced Mode: QSCV and Leak Integration Time must be "
+                    "equal"
+                )
 
         # 2. Timing
         if not (DELAY_MIN <= cfg.delay <= DELAY_MAX):

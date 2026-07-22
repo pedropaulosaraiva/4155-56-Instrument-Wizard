@@ -62,6 +62,8 @@ from wizard_4155_4156.styles.stylesheets import (
     config_body_stylesheet,
     config_page_stylesheet,
     config_scroll_area_stylesheet,
+    qscv_reference_headline_stylesheet,
+    qscv_reference_note_stylesheet,
     unit_card_combo_stylesheet,
     unit_card_line_edit_stylesheet,
 )
@@ -141,6 +143,8 @@ class _QscvMeasSetupSection(_SectionFrame):
     cap_int_committed = Signal(float)
     leak_int_committed = Signal(float)
     leak_comp_changed = Signal(bool)
+    referenced_mode_changed = Signal(bool)
+    referenced_int_changed = Signal(float)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(
@@ -151,6 +155,7 @@ class _QscvMeasSetupSection(_SectionFrame):
         )
         self._range_values: List[float] = []
         self._range_resolutions: List[str] = []
+        self._referenced = False
 
         self._unit_combo = QComboBox()
         self._unit_combo.setStyleSheet(unit_card_combo_stylesheet())
@@ -162,11 +167,26 @@ class _QscvMeasSetupSection(_SectionFrame):
             _form_row("Measurement Range", self._range_combo)
         )
 
+        self._ref_seg = _SegmentedGroup(["OFF", "ON"], "OFF")
+        self.body().addWidget(_form_row("Referenced Mode", self._ref_seg))
+
+        # Two mutually exclusive ways to set the QSCV integration time: free
+        # entry (normal) and a reference-grid dropdown (Referenced Mode).  The
+        # row widgets are kept so exactly one can be shown at a time.
         cap_lo, cap_hi = cap_integration_bounds(50)
         self._cap_int_edit = _SciDoubleEdit(0.1, cap_lo, cap_hi, "s")
-        self.body().addWidget(
-            _form_row("QSCV Integration Time", self._cap_int_edit)
+        self._cap_int_row = _form_row(
+            "QSCV Integration Time", self._cap_int_edit
         )
+        self.body().addWidget(self._cap_int_row)
+
+        self._ref_int_combo = QComboBox()
+        self._ref_int_combo.setStyleSheet(unit_card_combo_stylesheet())
+        self._ref_int_row = _form_row(
+            "QSCV Integration Time", self._ref_int_combo
+        )
+        self._ref_int_row.setVisible(False)
+        self.body().addWidget(self._ref_int_row)
 
         leak_lo, leak_hi = leak_integration_bounds(50)
         self._leak_int_edit = _SciDoubleEdit(0.1, leak_lo, leak_hi, "s")
@@ -185,6 +205,19 @@ class _QscvMeasSetupSection(_SectionFrame):
         )
         self.body().addWidget(self._resolution_lbl)
 
+        # Maximum measurable capacitance readout (Referenced Mode only).
+        self._max_cap_lbl = QLabel("")
+        self._max_cap_lbl.setStyleSheet(qscv_reference_headline_stylesheet())
+        self._max_cap_lbl.setWordWrap(True)
+        self._max_cap_lbl.setVisible(False)
+        self.body().addWidget(self._max_cap_lbl)
+
+        self._max_cap_note_lbl = QLabel("")
+        self._max_cap_note_lbl.setStyleSheet(qscv_reference_note_stylesheet())
+        self._max_cap_note_lbl.setWordWrap(True)
+        self._max_cap_note_lbl.setVisible(False)
+        self.body().addWidget(self._max_cap_note_lbl)
+
         self._unit_combo.currentIndexChanged.connect(self._on_unit)
         self._range_combo.currentIndexChanged.connect(self._on_range)
         self._cap_int_edit.value_committed.connect(self.cap_int_committed)
@@ -192,6 +225,10 @@ class _QscvMeasSetupSection(_SectionFrame):
         self._leak_seg.selection_changed.connect(
             lambda v: self.leak_comp_changed.emit(v == "ON")
         )
+        self._ref_seg.selection_changed.connect(
+            lambda v: self.referenced_mode_changed.emit(v == "ON")
+        )
+        self._ref_int_combo.currentIndexChanged.connect(self._on_ref_int)
 
     # ── Display API ─────────────────────────────────────────────────────
 
@@ -238,19 +275,59 @@ class _QscvMeasSetupSection(_SectionFrame):
         self._leak_int_edit.set_value(leak_time)
         self._leak_seg.set_value("ON" if leak_comp else "OFF")
 
+    def display_referenced_mode(
+        self,
+        enabled: bool,
+        times: List[Tuple[str, float]],
+        current: float,
+    ) -> None:
+        """Switch between free-entry and reference-grid integration time.
+
+        ``times`` are (label, seconds) pairs for the dropdown; the leak field
+        is locked while Referenced Mode is on because it must mirror the QSCV
+        integration time exactly.
+        """
+        self._referenced = enabled
+        self._ref_seg.set_value("ON" if enabled else "OFF")
+        self._cap_int_row.setVisible(not enabled)
+        self._ref_int_row.setVisible(enabled)
+        self._leak_int_edit.setEnabled(not enabled)
+
+        self._ref_int_combo.blockSignals(True)
+        self._ref_int_combo.clear()
+        sel = -1
+        for i, (label, seconds) in enumerate(times):
+            self._ref_int_combo.addItem(label, seconds)
+            if abs(seconds - current) <= abs(seconds) * 1e-9:
+                sel = i
+        if sel < 0 and times:
+            sel = 0
+        self._ref_int_combo.setCurrentIndex(sel)
+        self._ref_int_combo.blockSignals(False)
+
+    def display_max_capacitance(self, headline: str, note: str) -> None:
+        """Show (or hide, on empty strings) the reference-capacitance block."""
+        self._max_cap_lbl.setText(headline)
+        self._max_cap_lbl.setVisible(bool(headline))
+        self._max_cap_note_lbl.setText(note)
+        self._max_cap_note_lbl.setVisible(bool(note))
+
     def current_unit(self) -> str:
         return self._unit_combo.currentData() or "DEFAULT"
 
     def get_input_errors(self) -> Dict[str, str]:
         errors = {}
-        if self._cap_int_edit.get_value() is None:
-            errors["cap_int"] = (
-                "QSCV Integration Time: value is empty or invalid"
-            )
-        if self._leak_int_edit.get_value() is None:
-            errors["leak_int"] = (
-                "Leak Integration Time: value is empty or invalid"
-            )
+        # In Referenced Mode the free-entry fields are replaced/locked by the
+        # dropdown, so neither can be empty.
+        if not self._referenced:
+            if self._cap_int_edit.get_value() is None:
+                errors["cap_int"] = (
+                    "QSCV Integration Time: value is empty or invalid"
+                )
+            if self._leak_int_edit.get_value() is None:
+                errors["leak_int"] = (
+                    "Leak Integration Time: value is empty or invalid"
+                )
         return errors
 
     # ── Private ─────────────────────────────────────────────────────────
@@ -271,6 +348,11 @@ class _QscvMeasSetupSection(_SectionFrame):
         self._update_resolution_label()
         if 0 <= idx < len(self._range_values):
             self.range_changed.emit(self._range_values[idx])
+
+    def _on_ref_int(self, idx: int) -> None:
+        seconds = self._ref_int_combo.itemData(idx)
+        if seconds is not None:
+            self.referenced_int_changed.emit(float(seconds))
 
 
 class _QscvTimingSection(_SectionFrame):
@@ -438,6 +520,8 @@ class QscvConfigPageView(BasePage):
     cap_int_committed = Signal(float)
     leak_int_committed = Signal(float)
     leak_comp_changed = Signal(bool)
+    referenced_mode_changed = Signal(bool)
+    referenced_int_changed = Signal(float)
 
     # User-function names
     cap_name_changed = Signal(str)
@@ -508,6 +592,17 @@ class QscvConfigPageView(BasePage):
         self._meas_sec.display_units(unit_options, current_unit)
         self._meas_sec.display_ranges(ranges, current_range)
         self._meas_sec.display_integration_bounds(cap_bounds, leak_bounds)
+
+    def display_referenced_mode(
+        self,
+        enabled: bool,
+        times: List[Tuple[str, float]],
+        current: float,
+    ) -> None:
+        self._meas_sec.display_referenced_mode(enabled, times, current)
+
+    def display_max_capacitance(self, headline: str, note: str) -> None:
+        self._meas_sec.display_max_capacitance(headline, note)
 
     def display_config(self, snap: dict) -> None:
         ms = snap.get("measure_setup", {})
@@ -687,6 +782,8 @@ class QscvConfigPageView(BasePage):
         m.cap_int_committed.connect(self.cap_int_committed)
         m.leak_int_committed.connect(self.leak_int_committed)
         m.leak_comp_changed.connect(self.leak_comp_changed)
+        m.referenced_mode_changed.connect(self.referenced_mode_changed)
+        m.referenced_int_changed.connect(self.referenced_int_changed)
 
         t = self._timing_sec
         t.delay_committed.connect(self.delay_committed)

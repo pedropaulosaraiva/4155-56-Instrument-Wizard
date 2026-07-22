@@ -2312,6 +2312,23 @@ def graph_analysis_message_stylesheet() -> str:
     )
 
 
+def qscv_reference_headline_stylesheet() -> str:
+    """Amber headline for the QSCV maximum-measurable-capacitance readout."""
+    return (
+        f"QLabel {{ color: {P.STATUS_CAUTION}; "
+        f"font-size: {P.FONT_SIZE_SM}; background: transparent; }}"
+    )
+
+
+def qscv_reference_note_stylesheet() -> str:
+    """Muted italic caveat lines under the QSCV capacitance readout."""
+    return (
+        f"QLabel {{ color: {P.TEXT_DISABLED}; "
+        f"font-size: {P.FONT_SIZE_XS}; background: transparent; "
+        f"font-style: italic; }}"
+    )
+
+
 def graph_cursor_readout_stylesheet() -> str:
     """Monospace cursor x/y (and Δ) readout label in the View tab."""
     return (
