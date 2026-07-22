@@ -24,6 +24,7 @@ from PySide6.QtGui import (
     QDropEvent,
 )
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -152,7 +153,7 @@ class ImportMeasureDialog(QDialog):
         self._name_for_single_file = name_for_single_file
         self.setWindowTitle(self._title)
         self.setModal(True)
-        self.setMinimumWidth(520)
+        self.setMinimumWidth(580)
         self.setStyleSheet(settings_dialog_stylesheet())
         # Accept drops on the whole dialog, not just the dashed zone — the
         # zone is the visual affordance, but any spot in the modal works.
@@ -160,6 +161,7 @@ class ImportMeasureDialog(QDialog):
         self._build_ui()
         self._name.setText(suggested_name)
         self._update_ok_enabled()
+        self._apply_height()
 
     # ── Dialog-wide drag-and-drop ────────────────────────────────────────────
 
@@ -204,8 +206,28 @@ class ImportMeasureDialog(QDialog):
     # ── Build ────────────────────────────────────────────────────────────────
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(22, 20, 22, 18)
+        # The form can outgrow short screens, so the body scrolls while the
+        # Cancel/OK bar stays pinned; the dialog height is clamped to the
+        # screen in _apply_height().  Reuses the settings-dialog scroll QSS.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        self._scroll = QScrollArea()
+        self._scroll.setObjectName("settings-scroll")
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        outer.addWidget(self._scroll, 1)
+
+        self._content = QWidget()
+        self._content.setObjectName("settings-content")
+        self._scroll.setWidget(self._content)
+
+        root = QVBoxLayout(self._content)
+        root.setContentsMargins(22, 20, 22, 12)
         root.setSpacing(12)
 
         heading = QLabel(self._title)
@@ -241,27 +263,24 @@ class ImportMeasureDialog(QDialog):
         hint.setWordWrap(True)
         root.addWidget(hint)
 
-        # Errors can list one line per bad file — keep them in a fixed-height
-        # scroll box so the modal never grows.
+        # Errors can list one line per bad file.  The whole modal now scrolls
+        # (see _build_ui), so the error grows to fit its content and the outer
+        # scroll — and _show_error scrolls it into view — instead of being
+        # clipped inside a nested fixed-height box.
         self._error = QLabel("")
         self._error.setWordWrap(True)
         self._error.setStyleSheet(error_bar_stylesheet())
         self._error.setAlignment(
             Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
         )
-        self._error_box = QScrollArea()
-        self._error_box.setWidget(self._error)
-        self._error_box.setWidgetResizable(True)
-        self._error_box.setFixedHeight(90)
-        self._error_box.setFrameShape(QFrame.Shape.NoFrame)
-        self._error_box.setStyleSheet("background: transparent;")
-        self._error_box.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self._error_box.setVisible(False)
-        root.addWidget(self._error_box)
+        self._error.setVisible(False)
+        root.addWidget(self._error)
+        root.addStretch(1)
 
-        buttons = QHBoxLayout()
+        button_bar = QWidget()
+        button_bar.setObjectName("settings-buttonbar")
+        buttons = QHBoxLayout(button_bar)
+        buttons.setContentsMargins(22, 10, 22, 16)
         buttons.addStretch()
         self._btn_cancel = QPushButton("Cancel")
         self._btn_cancel.clicked.connect(self.reject)
@@ -271,7 +290,8 @@ class ImportMeasureDialog(QDialog):
         self._btn_ok.clicked.connect(self._handle_submit)
         buttons.addWidget(self._btn_cancel)
         buttons.addWidget(self._btn_ok)
-        root.addLayout(buttons)
+        outer.addWidget(button_bar, 0)
+        self._button_bar = button_bar
 
     def _build_format_row(self) -> QGridLayout:
         grid = QGridLayout()
@@ -465,8 +485,52 @@ class ImportMeasureDialog(QDialog):
 
     def _show_error(self, message: str) -> None:
         self._error.setText(message)
-        self._error_box.setVisible(True)
+        self._error.setVisible(True)
+        self._apply_height()
+        # Bring the (bottom-most) error into view within the scrolled body.
+        self._scroll.ensureWidgetVisible(self._error)
 
     def _clear_error(self) -> None:
         self._error.clear()
-        self._error_box.setVisible(False)
+        self._error.setVisible(False)
+        self._apply_height()
+
+    # ── Sizing ───────────────────────────────────────────────────────────────
+
+    def _apply_height(self) -> None:
+        """Size the dialog to its content, clamped to the visible screen.
+
+        Mirrors ``SettingsDialog``: cap the height (the body scrolls past it)
+        and shift the window up so the whole modal stays on-screen.
+        """
+        wanted = (
+            self._content.sizeHint().height()
+            + self._button_bar.sizeHint().height()
+            + 2
+        )
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            self.resize(self.width(), wanted)
+            return
+
+        avail = screen.availableGeometry()
+        # Leave room for the window title bar / frame plus a comfortable margin
+        # so the window never fills the whole screen (it scrolls past the cap).
+        frame_extra = max(0, self.frameGeometry().height() - self.height())
+        cap = int(avail.height() * 0.85) - frame_extra
+        self.setMaximumHeight(cap)
+        wanted = min(wanted, cap)
+        self.resize(self.width(), wanted)
+
+        if self.isVisible():
+            fg = self.frameGeometry()
+            new_x = min(
+                max(fg.x(), avail.left()),
+                max(avail.left(), avail.right() - fg.width()),
+            )
+            new_y = min(
+                max(fg.y(), avail.top()),
+                max(avail.top(), avail.bottom() - fg.height()),
+            )
+            if (new_x, new_y) != (fg.x(), fg.y()):
+                self.move(new_x, new_y)
