@@ -20,20 +20,25 @@ Leak  integration time (IINT): 1 – 100   PLC  ⇒ [1/f, 100/f] s
   where f is the AC line frequency (50 or 60 Hz, a global setting).
 Delay time                   : 0.0 – 65.535 s   (reused from sweep_config)
 Hold time                    : 0.0 – 655.35 s   (reused from sweep_config)
-VAR1 (voltage SMU) start/stop: ±100 V | ±40 V interlock open (reused)
-VAR1 step                    : ±200 V | ±80 V interlock open (reused), ≠ 0
-QSCV meas voltage (cstep)    : 0 < cstep ≤ 10 V  AND  cstep ≤ |step|
+VAR1 (voltage SMU) start/stop: ±100 V | ±40 V interlock open (reused),
+                               |value| ≥ output-range resolution (0 exempt)
+VAR1 step                    : ±200 V | ±80 V interlock open (reused), ≠ 0,
+                               |step| ≥ 2 × output-range resolution
+QSCV meas voltage (cstep)    : 0 < cstep ≤ 10 V  AND  cstep ≤ |step|  AND
+                               cstep ≥ 2 × output-range resolution
 VAR1 compliance (current)    : 1 pA – 0.1 A  (reused from sweep_config)
 NO. OF STEP = ⌊|start-stop|/|step|⌋ − 1, must be 1 – 1001 (0 ⇒ auto-set to 1)
 Measurement range            : 1 nA / 10 nA (4155C/MPSMU/HPSMU)
                                10 pA / 100 pA / 1 nA / 10 nA (4156C/HRSMU)
 cap/leak name                : 1–6 chars, first char a letter
 
-Flagged ambiguities (cannot be fully validated here — see plan):
-- "step ≥ 2× output-range resolution" and "cstep min = 2× output-range
-  resolution" need the Ch.7 output-range resolution table, which is not in
-  the QSCV manual; only `step ≠ 0`, `|step| ≤ 200`, `0 < cstep ≤ 10` and
-  `cstep ≤ |step|` are enforced.
+Output-range resolution
+-----------------------
+The "step ≥ 2× output-range resolution" and "cstep ≥ 2× output-range
+resolution" rules use the Ch.7 output-range resolution table, which lives in
+models/sweep_config.py (`output_range_resolution`) and is *reused* here — the
+QSCV sweep source is an SMU forcing voltage, identical hardware to a Sweep
+VAR1 unit.  The range is the lowest one covering max(|start|, |stop|).
 """
 
 from __future__ import annotations
@@ -54,6 +59,7 @@ from wizard_4155_4156.models.sweep_config import (
     SweepStop,
     VAR1Mode,
     current_compliance_bounds,
+    output_range_resolution,
     validate_constant_sources,
     validate_display_vars,
 )
@@ -229,6 +235,60 @@ class QscvConstraints:
         return no_of_step(start, stop, step)
 
     @staticmethod
+    def _validate_output_resolution(
+        cfg: QscvConfig,
+        instrument_model: str,
+        prior_errors: List[str],
+    ) -> List[str]:
+        """
+        Mirror of ``SweepConstraints._validate_output_resolution`` for the
+        QSCV voltage staircase.  Every output value must be representable in
+        the output range covering max(|start|, |stop|); Step and QSCV Meas
+        Voltage additionally need *twice* that resolution, since each
+        capacitance point outputs a window around the DC bias.  Zero is always
+        representable, so a zero Start/Stop is exempt.  Each check runs only
+        when its field has no prior error: a bad Start/Stop makes the selected
+        output range meaningless (so nothing is checked), and a bad Step or
+        QSCV Meas Voltage is reported once rather than twice.
+        """
+        if any(
+            e.startswith(("VAR1 Start", "VAR1 Stop")) for e in prior_errors
+        ):
+            return []
+
+        v1 = cfg.var1
+        unit = SweepConstraints.source_unit(True)
+        rng, res = output_range_resolution(
+            True, False, instrument_model, max(abs(v1.start), abs(v1.stop))
+        )
+        errors: List[str] = []
+
+        def below(label: str, magnitude: float, doubled: bool) -> str:
+            limit = (
+                f"twice the output resolution "
+                f"(2 x {res:.3g} {unit} = {2 * res:.3g} {unit})"
+                if doubled
+                else f"the output resolution {res:.3g} {unit}"
+            )
+            return (
+                f"{label}: {magnitude:.3g} {unit} is below {limit} "
+                f"of the {rng:.3g} {unit} output range"
+            )
+
+        for label, value in (("VAR1 Start", v1.start), ("VAR1 Stop", v1.stop)):
+            if 0 < abs(value) < res:
+                errors.append(below(label, abs(value), False))
+        if not any(e.startswith("VAR1 Step") for e in prior_errors):
+            if abs(v1.step) < 2 * res:
+                errors.append(below("VAR1 Step", abs(v1.step), True))
+        if not any(e.startswith("QSCV Meas Voltage") for e in prior_errors):
+            if abs(v1.cstep) < 2 * res:
+                errors.append(
+                    below("QSCV Meas Voltage", abs(v1.cstep), True)
+                )
+        return errors
+
+    @staticmethod
     def validate_config(
         cfg: QscvConfig,
         *,
@@ -379,7 +439,15 @@ class QscvConstraints:
                     f"(NO. OF STEP must be {NO_OF_STEP_MIN}–{NO_OF_STEP_MAX})"
                 )
 
-        # 9. Display variables: ≥2 selected, ≥1 measurement variable (C/IL).
+        # 9. Output resolution — runs after the NO. OF STEP block (which gates
+        # on "VAR1"), so a resolution error never suppresses it.
+        errors.extend(
+            QscvConstraints._validate_output_resolution(
+                cfg, instrument_model, errors
+            )
+        )
+
+        # 10. Display variables: ≥2 selected, ≥1 measurement variable (C/IL).
         measurement_vars: List[str] = []
         if cfg.cap_name.strip():
             measurement_vars.append(cfg.cap_name.strip())
@@ -393,7 +461,7 @@ class QscvConstraints:
             )
         )
 
-        # 10. Constant sources (shared validator)
+        # 11. Constant sources (shared validator)
         errors.extend(
             validate_constant_sources(
                 cfg.constants, active_channels, interlock_open

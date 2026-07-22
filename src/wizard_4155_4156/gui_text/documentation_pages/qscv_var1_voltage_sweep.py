@@ -30,6 +30,13 @@ channel that is, and the value fields adapt to it.
 - **Live step count.** The number of steps is worked out from Start, Stop, and
   Step (with the two end points excluded) and shown in the header status line when
   the configuration is valid; it must land between **1 and 1001**.
+- **Nothing may be finer than the output resolution.** The instrument picks the
+  lowest output range that covers the larger of \\|Start\\| and \\|Stop\\|, and that
+  range has a finite setting resolution. **Start** and **Stop** must be at least
+  that resolution (exactly **0** is always fine), while **Step** and **QSCV Meas
+  Voltage** must be at least **twice** it — each point outputs a measurement
+  window around the DC bias. Example: a 0 → 1 V sweep sits in the **2 V** range,
+  which resolves **100 µV**, so Step and QSCV Meas Voltage must be ⩾ **200 µV**.
 - **Fields follow the assigned channel.** Each value editor enforces the valid
   range for the channel and whether the interlock is open, and flags entries that
   fall outside it.

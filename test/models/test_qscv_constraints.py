@@ -345,6 +345,78 @@ def test_no_of_step_auto_one_is_valid():
     assert not any("NO. OF STEP" in e for e in validate(cfg))
 
 
+# ── Output-range resolution ──────────────────────────────────────────────────
+# The output range is the lowest one covering max(|start|, |stop|):
+#   2 V range → 100 µV resolution, 40 V range → 2 mV resolution.
+# Start/Stop need ⩾ resolution (0 exempt); Step and cstep need ⩾ 2 ×.
+
+
+def res_errors(cfg, **kwargs):
+    return [e for e in validate(cfg, **kwargs) if "output resolution" in e]
+
+
+def test_valid_config_has_no_resolution_error():
+    assert res_errors(make_valid_config()) == []
+
+
+@pytest.mark.parametrize(
+    ("start", "stop", "step", "cstep", "ok"),
+    [
+        (0.0, 1.0, 1e-4, 5e-5, False),  # 2 V range → needs 200 µV
+        (0.0, 1.0, 2e-4, 2e-4, True),
+        (0.0, 39.9, 0.003, 0.002, False),  # 40 V range → needs 4 mV
+        (0.0, 39.9, 0.004, 0.004, True),
+    ],
+)
+def test_step_and_cstep_need_twice_resolution(start, stop, step, cstep, ok):
+    cfg = make_valid_config()
+    cfg.var1.start, cfg.var1.stop = start, stop
+    cfg.var1.step, cfg.var1.cstep = step, cstep
+    assert bool(res_errors(cfg)) != ok
+
+
+def test_cstep_flagged_independently_of_step():
+    cfg = make_valid_config()
+    cfg.var1.cstep = 1e-4  # < 2 × 100 µV, step (0.1) is fine
+    errors = res_errors(cfg)
+    assert len(errors) == 1
+    assert errors[0].startswith("QSCV Meas Voltage")
+
+
+def test_start_below_resolution_of_the_selected_range():
+    # 1 mV start with a 40 V stop → 40 V range, whose 2 mV cannot output it.
+    cfg = make_valid_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 1e-3, 40.0, 0.1
+    assert any(e.startswith("VAR1 Start") for e in res_errors(cfg))
+
+
+def test_zero_start_is_always_representable():
+    cfg = make_valid_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 0.0, 40.0, 0.1
+    assert res_errors(cfg) == []
+
+
+def test_resolution_is_skipped_when_var1_already_invalid():
+    # A zero step must produce exactly one VAR1 Step error, not two.
+    cfg = make_valid_config()
+    cfg.var1.step = 0.0
+    errors = validate(cfg)
+    assert [e for e in errors if e.startswith("VAR1 Step")] == [
+        "VAR1 Step: cannot be zero"
+    ]
+
+
+def test_resolution_error_does_not_suppress_no_of_step():
+    # Step below 2 × resolution *and* a span too small for one step: both
+    # rules must report, since resolution runs after the NO. OF STEP block.
+    cfg = make_valid_config()
+    cfg.var1.start, cfg.var1.stop, cfg.var1.step = 0.0, 5e-5, 1e-4
+    cfg.var1.cstep = 1e-5
+    errors = validate(cfg)
+    assert any("NO. OF STEP" in e for e in errors)
+    assert any("output resolution" in e for e in errors)
+
+
 # ── Interlock open tightens the voltage source range ──────────────────
 
 
