@@ -32,19 +32,43 @@ _FETCH_BORDER = "NORM"
 class LiveMeasurementRunner:
     """Builds and triggers Setup(+Run+Fetch) for a live config dict."""
 
-    def __init__(self, connector_presenter) -> None:
+    def __init__(self, connector_presenter, settings_provider=None) -> None:
         self._connector = connector_presenter
+        # GlobalSettingsManager — read at call time so the advanced-option
+        # reset/calibration toggles take effect on the next apply/run without
+        # regenerating the page.  None in isolated tests ⇒ today's behavior.
+        self._settings_provider = settings_provider
         self._setup_director = MeasurementSetupDirector()
         self._run_director = MeasurementRunDirector()
 
+    def _reset_flags(self) -> tuple[bool, bool]:
+        """(skip_reset, keep_auto_calibration) from global settings."""
+        if self._settings_provider is not None:
+            try:
+                s = self._settings_provider.get()
+                return bool(s.skip_reset), bool(s.keep_auto_calibration)
+            except Exception:  # noqa: BLE001
+                return False, False
+        return False, False
+
     def apply_setup(self, config: dict) -> None:
         """Send instrument configuration only — no measurement execution."""
-        setup_cmds = self._setup_director.build_full_setup(config)
+        skip_reset, keep_auto_cal = self._reset_flags()
+        setup_cmds = self._setup_director.build_full_setup(
+            config,
+            skip_reset=skip_reset,
+            keep_auto_calibration=keep_auto_cal,
+        )
         self._connector.trigger_setup_only(setup_cmds)
 
     def apply_run_fetch(self, config: dict) -> None:
         """Full ephemeral cycle: Setup → Run → Fetch (data not persisted)."""
-        setup_cmds = self._setup_director.build_full_setup(config)
+        skip_reset, keep_auto_cal = self._reset_flags()
+        setup_cmds = self._setup_director.build_full_setup(
+            config,
+            skip_reset=skip_reset,
+            keep_auto_calibration=keep_auto_cal,
+        )
         run_cmds = self._run_director.run_measurement({"standby": "OFF"})
         fetch_cmds = self._run_director.take_data(self._fetch_config(config))
         self._connector.trigger_full_sequence(setup_cmds, run_cmds, fetch_cmds)

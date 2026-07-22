@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from wizard_4155_4156.db.schema import (
@@ -210,6 +210,25 @@ class ExecutionRepository:
         execution = session.get(MeasurementExecution, execution_id)
         if execution is not None:
             session.delete(execution)
+
+    @staticmethod
+    def delete_all(session: Session) -> int:
+        """Delete every execution; return how many were removed.
+
+        Children (variables, data points, log messages) are removed by the
+        ``ON DELETE CASCADE`` foreign keys (``PRAGMA foreign_keys=ON`` is set
+        per-connection).  Setups and graph scenes are left untouched; each
+        setup's stale ``last_execution_date`` is cleared so the Runs page does
+        not show a run timestamp for a setup that now has no runs.
+        """
+        count = session.scalar(
+            select(func.count()).select_from(MeasurementExecution)
+        )
+        session.execute(delete(MeasurementExecution))
+        session.execute(
+            update(MeasurementSetup).values(last_execution_date=None)
+        )
+        return int(count or 0)
 
     @staticmethod
     def list_variable_names(session: Session, execution_id: int) -> list[str]:

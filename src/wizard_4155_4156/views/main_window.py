@@ -495,7 +495,12 @@ class MainWindow(QMainWindow):
 
     def _show_settings_dialog(self) -> None:
         old = self._global_settings.get()
-        dlg = SettingsDialog(old, self)
+        dlg = SettingsDialog(
+            old,
+            self,
+            on_delete_all_runs=self._runs_presenter.delete_all_runs,
+            delete_runs_enabled=self._project_manager.current_db is not None,
+        )
         if dlg.exec():
             new = dlg.get_settings()
             self._global_settings.save(new)

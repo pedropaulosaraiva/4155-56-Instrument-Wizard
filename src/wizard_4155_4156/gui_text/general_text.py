@@ -362,6 +362,54 @@ class CommandWizardText(StrEnum):
     THEME_LABEL_FRANCE = "France (light blue)"
     THEME_LABEL_BRASIL = "Brasil (dark green)"
 
+    # ── Advanced options (Preferences dialog) ────────────────────────────────
+    ADVANCED_SECTION = "Advanced Options"
+    ADVANCED_WARNING = (
+        "For advanced users only — these options change the application's "
+        "default behavior."
+    )
+    ADVANCED_SKIP_RESET_LABEL = "Skip instrument reset before each setup/run"
+    ADVANCED_SKIP_RESET_HINT = (
+        "When enabled, the application does not send the instrument reset "
+        "command at the start of a setup or run. This lets you manually "
+        "configure the instrument beforehand — for example performing a Zero "
+        "Offset Cancel, an operation not yet supported by the application — "
+        "and preserve those settings when the setup or run begins."
+    )
+    ADVANCED_KEEP_CAL_LABEL = "Keep automatic calibration enabled"
+    ADVANCED_KEEP_CAL_HINT = (
+        "When enabled, the application does not disable the instrument's "
+        "automatic calibration (performed roughly every 30 minutes). Remember "
+        "to disconnect the DUT after each measurement so the instrument can "
+        "run its calibration cycle when required. Note: an instrument reset "
+        "does not erase calibration data — it only restores the default "
+        "operating configuration — so this option simply keeps auto "
+        "calibration on."
+    )
+    ADVANCED_DELETE_RUNS_BUTTON = "Delete All Measurement Runs…"
+    ADVANCED_DELETE_RUNS_HINT = (
+        "Deletes every recorded measurement run. Measurement setups and graph "
+        "scenes are left untouched."
+    )
+    ADVANCED_DELETE_RUNS_DISABLED_TIP = (
+        "Open a project first to delete its measurement runs."
+    )
+    ADVANCED_DELETE_RUNS_TITLE = "Delete all measurement runs"
+    ADVANCED_DELETE_RUNS_TOKEN = "DELETE ALL"
+    ADVANCED_DELETE_RUNS_PROMPT = (
+        "This permanently deletes EVERY recorded measurement run in the open "
+        "project. Measurement setups and graph scenes are preserved, but the "
+        "deleted runs cannot be recovered.\n\n"
+        "If you want to keep this project's measurements, make a copy of the "
+        "project file before continuing.\n\n"
+        "To confirm, type DELETE ALL below:"
+    )
+    ADVANCED_DELETE_RUNS_SUCCESS = (
+        "Deleted {count} measurement run(s). Setups and graph scenes were "
+        "preserved."
+    )
+    ADVANCED_DELETE_RUNS_NONE = "There are no measurement runs to delete."
+
 
 def tr_ui(text_enum: CommandWizardText) -> str:
     return QCoreApplication.translate("UIText", text_enum.value)

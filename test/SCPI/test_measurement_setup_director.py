@@ -65,6 +65,45 @@ def test_reset_instrument(setup_director):
     # The graph axes / display list are NOT cleared here — that is post_setup.
 
 
+def test_reset_instrument_skip_reset(setup_director):
+    # skip_reset drops *RST but keeps *CLS (status clear) and the cal-disable.
+    cmds = setup_director.reset_instrument(skip_reset=True)
+    sets = [pair.set_command for pair in cmds]
+
+    assert "*RST" not in sets
+    assert sets == ["*CLS", ":CAL:AUTO OFF"]
+
+
+def test_reset_instrument_keep_auto_calibration(setup_director):
+    # keep_auto_calibration drops the :CAL:AUTO OFF pair only.
+    cmds = setup_director.reset_instrument(keep_auto_calibration=True)
+    sets = [pair.set_command for pair in cmds]
+
+    assert sets == ["*RST", "*CLS"]
+    assert ":CAL:AUTO OFF" not in sets
+
+
+def test_reset_instrument_skip_reset_and_keep_cal(setup_director):
+    # Both flags: only *CLS remains.
+    cmds = setup_director.reset_instrument(
+        skip_reset=True, keep_auto_calibration=True
+    )
+    assert [pair.set_command for pair in cmds] == ["*CLS"]
+
+
+def test_build_full_setup_forwards_flags(setup_director):
+    config = {"mode": "SAMP", "display_vars": ["V1"]}
+    full = setup_director.build_full_setup(
+        config, skip_reset=True, keep_auto_calibration=True
+    )
+    sets = [pair.set_command for pair in full]
+
+    assert "*RST" not in sets
+    assert ":CAL:AUTO OFF" not in sets
+    # *CLS is still the first command of the setup phase.
+    assert sets[0] == "*CLS"
+
+
 def test_build_full_setup(setup_director):
     config = {
         "mode": "SAMP",

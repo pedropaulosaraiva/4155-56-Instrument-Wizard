@@ -300,6 +300,30 @@ class RunsPresenter(QObject):
             ExecutionRepository.delete(s, execution_id)
         self._refresh(select_setup_id=self._current_setup_id)
 
+    def delete_all_runs(self) -> int:
+        """Delete every recorded execution, preserving setups and graph scenes.
+
+        Pure DB action invoked by the Preferences dialog's "Delete All
+        Measurement Runs…" advanced option (the irreversible-confirmation UX
+        lives in the dialog).  Returns the number of executions removed; 0 when
+        no project is open.
+        """
+        db = self._projects.current_db
+        if db is None:
+            return 0
+        with db.session() as s:
+            deleted = ExecutionRepository.delete_all(s)
+        self._refresh(select_setup_id=self._current_setup_id)
+        return deleted
+
+    def _reset_flags(self) -> tuple[bool, bool]:
+        """(skip_reset, keep_auto_calibration) from global settings."""
+        try:
+            s = self._settings.get()
+            return bool(s.skip_reset), bool(s.keep_auto_calibration)
+        except Exception:  # noqa: BLE001
+            return False, False
+
     def _on_insert_sample(self, setup_id: int) -> None:
         db = self._projects.current_db
         if db is None:
@@ -525,7 +549,12 @@ class RunsPresenter(QObject):
             # Imported setups have no instrument configuration; the view keeps
             # the button disabled, this is a belt-and-suspenders guard.
             return
-        setup_cmds = self._setup_director.build_full_setup(config)
+        skip_reset, keep_auto_cal = self._reset_flags()
+        setup_cmds = self._setup_director.build_full_setup(
+            config,
+            skip_reset=skip_reset,
+            keep_auto_calibration=keep_auto_cal,
+        )
         self._connector.trigger_setup_only(setup_cmds)
 
     def _on_apply_run_fetch(self, setup_id: int) -> None:
@@ -551,7 +580,12 @@ class RunsPresenter(QObject):
         config = self._config_for(setup_id)
         if config is None or config.get("mode") == "IMPORT":
             return
-        setup_cmds = self._setup_director.build_full_setup(config)
+        skip_reset, keep_auto_cal = self._reset_flags()
+        setup_cmds = self._setup_director.build_full_setup(
+            config,
+            skip_reset=skip_reset,
+            keep_auto_calibration=keep_auto_cal,
+        )
         run_cmds = self._run_director.run_measurement({"standby": "OFF"})
         fetch_cmds = self._run_director.take_data(self._fetch_config(config))
         # Persist the result when data_ready returns (see _on_connector_data).

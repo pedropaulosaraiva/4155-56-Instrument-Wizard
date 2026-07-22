@@ -69,6 +69,7 @@ class QscvConfigPresenter(QObject):
         parent: QObject | None = None,
         initial_setup: dict | None = None,
         connector_presenter=None,  # ConnectorPresenter — quick apply/run
+        settings_provider=None,  # GlobalSettingsManager — reset/cal toggles
     ) -> None:
         super().__init__(parent)
         self._view = view
@@ -78,7 +79,7 @@ class QscvConfigPresenter(QObject):
         # the page is built without a connector, e.g. in isolated tests).
         self._connector = connector_presenter
         self._runner = (
-            LiveMeasurementRunner(connector_presenter)
+            LiveMeasurementRunner(connector_presenter, settings_provider)
             if connector_presenter is not None
             else None
         )

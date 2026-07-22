@@ -1293,6 +1293,14 @@ def settings_dialog_stylesheet() -> str:
         QDialog {{
             background-color: {P.BG_DEEP};
         }}
+        QScrollArea#settings-scroll {{
+            background: transparent;
+            border: none;
+        }}
+        QWidget#settings-content,
+        QWidget#settings-buttonbar {{
+            background-color: {P.BG_DEEP};
+        }}
         QLabel {{
             color: {P.TEXT_SECONDARY};
             font-size: {P.FONT_SIZE_MD};
@@ -1304,7 +1312,7 @@ def settings_dialog_stylesheet() -> str:
             font-weight: bold;
         }}
         QLabel#hint {{
-            color: {P.TEXT_DISABLED};
+            color: {P.TEXT_MUTED};
             font-size: {P.FONT_SIZE_XS};
             font-style: italic;
         }}
@@ -1385,6 +1393,33 @@ def settings_dialog_stylesheet() -> str:
         QPushButton#primary:disabled {{
             background-color: {P.BORDER};
             color: {P.TEXT_DISABLED};
+        }}
+        QToolButton#advanced-toggle {{
+            color: {P.TEXT_PRIMARY};
+            font-size: 14px;
+            font-weight: bold;
+            background: transparent;
+            border: none;
+            padding: 4px 0;
+        }}
+        QToolButton#advanced-toggle:hover {{ color: {P.ACCENT}; }}
+        QLabel#warning {{
+            color: {P.STATUS_WARN};
+            font-size: {P.FONT_SIZE_XS};
+            font-weight: bold;
+        }}
+        QPushButton#danger {{
+            color: {P.STATUS_ERROR};
+            border: 1px solid {P.STATUS_ERROR};
+        }}
+        QPushButton#danger:hover {{
+            background-color: {P.STATUS_ERROR};
+            color: {P.TEXT_ON_ACCENT};
+            border-color: {P.STATUS_ERROR};
+        }}
+        QPushButton#danger:disabled {{
+            color: {P.TEXT_DISABLED};
+            border-color: {P.BG_ELEVATED};
         }}
     """
 

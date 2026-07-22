@@ -37,14 +37,25 @@ class MeasurementSetupDirector(BaseDirector):
             return val_upper
         return "ON" if val else "OFF"
 
-    def reset_instrument(self) -> list[CommandPair]:
+    def reset_instrument(
+        self,
+        *,
+        skip_reset: bool = False,
+        keep_auto_calibration: bool = False,
+    ) -> list[CommandPair]:
         scpi_sequence: list[CommandPair] = []
 
-        scpi_sequence.append(
-            self._build_pair(
-                CommonCommandBuilder, CommonCommandBuilder.reset, ()
+        # *RST is gated by the "skip instrument reset" advanced option so a
+        # user can pre-configure the instrument (e.g. Zero Offset Cancel) and
+        # keep those settings when the setup/run begins.  *CLS only clears the
+        # status/error queue (not the instrument configuration), so it is
+        # always sent.
+        if not skip_reset:
+            scpi_sequence.append(
+                self._build_pair(
+                    CommonCommandBuilder, CommonCommandBuilder.reset, ()
+                )
             )
-        )
         scpi_sequence.append(
             self._build_pair(
                 CommonCommandBuilder, CommonCommandBuilder.clear, ()
@@ -54,22 +65,31 @@ class MeasurementSetupDirector(BaseDirector):
         # Disable auto self-calibration. Ordering is load-bearing: this MUST
         # follow *RST, which resets :CAL:AUTO to its power-on default (ON).
         # Moving it before *RST would silently re-enable auto-calibration.
-        scpi_sequence.append(
-            self._build_pair(
-                CommonCommandBuilder,
-                CommonCommandBuilder.set_auto_calibration,
-                ("OFF",),
-                CommonCommandBuilder.get_auto_calibration,
-                (),
+        # Gated by the "keep automatic calibration" advanced option: when the
+        # user relies on the instrument's ~30-min auto-cal cycle, leave it on.
+        if not keep_auto_calibration:
+            scpi_sequence.append(
+                self._build_pair(
+                    CommonCommandBuilder,
+                    CommonCommandBuilder.set_auto_calibration,
+                    ("OFF",),
+                    CommonCommandBuilder.get_auto_calibration,
+                    (),
+                )
             )
-        )
 
         # The graph axes and display list are intentionally NOT cleared here:
         # applying the config re-populates them, so they are finalized in
         # `post_setup`, which clears and re-sets them after the config.
         return scpi_sequence
 
-    def build_full_setup(self, config: dict[str, Any]) -> list[CommandPair]:
+    def build_full_setup(
+        self,
+        config: dict[str, Any],
+        *,
+        skip_reset: bool = False,
+        keep_auto_calibration: bool = False,
+    ) -> list[CommandPair]:
         """Reset, apply the measurement config, then finalize the display.
 
         This is the production entry point for configuring the instrument:
@@ -77,9 +97,16 @@ class MeasurementSetupDirector(BaseDirector):
         applies the measurement config, and ends with ``post_setup`` so the
         graph/list reflect the chosen display variables rather than whatever
         the instrument auto-assigned while the config commands were applied.
+
+        ``skip_reset`` / ``keep_auto_calibration`` are the advanced-option
+        preferences (see :class:`GlobalSettings`); both default to today's
+        behavior.
         """
         return (
-            self.reset_instrument()
+            self.reset_instrument(
+                skip_reset=skip_reset,
+                keep_auto_calibration=keep_auto_calibration,
+            )
             + self.setup_measurement(config)
             + self.post_setup(config)
         )

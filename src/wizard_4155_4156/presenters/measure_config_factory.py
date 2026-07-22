@@ -150,6 +150,7 @@ class MeasureConfigFactory(QObject):
                 line_frequency_hz=self._line_frequency(),
                 parent=self,
                 connector_presenter=self._connector,
+                settings_provider=self._settings_provider,
             )
         elif mode == MeasurementMode.SAMPLING:
             page = SamplingConfigPageView()
@@ -159,6 +160,7 @@ class MeasureConfigFactory(QObject):
                 line_frequency_hz=self._line_frequency(),
                 parent=self,
                 connector_presenter=self._connector,
+                settings_provider=self._settings_provider,
             )
         elif mode == MeasurementMode.QSCV:
             page = QscvConfigPageView()
@@ -168,6 +170,7 @@ class MeasureConfigFactory(QObject):
                 line_frequency_hz=self._line_frequency(),
                 parent=self,
                 connector_presenter=self._connector,
+                settings_provider=self._settings_provider,
             )
         else:
             return None
@@ -204,6 +207,7 @@ class MeasureConfigFactory(QObject):
                 parent=self,
                 initial_setup=setup_dict,
                 connector_presenter=self._connector,
+                settings_provider=self._settings_provider,
             )
         elif mode == MeasurementMode.SAMPLING:
             page = SamplingConfigPageView()
@@ -214,6 +218,7 @@ class MeasureConfigFactory(QObject):
                 parent=self,
                 initial_setup=setup_dict,
                 connector_presenter=self._connector,
+                settings_provider=self._settings_provider,
             )
         elif mode == MeasurementMode.QSCV:
             page = QscvConfigPageView()
@@ -224,6 +229,7 @@ class MeasureConfigFactory(QObject):
                 parent=self,
                 initial_setup=setup_dict,
                 connector_presenter=self._connector,
+                settings_provider=self._settings_provider,
             )
         else:
             return None

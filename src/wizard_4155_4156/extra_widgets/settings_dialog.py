@@ -3,27 +3,39 @@ extra_widgets/settings_dialog.py
 --------------------------------
 Modal dialog for global application settings.
 
-Edits author / organization.  ASCII-output and accuracy-tracking toggles are
-shown but disabled — they are reserved for future global-settings features
-(ASCII data collection w/ status flags; per-point accuracy).  Mirrors the
-existing connection-wizard modal pattern.
+Edits author / organization, instrument line frequency, and appearance, plus a
+collapsed-by-default **Advanced Options** section holding two instrument-
+behavior toggles (skip reset / keep auto calibration) and a destructive
+"Delete All Measurement Runs…" action.  Mirrors the existing connection-wizard
+modal pattern.
 
 The dialog reads/writes the Qt-free :class:`GlobalSettings` value object; it
-performs no persistence itself — MainWindow saves through
-``GlobalSettingsManager`` on ``accept``.
+performs no settings persistence itself — MainWindow saves through
+``GlobalSettingsManager`` on ``accept``.  The delete action is delegated to an
+``on_delete_all_runs`` callback (owned by the Runs presenter); this dialog only
+drives the irreversible-confirmation UX.
 """
 
 from __future__ import annotations
 
+from typing import Callable, Optional
+
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
+    QScrollArea,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -53,15 +65,25 @@ class SettingsDialog(QDialog):
     """Modal editor for :class:`GlobalSettings`."""
 
     def __init__(
-        self, settings: GlobalSettings, parent: QWidget | None = None
+        self,
+        settings: GlobalSettings,
+        parent: QWidget | None = None,
+        *,
+        on_delete_all_runs: Optional[Callable[[], int]] = None,
+        delete_runs_enabled: bool = False,
     ) -> None:
         super().__init__(parent)
+        # Callback that performs the actual run deletion (Runs presenter) and
+        # returns the deleted count; None disables the action.
+        self._on_delete_all_runs = on_delete_all_runs
+        self._delete_runs_enabled = delete_runs_enabled
         self.setWindowTitle("Global Settings")
         self.setModal(True)
-        self.setMinimumWidth(420)
+        self.setFixedWidth(460)
         self.setStyleSheet(settings_dialog_stylesheet())
         self._build_ui()
         self._load(settings)
+        self._apply_height()
 
     # ── Public API ───────────────────────────────────────────────────────────
 
@@ -70,19 +92,40 @@ class SettingsDialog(QDialog):
         return GlobalSettings(
             author=self._author.text().strip(),
             organization=self._organization.text().strip(),
-            ascii_toggle=self._ascii.isChecked(),
-            accuracy_toggle=self._accuracy.isChecked(),
             line_frequency_hz=int(
                 self._line_freq.currentData() or DEFAULT_LINE_FREQUENCY_HZ
             ),
             theme=str(self._theme.currentData() or DEFAULT_THEME),
+            skip_reset=self._skip_reset.isChecked(),
+            keep_auto_calibration=self._keep_auto_cal.isChecked(),
         )
 
     # ── Build ────────────────────────────────────────────────────────────────
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(22, 20, 22, 18)
+        # The dialog content can outgrow short screens once "Advanced Options"
+        # is expanded, so the scrolling body holds every section while the
+        # Cancel/Save bar stays pinned at the bottom.  The dialog height is
+        # clamped to the screen in _apply_height().
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        self._scroll = QScrollArea()
+        self._scroll.setObjectName("settings-scroll")
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        outer.addWidget(self._scroll, 1)
+
+        self._content = QWidget()
+        self._content.setObjectName("settings-content")
+        self._scroll.setWidget(self._content)
+
+        root = QVBoxLayout(self._content)
+        root.setContentsMargins(22, 20, 22, 12)
         root.setSpacing(14)
 
         title = QLabel("Author & Organization")
@@ -132,19 +175,6 @@ class SettingsDialog(QDialog):
         theme_hint.setWordWrap(True)
         root.addWidget(theme_hint)
 
-        future_title = QLabel("Data acquisition (coming soon)")
-        future_title.setObjectName("section")
-        root.addWidget(future_title)
-
-        self._ascii = QCheckBox("Collect data as ASCII with status flags")
-        self._ascii.setEnabled(False)
-        self._ascii.setToolTip("Reserved for a future release.")
-        self._accuracy = QCheckBox("Track per-point measurement accuracy")
-        self._accuracy.setEnabled(False)
-        self._accuracy.setToolTip("Reserved for a future release.")
-        root.addWidget(self._ascii)
-        root.addWidget(self._accuracy)
-
         hint = QLabel(
             "Author and organization are stamped onto every saved setup."
         )
@@ -152,7 +182,13 @@ class SettingsDialog(QDialog):
         hint.setWordWrap(True)
         root.addWidget(hint)
 
-        buttons = QHBoxLayout()
+        self._build_advanced_section(root)
+        root.addStretch(1)
+
+        button_bar = QWidget()
+        button_bar.setObjectName("settings-buttonbar")
+        buttons = QHBoxLayout(button_bar)
+        buttons.setContentsMargins(22, 10, 22, 16)
         buttons.addStretch()
         self._btn_cancel = QPushButton("Cancel")
         self._btn_cancel.setAutoDefault(False)
@@ -166,14 +202,163 @@ class SettingsDialog(QDialog):
         self._btn_save.clicked.connect(self.accept)
         buttons.addWidget(self._btn_cancel)
         buttons.addWidget(self._btn_save)
-        root.addLayout(buttons)
+        outer.addWidget(button_bar, 0)
+        self._button_bar = button_bar
+
+    def _build_advanced_section(self, root: QVBoxLayout) -> None:
+        """Collapsed-by-default 'Advanced Options' group.
+
+        A checkable QToolButton header toggles the visibility of a body widget
+        (the simple ``setVisible`` collapse idiom used across the config
+        pages), so advanced functionality stays hidden from typical users.
+        """
+        self._advanced_toggle = QToolButton()
+        self._advanced_toggle.setObjectName("advanced-toggle")
+        self._advanced_toggle.setText(tr_ui(_T.ADVANCED_SECTION))
+        self._advanced_toggle.setCheckable(True)
+        self._advanced_toggle.setChecked(False)  # collapsed by default
+        self._advanced_toggle.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self._advanced_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self._advanced_toggle.toggled.connect(self._on_advanced_toggled)
+        root.addWidget(self._advanced_toggle)
+
+        self._advanced_body = QWidget()
+        body = QVBoxLayout(self._advanced_body)
+        body.setContentsMargins(6, 4, 0, 4)
+        body.setSpacing(8)
+
+        warning = QLabel(tr_ui(_T.ADVANCED_WARNING))
+        warning.setObjectName("warning")
+        warning.setWordWrap(True)
+        body.addWidget(warning)
+
+        self._skip_reset = QCheckBox(tr_ui(_T.ADVANCED_SKIP_RESET_LABEL))
+        body.addWidget(self._skip_reset)
+        skip_hint = QLabel(tr_ui(_T.ADVANCED_SKIP_RESET_HINT))
+        skip_hint.setObjectName("hint")
+        skip_hint.setWordWrap(True)
+        body.addWidget(skip_hint)
+
+        self._keep_auto_cal = QCheckBox(tr_ui(_T.ADVANCED_KEEP_CAL_LABEL))
+        body.addWidget(self._keep_auto_cal)
+        cal_hint = QLabel(tr_ui(_T.ADVANCED_KEEP_CAL_HINT))
+        cal_hint.setObjectName("hint")
+        cal_hint.setWordWrap(True)
+        body.addWidget(cal_hint)
+
+        self._btn_delete_runs = QPushButton(
+            tr_ui(_T.ADVANCED_DELETE_RUNS_BUTTON)
+        )
+        self._btn_delete_runs.setObjectName("danger")
+        self._btn_delete_runs.setAutoDefault(False)
+        self._btn_delete_runs.setEnabled(
+            self._delete_runs_enabled and self._on_delete_all_runs is not None
+        )
+        if not self._btn_delete_runs.isEnabled():
+            self._btn_delete_runs.setToolTip(
+                tr_ui(_T.ADVANCED_DELETE_RUNS_DISABLED_TIP)
+            )
+        self._btn_delete_runs.clicked.connect(self._on_delete_all_runs_clicked)
+        delete_row = QHBoxLayout()
+        delete_row.addWidget(self._btn_delete_runs)
+        delete_row.addStretch()
+        body.addLayout(delete_row)
+
+        delete_hint = QLabel(tr_ui(_T.ADVANCED_DELETE_RUNS_HINT))
+        delete_hint.setObjectName("hint")
+        delete_hint.setWordWrap(True)
+        body.addWidget(delete_hint)
+
+        self._advanced_body.setVisible(False)
+        root.addWidget(self._advanced_body)
+
+    def _on_advanced_toggled(self, checked: bool) -> None:
+        self._advanced_toggle.setArrowType(
+            Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow
+        )
+        self._advanced_body.setVisible(checked)
+        # Grow/shrink to fit the newly shown/hidden content, but never past the
+        # screen — the scroll body absorbs any overflow.
+        self._apply_height()
+
+    def _apply_height(self) -> None:
+        """Size the dialog to its content, clamped to the visible screen.
+
+        When expanding would push the window past the screen edge, cap the
+        height (the body scrolls) and shift the window up so it stays fully
+        on-screen.
+        """
+        # sizeHint of the scrolled content + the pinned button bar.
+        wanted = (
+            self._content.sizeHint().height()
+            + self._button_bar.sizeHint().height()
+            + 2
+        )
+        screen = self.screen() or QApplication.primaryScreen()
+        if screen is None:
+            self.resize(self.width(), wanted)
+            return
+
+        avail = screen.availableGeometry()
+        # Leave room for the window title bar / frame plus a comfortable margin
+        # so the window never fills the whole screen (it scrolls past the cap).
+        frame_extra = max(0, self.frameGeometry().height() - self.height())
+        cap = int(avail.height() * 0.85) - frame_extra
+        self.setMaximumHeight(cap)
+        wanted = min(wanted, cap)
+        self.resize(self.width(), wanted)
+
+        # Keep the (now taller) window inside the screen — grow upward when the
+        # bottom would spill over.  Only once shown, so we don't fight the
+        # dialog's initial centering.
+        if self.isVisible():
+            fg = self.frameGeometry()
+            new_x = min(
+                max(fg.x(), avail.left()),
+                max(avail.left(), avail.right() - fg.width()),
+            )
+            new_y = min(
+                max(fg.y(), avail.top()),
+                max(avail.top(), avail.bottom() - fg.height()),
+            )
+            if (new_x, new_y) != (fg.x(), fg.y()):
+                self.move(new_x, new_y)
+
+    def _on_delete_all_runs_clicked(self) -> None:
+        if self._on_delete_all_runs is None:
+            return
+        token = tr_ui(_T.ADVANCED_DELETE_RUNS_TOKEN)
+        text, ok = QInputDialog.getText(
+            self,
+            tr_ui(_T.ADVANCED_DELETE_RUNS_TITLE),
+            tr_ui(_T.ADVANCED_DELETE_RUNS_PROMPT),
+        )
+        if not ok or text.strip() != token:
+            return  # cancelled or confirmation text did not match
+        deleted = self._on_delete_all_runs()
+        if deleted <= 0:
+            QMessageBox.information(
+                self,
+                tr_ui(_T.ADVANCED_DELETE_RUNS_TITLE),
+                tr_ui(_T.ADVANCED_DELETE_RUNS_NONE),
+            )
+            return
+        QMessageBox.information(
+            self,
+            tr_ui(_T.ADVANCED_DELETE_RUNS_TITLE),
+            tr_ui(_T.ADVANCED_DELETE_RUNS_SUCCESS).format(count=deleted),
+        )
+        # Nothing left to delete this session.
+        self._btn_delete_runs.setEnabled(False)
 
     def _load(self, settings: GlobalSettings) -> None:
         self._author.setText(settings.author)
         self._organization.setText(settings.organization)
-        self._ascii.setChecked(settings.ascii_toggle)
-        self._accuracy.setChecked(settings.accuracy_toggle)
         idx = self._line_freq.findData(settings.line_frequency_hz)
         self._line_freq.setCurrentIndex(idx if idx >= 0 else 0)
         theme_idx = self._theme.findData(settings.theme)
         self._theme.setCurrentIndex(theme_idx if theme_idx >= 0 else 0)
+        self._skip_reset.setChecked(settings.skip_reset)
+        self._keep_auto_cal.setChecked(settings.keep_auto_calibration)

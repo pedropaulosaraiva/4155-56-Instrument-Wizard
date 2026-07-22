@@ -57,19 +57,21 @@ class GlobalSettings:
 
     author: str = ""
     organization: str = ""
-    ascii_toggle: bool = False  # future: ASCII data collection w/ status flags
-    accuracy_toggle: bool = False  # future: per-point accuracy tracking
     line_frequency_hz: int = DEFAULT_LINE_FREQUENCY_HZ  # 50 or 60 Hz
     theme: str = DEFAULT_THEME  # applied on next launch (styles/theme.py)
+    # Advanced options (Preferences dialog).  Both default False so existing
+    # users keep today's behavior after updating.
+    skip_reset: bool = False  # skip *RST at the start of each setup/run
+    keep_auto_calibration: bool = False  # skip :CAL:AUTO OFF at setup start
 
     def to_dict(self) -> dict:
         return {
             "author": self.author,
             "organization": self.organization,
-            "ascii_toggle": self.ascii_toggle,
-            "accuracy_toggle": self.accuracy_toggle,
             "line_frequency_hz": self.line_frequency_hz,
             "theme": self.theme,
+            "skip_reset": self.skip_reset,
+            "keep_auto_calibration": self.keep_auto_calibration,
         }
 
     @classmethod
@@ -78,14 +80,16 @@ class GlobalSettings:
         return cls(
             author=data.get("author", defaults.author),
             organization=data.get("organization", defaults.organization),
-            ascii_toggle=bool(data.get("ascii_toggle", defaults.ascii_toggle)),
-            accuracy_toggle=bool(
-                data.get("accuracy_toggle", defaults.accuracy_toggle)
-            ),
             line_frequency_hz=_coerce_line_frequency(
                 data.get("line_frequency_hz", defaults.line_frequency_hz)
             ),
             theme=_coerce_theme(data.get("theme", defaults.theme)),
+            skip_reset=bool(data.get("skip_reset", defaults.skip_reset)),
+            keep_auto_calibration=bool(
+                data.get(
+                    "keep_auto_calibration", defaults.keep_auto_calibration
+                )
+            ),
         )
 
     def with_updates(self, **changes) -> "GlobalSettings":
