@@ -77,6 +77,16 @@ class CommandWizardText(StrEnum):
     CHAN_FUNC_VAR2 = "Subordinate Sweep (VAR2)"
     CHAN_FUNC_VARD = "Synchronous Sweep (VAR1')"
 
+    # ── Channel Assignments card — instrument context footer ─────────────────
+    # Read-only echo of the ChannelsConfig snapshot the page was built from.
+    CFG_CHAN_INSTRUMENT = "INSTRUMENT"
+    CFG_CHAN_COMMON = "COMMON CIRCUIT"
+    CFG_CHAN_INTERLOCK = "INTERLOCK"
+    CFG_CHAN_COMMON_GROUNDED = "Grounded"
+    CFG_CHAN_COMMON_FLOATING = "Floating"
+    CFG_CHAN_INTERLOCK_OPEN = "Open — sources capped at ±{volts:g} V"
+    CFG_CHAN_INTERLOCK_CLOSED = "Closed"
+
     # ── Measurement-config top bar & status widget ───────────────────────────
     CFG_MODE_SWEEP = "Sweep"
     CFG_MODE_SAMPLING = "Sampling"

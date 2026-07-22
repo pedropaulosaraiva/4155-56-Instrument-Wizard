@@ -445,7 +445,12 @@ class SweepConfigPresenter(QObject):
         ctx = self._ctx
         cfg = self._config
 
-        self._view.display_channel_summary(ctx["active_channels"])
+        self._view.display_channel_summary(
+            ctx["active_channels"],
+            instrument_model=self._channels_config.instrument_model.value,
+            common_to_ground=bool(self._channels_config.common_to_ground),
+            interlock_open=bool(self._channels_config.interlock_open),
+        )
         self._view.display_ranges_setup(
             ctx["active_channels"],
             ctx["instrument_model"],

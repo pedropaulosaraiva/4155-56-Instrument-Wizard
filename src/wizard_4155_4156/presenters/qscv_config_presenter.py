@@ -311,7 +311,12 @@ class QscvConfigPresenter(QObject):
         cfg = self._config
         instrument_model = ctx["instrument_model"]
 
-        self._view.display_channel_summary(ctx["active_channels"])
+        self._view.display_channel_summary(
+            ctx["active_channels"],
+            instrument_model=self._channels_config.instrument_model.value,
+            common_to_ground=bool(self._channels_config.common_to_ground),
+            interlock_open=bool(self._channels_config.interlock_open),
+        )
         self._view.display_measure_setup(
             unit_options=["DEFAULT", *ctx["enabled_smu_ids"]],
             current_unit=cfg.measuring_unit,

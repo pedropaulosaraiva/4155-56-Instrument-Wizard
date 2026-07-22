@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
 )
 
 from wizard_4155_4156.gui_text.documentation import DocTopic
+from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.models.sweep_config import (
     COMP_I_MAX,
     COMP_I_MIN,
@@ -82,6 +83,7 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.widgets.doc_tooltip import SectionHeader
+from wizard_4155_4156.views.widgets.flow_layout import FlowLayout
 
 _SCI_DISPLAY_LOWER = 0.01
 _SCI_DISPLAY_UPPER = 1e5
@@ -252,6 +254,22 @@ def _create_unit_badge(text: str, color: str = P.ACCENT_HOVER) -> QLabel:
     badge.setStyleSheet(channel_row_badge_stylesheet(color))
     badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
     return badge
+
+
+def _create_context_pair(caption: str, value: str) -> QWidget:
+    """Caption + pill kept together so a wrapping row never splits them.
+
+    The caption reuses the table's header styling so the footer reads as
+    part of the same card.
+    """
+    pair = QWidget()
+    pair.setStyleSheet(transparent_container_stylesheet())
+    row = QHBoxLayout(pair)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(8)
+    row.addWidget(_create_header_label(caption, CELL_LEFT))
+    row.addWidget(_create_unit_badge(value))
+    return pair
 
 
 def _create_name_label(text: str) -> QLabel:
@@ -570,15 +588,27 @@ class ChannelSummarySection(SectionFrame):
         )
         self._standby_cbs: Dict[str, QCheckBox] = {}
 
-    def display_channels(self, active_channels: List[dict]) -> None:
+    def display_channels(
+        self,
+        active_channels: List[dict],
+        *,
+        instrument_model: str,
+        common_to_ground: bool,
+        interlock_open: bool,
+    ) -> None:
         self._clear_body()
         self._standby_cbs.clear()
 
+        # The instrument context applies even with every unit disabled, so it
+        # is appended in both branches (_clear_body wipes the whole card).
         if not active_channels:
             self.body().addWidget(
                 _placeholder_label(
                     "No channels enabled — configure the Channels page first."
                 )
+            )
+            self._add_instrument_footer(
+                instrument_model, common_to_ground, interlock_open
             )
             return
 
@@ -634,6 +664,46 @@ class ChannelSummarySection(SectionFrame):
             )
 
         self.body().addWidget(table)
+        self._add_instrument_footer(
+            instrument_model, common_to_ground, interlock_open
+        )
+
+    def _add_instrument_footer(
+        self,
+        instrument_model: str,
+        common_to_ground: bool,
+        interlock_open: bool,
+    ) -> None:
+        """Read-only echo of the page-level settings from the snapshot.
+
+        The interlock in particular explains the source/compliance ceilings
+        shown elsewhere on this page, which would otherwise look arbitrary.
+        """
+        common_text = (
+            CommandWizardText.CFG_CHAN_COMMON_GROUNDED
+            if common_to_ground
+            else CommandWizardText.CFG_CHAN_COMMON_FLOATING
+        )
+        if interlock_open:
+            interlock_text = tr_ui(
+                CommandWizardText.CFG_CHAN_INTERLOCK_OPEN
+            ).format(volts=VOLTAGE_ILOCK_MAX)
+        else:
+            interlock_text = tr_ui(CommandWizardText.CFG_CHAN_INTERLOCK_CLOSED)
+
+        footer = QWidget()
+        footer.setStyleSheet(transparent_container_stylesheet())
+        # Wraps to a second line on a narrow page instead of clipping.
+        flow = FlowLayout(footer, h_spacing=20, v_spacing=6)
+        for caption, value in (
+            (CommandWizardText.CFG_CHAN_INSTRUMENT, instrument_model),
+            (CommandWizardText.CFG_CHAN_COMMON, tr_ui(common_text)),
+            (CommandWizardText.CFG_CHAN_INTERLOCK, interlock_text),
+        ):
+            flow.addWidget(_create_context_pair(tr_ui(caption), value))
+
+        self.body().addWidget(create_horizontal_divider())
+        self.body().addWidget(footer)
 
     def _build_standby_cell(
         self,

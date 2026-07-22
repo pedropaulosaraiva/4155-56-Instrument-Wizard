@@ -479,8 +479,20 @@ class QscvConfigPageView(BasePage):
 
     # ── Display API ─────────────────────────────────────────────────────
 
-    def display_channel_summary(self, active_channels: List[dict]) -> None:
-        self._summary_sec.display_channels(active_channels)
+    def display_channel_summary(
+        self,
+        active_channels: List[dict],
+        *,
+        instrument_model: str,
+        common_to_ground: bool,
+        interlock_open: bool,
+    ) -> None:
+        self._summary_sec.display_channels(
+            active_channels,
+            instrument_model=instrument_model,
+            common_to_ground=common_to_ground,
+            interlock_open=interlock_open,
+        )
 
     def display_measure_setup(
         self,
