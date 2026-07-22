@@ -36,6 +36,8 @@ class DocTopic(StrEnum):
     CHANNELS_SMU = "channels.smu"
     CHANNELS_VMU = "channels.vmu"
     CHANNELS_VSU = "channels.vsu"
+    CHANNELS_FLOATING = "channels.floating_measurements"
+    CHANNELS_INTERLOCK = "channels.interlock"
 
     # ── Shared between Sweep and Sampling ────────────────────────────────────
     CHANNEL_ASSIGNMENTS = "shared.channel_assignments"
@@ -106,6 +108,8 @@ DOC_TITLES: dict[DocTopic, str] = {
     DocTopic.CHANNELS_SMU: "Source Monitor Units (SMU)",
     DocTopic.CHANNELS_VMU: "Voltage Monitor Units (VMU)",
     DocTopic.CHANNELS_VSU: "Voltage Source Units (VSU)",
+    DocTopic.CHANNELS_FLOATING: "Floating Measurements",
+    DocTopic.CHANNELS_INTERLOCK: "Interlock Terminal",
     DocTopic.CHANNEL_ASSIGNMENTS: "Channel Assignments",
     DocTopic.MEASUREMENT_SETUP: "Measurement Setup",
     DocTopic.MEASUREMENT_RANGES: "Measurement Ranges",
@@ -154,6 +158,8 @@ DOC_TREE: tuple[DocSection, ...] = (
             DocNode("Source Monitor Units (SMU)", DocTopic.CHANNELS_SMU),
             DocNode("Voltage Monitor Units (VMU)", DocTopic.CHANNELS_VMU),
             DocNode("Voltage Source Units (VSU)", DocTopic.CHANNELS_VSU),
+            DocNode("Floating Measurements", DocTopic.CHANNELS_FLOATING),
+            DocNode("Interlock Terminal", DocTopic.CHANNELS_INTERLOCK),
         ),
     ),
     DocSection(

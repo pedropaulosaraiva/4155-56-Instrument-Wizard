@@ -42,9 +42,40 @@ class CommandWizardText(StrEnum):
     # Validation icons (check / alert-triangle) are supplied by the view.
     CHAN_VALIDATION_VALID = "{message}"
     CHAN_VALIDATION_INVALID = "{message}"
-    CHAN_BTN_GENERATE_SETUP = "Generate Setup Page"
+    CHAN_BTN_GENERATE_SETUP = "Generate a New Setup Page"
     CHAN_OPT_COMMON_TO_GROUND = "Common circuit is connected to ground"
     CHAN_OPT_INTERLOCK_OPEN = "Interlock terminal is open"
+
+    # SMU section naming — follows the selected instrument model.
+    # 4155x mainframes carry Medium Power SMUs, 4156x High Resolution SMUs.
+    CHAN_SMU_SECTION_MPSMU = "Medium Power Source Monitor Units  (MPSMU)"
+    CHAN_SMU_SECTION_HRSMU = "High Resolution Source Monitor Units  (HRSMU)"
+    CHAN_SMU_PREFIX_MPSMU = "MPSMU"
+    CHAN_SMU_PREFIX_HRSMU = "HRSMU"
+
+    # Unit-card field captions
+    CHAN_FIELD_MODE = "MODE"
+    CHAN_FIELD_FUNCTION = "FUNCTION"
+    CHAN_FIELD_VNAME = "V-Name"
+    CHAN_FIELD_INAME = "I-Name"
+
+    # SMU output modes.  The combo item text is the friendly label below; its
+    # userData stays the raw SMUMode value the presenter expects.
+    CHAN_SMU_MODE_V = "Source Voltage / Measure Current (V)"
+    CHAN_SMU_MODE_I = "Source Current / Measure Voltage (I)"
+    CHAN_SMU_MODE_VPULSE = "Source Pulsed Voltage / Measure Current (VPULSE)"
+    CHAN_SMU_MODE_IPULSE = "Source Pulsed Current / Measure Voltage (IPULSE)"
+    CHAN_SMU_MODE_COMM = "Common Terminal / Measure Current (COMM)"
+
+    # VMU modes
+    CHAN_VMU_MODE_V = "Measure Voltage to Common (V)"
+    CHAN_VMU_MODE_DVOLT = "Differential Voltage Between VMUs (DVOLT)"
+
+    # Unit functions (shared by SMU and VSU cards)
+    CHAN_FUNC_CONST = "Constant Output (CONST)"
+    CHAN_FUNC_VAR1 = "Primary Sweep (VAR1)"
+    CHAN_FUNC_VAR2 = "Subordinate Sweep (VAR2)"
+    CHAN_FUNC_VARD = "Synchronous Sweep (VAR1')"
 
     # ── Measurement-config top bar & status widget ───────────────────────────
     CFG_MODE_SWEEP = "Sweep"

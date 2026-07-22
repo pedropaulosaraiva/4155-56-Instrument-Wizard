@@ -72,9 +72,9 @@ class SectionHeader(QWidget):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(12)
 
-        label = QLabel(title.upper())
-        label.setStyleSheet(unit_group_header_stylesheet(accent, muted))
-        row.addWidget(label)
+        self._label = QLabel(title.upper())
+        self._label.setStyleSheet(unit_group_header_stylesheet(accent, muted))
+        row.addWidget(self._label)
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
@@ -86,3 +86,7 @@ class SectionHeader(QWidget):
             button = DocTooltipButton(doc_topic)
             button.requested.connect(self.doc_requested)
             row.addWidget(button)
+
+    def set_title(self, title: str) -> None:
+        """Retitle the section (e.g. SMU → MPSMU when the model changes)."""
+        self._label.setText(title.upper())

@@ -42,6 +42,7 @@ import copy
 
 from PySide6.QtCore import QObject, Signal
 
+from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.models.channels import (
     PULSE_SMU_MODES,
     ChannelsConfig,
@@ -53,6 +54,29 @@ from wizard_4155_4156.models.channels import (
     VMUMode,
 )
 from wizard_4155_4156.views.pages.channels_page import ChannelsPageView
+
+# SMU family per mainframe: the 4155 carries Medium Power SMUs, the 4156
+# High Resolution SMUs.  Drives the SMU section title and card headers.
+_SMU_NAMING: dict[
+    InstrumentModel, tuple[CommandWizardText, CommandWizardText]
+] = {
+    InstrumentModel.HP4155B: (
+        CommandWizardText.CHAN_SMU_PREFIX_MPSMU,
+        CommandWizardText.CHAN_SMU_SECTION_MPSMU,
+    ),
+    InstrumentModel.HP4155C: (
+        CommandWizardText.CHAN_SMU_PREFIX_MPSMU,
+        CommandWizardText.CHAN_SMU_SECTION_MPSMU,
+    ),
+    InstrumentModel.HP4156B: (
+        CommandWizardText.CHAN_SMU_PREFIX_HRSMU,
+        CommandWizardText.CHAN_SMU_SECTION_HRSMU,
+    ),
+    InstrumentModel.HP4156C: (
+        CommandWizardText.CHAN_SMU_PREFIX_HRSMU,
+        CommandWizardText.CHAN_SMU_SECTION_HRSMU,
+    ),
+}
 
 
 class ChannelsPresenter(QObject):
@@ -340,6 +364,9 @@ class ChannelsPresenter(QObject):
         self._view.display_available_modes(
             [mode.value for mode in allowed_modes]
         )
+
+        prefix_key, section_key = _SMU_NAMING[model]
+        self._view.display_smu_naming(tr_ui(prefix_key), tr_ui(section_key))
 
         # Per-card function lists, mode lists and COMM locks for SMUs
         for index, smu in config.smu.items():
