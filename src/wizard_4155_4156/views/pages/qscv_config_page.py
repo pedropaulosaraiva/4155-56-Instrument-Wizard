@@ -59,7 +59,9 @@ from wizard_4155_4156.models.sweep_config import (
     SweepConstraints,
 )
 from wizard_4155_4156.styles.stylesheets import (
+    config_body_stylesheet,
     config_page_stylesheet,
+    config_scroll_area_stylesheet,
     unit_card_combo_stylesheet,
     unit_card_line_edit_stylesheet,
 )
@@ -622,10 +624,10 @@ class QscvConfigPageView(BasePage):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
+        scroll.setStyleSheet(config_scroll_area_stylesheet())
 
         body = QWidget()
-        body.setStyleSheet(f"background-color: {P.BG_DEEP};")
+        body.setStyleSheet(config_body_stylesheet())
         body_h = QHBoxLayout(body)
         body_h.setContentsMargins(20, 20, 20, 20)
         body_h.setSpacing(20)

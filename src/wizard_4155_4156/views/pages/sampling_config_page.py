@@ -40,7 +40,9 @@ from wizard_4155_4156.models.sampling_config import (
     SAMPLES_MIN,
 )
 from wizard_4155_4156.styles.stylesheets import (
+    config_body_stylesheet,
     config_page_stylesheet,
+    config_scroll_area_stylesheet,
     unit_card_combo_stylesheet,
     unit_enable_checkbox_stylesheet,
 )
@@ -622,10 +624,10 @@ class SamplingConfigPageView(BasePage):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
+        scroll.setStyleSheet(config_scroll_area_stylesheet())
 
         body = QWidget()
-        body.setStyleSheet(f"background-color: {P.BG_DEEP};")
+        body.setStyleSheet(config_body_stylesheet())
         body_h = QHBoxLayout(body)
         body_h.setContentsMargins(20, 20, 20, 20)
         body_h.setSpacing(20)

@@ -967,6 +967,23 @@ def config_page_stylesheet() -> str:
     return _page_background_qss()
 
 
+def config_scroll_area_stylesheet() -> str:
+    """Chrome-free scroll host around the config body."""
+    return "background: transparent; border: none;"
+
+
+def config_body_stylesheet() -> str:
+    """Deep background behind the config cards.
+
+    Goes through ``_page_background_qss`` so the universal background rule
+    always travels with the QToolTip block: the body is an ancestor of every
+    control on the page, so a bare background rule here would bleed the page
+    background into tooltips raised over it — unreadable under the light
+    tooltip text in the light themes (see ``_tooltip_qss``).
+    """
+    return _page_background_qss()
+
+
 def section_card_stylesheet(accent: str | None = None) -> str:
     """Section card with an optional colored accent stripe on its left edge.
 
