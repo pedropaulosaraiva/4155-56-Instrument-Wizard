@@ -16,7 +16,7 @@ integration choice has no effect on a QSCV measurement.
 |---------|--------------|
 | **Measurement Unit** | Which SMU takes the capacitance measurement. **DEFAULT** lets the instrument choose; otherwise pick a specific enabled SMU. |
 | **Measurement Range** | The current range used for the capacitance measurement. The choices depend on the instrument model — the HRSMU (4156C) offers the lower **10 pA / 100 pA** ranges, while the MPSMU/HPSMU (4155C) offers **1 nA / 10 nA**. The resolution of the selected range is shown on the line just below the card. |
-| **Referenced Mode** | **ON** restricts the integration times to the manufacturer's reference values and shows the maximum measurable capacitance — see below. |
+| **Referenced Mode** | **ON** (the default) restricts the integration times to the manufacturer's reference values and shows the maximum measurable capacitance — see below. |
 | **QSCV Integration Time** | How long each capacitance measurement integrates — longer means less noise but a slower sweep. In Referenced Mode this becomes a dropdown of the supported values. |
 | **Leak Integration Time** | How long each leakage-current measurement integrates; it works together with **Leak Compensation**. In Referenced Mode it is locked equal to the QSCV Integration Time. |
 | **Leak Compensation** | **ON** subtracts the device's leakage current from the capacitance result. |
@@ -50,7 +50,11 @@ C_max(V) = A / V
 where **V** is the **QSCV Meas Voltage** from the VAR1 card and **A** is the coefficient
 for the selected range and integration time.
 
-Turning **Referenced Mode ON** does three things:
+A new QSCV page opens **in Referenced Mode at 500 ms** — a middle-of-the-grid reference
+time that is available on every measurement range and at both 50 and 60 Hz — so the
+capacitance ceiling is on screen from the start.
+
+Referenced Mode does three things while it is **ON**:
 
 - The **QSCV Integration Time** becomes a dropdown limited to the values the reference
   curves were measured at — 2 s, 1 s, 500 ms, 300 ms, and additionally 100 ms, 50 ms and
@@ -76,7 +80,10 @@ Turning **Referenced Mode ON** does three things:
 
 Turning Referenced Mode **OFF** restores free entry of both integration times and removes
 the capacitance readout. The setting is a configuration aid only: it is not saved with the
-setup and it changes none of the commands sent to the instrument.
+setup and it changes none of the commands sent to the instrument. When you **reload a
+saved setup**, Referenced Mode switches itself back on only if the stored integration
+times already sit on the reference grid and are equal — otherwise the setup reopens in
+free entry with its stored values untouched.
 
 > Source: *Agilent 4155C/4156C User's Guide Vol.2* — Quasi-static C-V Measurements ▸ Measurement Functions.
 """.strip()

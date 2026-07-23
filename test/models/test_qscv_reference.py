@@ -294,6 +294,21 @@ def test_referenced_mode_requires_equal_integration_times():
     )
 
 
+def test_a_fresh_config_opens_in_referenced_mode_at_500ms():
+    """A page generated from the Channels page starts ON at 500 ms."""
+    cfg = QscvConfig()
+    assert cfg.referenced_mode is True
+    assert cfg.cap_integration_time == T_500MS
+    assert cfg.leak_integration_time == T_500MS
+
+
+def test_the_default_time_is_valid_everywhere():
+    """500 ms must be on the grid for every range and both line frequencies."""
+    for line_hz in (50, 60):
+        for range_value in ALL_RANGES:
+            assert T_500MS in supported_integration_times(range_value, line_hz)
+
+
 def test_off_grid_time_is_fine_when_referenced_mode_is_off():
     cfg = make_referenced_config(
         referenced_mode=False,

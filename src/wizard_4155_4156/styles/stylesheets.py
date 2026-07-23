@@ -465,51 +465,55 @@ def empty_projects_label_stylesheet() -> str:
     return f"color: {P.TEXT_DISABLED}; font-size: 14px; padding: 40px;"
 
 
-# ── Project Card ─────────────────────────────────────────────────────────────
+# ── Project Row (recent-projects list) ───────────────────────────────────────
 
 
-def project_card_stylesheet(hover: bool = False) -> str:
+def project_row_stylesheet(hover: bool = False) -> str:
+    """Full-width recent-project row; hover lifts the surface and accents it.
+
+    The idle border is the panel background itself rather than ``BORDER`` — a
+    stack of outlined rows reads as a table, while a borderless stack reads as
+    a list and only the hovered row draws a frame.
+    """
     if hover:
         return f"""
-            ProjectCard {{
+            ProjectRow {{
                 background-color: {P.BG_ELEVATED};
                 border: 1px solid {P.ACCENT};
-                border-radius: {P.RADIUS_LG};
+                border-radius: {P.RADIUS_MD};
             }}
         """
     return f"""
-        ProjectCard {{
+        ProjectRow {{
             background-color: {P.BG_PANEL};
-            border: 1px solid {P.BORDER};
-            border-radius: {P.RADIUS_LG};
+            border: 1px solid {P.BG_PANEL};
+            border-radius: {P.RADIUS_MD};
         }}
     """
 
 
-def card_thumbnail_stylesheet() -> str:
-    return f"""
-        background-color: {P.BG_DEEP};
-        border: 1px solid {P.BORDER};
-        border-radius: {P.RADIUS_SM};
-    """
-
-
-def card_name_stylesheet() -> str:
+def row_name_stylesheet() -> str:
     return (
-        f"color: {P.TEXT_PRIMARY}; font-weight: "
-        f"bold;font-size: {P.FONT_SIZE_MD};"
+        f"color: {P.TEXT_PRIMARY}; font-weight: bold; "
+        f"font-size: {P.FONT_SIZE_LG}; background: transparent;"
     )
 
 
-def card_path_stylesheet() -> str:
-    return f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_XS};"
+def row_path_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_SM}; "
+        "background: transparent;"
+    )
 
 
-def card_date_stylesheet() -> str:
-    return f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS};"
+def row_date_stylesheet() -> str:
+    return (
+        f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
+        "background: transparent;"
+    )
 
 
-def card_remove_button_stylesheet() -> str:
+def row_remove_button_stylesheet() -> str:
     return f"""
         QToolButton {{
             background-color: {P.BORDER};
@@ -2321,10 +2325,15 @@ def qscv_reference_headline_stylesheet() -> str:
 
 
 def qscv_reference_note_stylesheet() -> str:
-    """Muted italic caveat lines under the QSCV capacitance readout."""
+    """Caveat lines under the QSCV capacitance readout.
+
+    TEXT_SECONDARY, not TEXT_DISABLED: this is body copy the user must
+    actually read (the safety-margin advice), and the disabled token is too
+    low-contrast against the card in both the dark and light palettes.
+    """
     return (
-        f"QLabel {{ color: {P.TEXT_DISABLED}; "
-        f"font-size: {P.FONT_SIZE_XS}; background: transparent; "
+        f"QLabel {{ color: {P.TEXT_SECONDARY}; "
+        f"font-size: {P.FONT_SIZE_SM}; background: transparent; "
         f"font-style: italic; }}"
     )
 

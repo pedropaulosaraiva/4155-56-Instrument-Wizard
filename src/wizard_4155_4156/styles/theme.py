@@ -158,9 +158,12 @@ class _Palette:
     WINDOW_MIN_HEIGHT: int = 760  # px — MainWindow design minimum height
     WINDOW_FRAME_ALLOWANCE: int = 32  # px — OS title bar / frame headroom
     TOP_BAR_HEIGHT: int = 84  # px — ConnectionTopBar fixed height
-    CARD_WIDTH: int = 220  # px — ProjectCard fixed width
-    CARD_HEIGHT: int = 180  # px — ProjectCard fixed height
-    CARD_COLUMNS: int = 4  # cards per grid row
+    # Recent-projects list (home page) — rows stretch to the panel width, so
+    # only vertical/reserved metrics are fixed here.
+    PROJECT_ROW_HEIGHT: int = 64  # px — ProjectRow fixed height
+    PROJECT_ROW_ICON: int = 38  # px — leading icon chip square
+    PROJECT_ROW_DATE_WIDTH: int = 120  # px — right-aligned date column
+    RECENT_PANEL_MIN_WIDTH: int = 420  # px — splitter lower bound for list
 
 
 # ── Theme override dicts ─────────────────────────────────────────────────────

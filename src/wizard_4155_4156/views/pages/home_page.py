@@ -13,21 +13,22 @@ from pathlib import Path
 from typing import List
 
 from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from wizard_4155_4156.models.project import ProjectData
+from wizard_4155_4156.models.project import ProjectData, format_relative_time
 from wizard_4155_4156.styles.icons import (
     AppIcon,
     AppIcon24,
@@ -36,20 +37,19 @@ from wizard_4155_4156.styles.icons import (
     tinted_pixmap,
 )
 from wizard_4155_4156.styles.stylesheets import (
-    card_date_stylesheet,
-    card_name_stylesheet,
-    card_path_stylesheet,
-    card_remove_button_stylesheet,
-    card_thumbnail_stylesheet,
     clear_history_button_stylesheet,
     empty_projects_label_stylesheet,
     icon_chip_stylesheet,
     primary_action_button_stylesheet,
-    project_card_stylesheet,
+    project_row_stylesheet,
     quick_actions_panel_stylesheet,
     recent_panel_count_stylesheet,
     recent_panel_header_stylesheet,
     resource_button_stylesheet,
+    row_date_stylesheet,
+    row_name_stylesheet,
+    row_path_stylesheet,
+    row_remove_button_stylesheet,
     section_title_stylesheet,
     splitter_stylesheet,
     subsection_title_stylesheet,
@@ -59,15 +59,19 @@ from wizard_4155_4156.styles.theme import PALETTE as P
 from wizard_4155_4156.views.pages import BasePage
 
 # =============================================================================
-# PROJECT CARD
+# PROJECT ROW
 # =============================================================================
 
 
-class ProjectCard(QFrame):
+class ProjectRow(QFrame):
     """
-    Single entry in the recent-projects grid.
-    Hover reveals a remove (✕) button positioned absolutely in the
-    top-right corner.
+    Single entry in the recent-projects list.
+
+    Full-width row of fixed height: leading icon chip, two stacked text lines
+    (project name over its folder), a relative date, and a remove (✕) button
+    that appears on hover.  Nothing here has a fixed width — the row stretches
+    to the panel and both text lines elide, so the list is unaffected by the
+    display resolution.
     """
 
     clicked = Signal(ProjectData)
@@ -79,61 +83,84 @@ class ProjectCard(QFrame):
         super().__init__(parent)
         self._project = project
         self._hovered = False
+        self._full_name = project.name
+        self._full_path = str(Path(project.path).parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(P.CARD_WIDTH, P.CARD_HEIGHT)
+        self.setFixedHeight(P.PROJECT_ROW_HEIGHT)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self.setToolTip(
+            f"{project.path}\n"
+            f"{project.last_modified.strftime('%d/%m/%Y  %H:%M')}"
+        )
         self._setup_ui()
-        self._update_card_style()
+        self._update_row_style()
 
     # ── Private ──────────────────────────────────────────────────────────────
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setSpacing(6)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(14, 10, 12, 10)
+        row.setSpacing(14)
 
-        # Thumbnail
-        thumb = QFrame()
-        thumb.setFixedSize(200, 110)
-        thumb.setStyleSheet(card_thumbnail_stylesheet())
-        thumb_layout = QVBoxLayout(thumb)
-        thumb_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Leading chip — same accent-tinted affordance as the Start buttons.
+        chip = QFrame()
+        chip.setFixedSize(P.PROJECT_ROW_ICON, P.PROJECT_ROW_ICON)
+        chip.setStyleSheet(icon_chip_stylesheet(P.ACCENT))
+        chip_layout = QVBoxLayout(chip)
+        chip_layout.setContentsMargins(0, 0, 0, 0)
+        chip_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon = QLabel()
-        # 24px themed SVG scaled up — the 32px monochrome set is reserved
-        # for the nav bar and the New/Open Project buttons.
-        icon.setPixmap(app_icon(AppIcon24.BAR_CHART).pixmap(QSize(32, 32)))
+        icon.setPixmap(tinted_pixmap(AppIcon24.BAR_CHART, P.ACCENT, 20))
         icon.setStyleSheet("background: transparent;")
-        thumb_layout.addWidget(icon, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(thumb, alignment=Qt.AlignmentFlag.AlignCenter)
+        chip_layout.addWidget(icon)
+        row.addWidget(chip)
 
-        # Text info
-        info = QWidget()
-        info_layout = QVBoxLayout(info)
-        info_layout.setSpacing(2)
-        info_layout.setContentsMargins(0, 0, 0, 0)
+        # Name over folder path.  Both labels use an Ignored horizontal policy
+        # so a long project name can never widen the row — they take whatever
+        # width is left and elide inside it.
+        text_col = QVBoxLayout()
+        text_col.setSpacing(2)
+        text_col.setContentsMargins(0, 0, 0, 0)
+        text_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        self._lbl_name = QLabel(self._project.name)
-        self._lbl_name.setStyleSheet(card_name_stylesheet())
-        self._lbl_name.setWordWrap(True)
-        self._lbl_name.setMaximumWidth(200)
-        info_layout.addWidget(self._lbl_name)
+        self._lbl_name = QLabel(self._full_name)
+        self._lbl_name.setStyleSheet(row_name_stylesheet())
+        self._lbl_name.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
+        )
+        text_col.addWidget(self._lbl_name)
 
-        self._lbl_path = QLabel(str(Path(self._project.path).parent))
-        self._lbl_path.setStyleSheet(card_path_stylesheet())
-        self._lbl_path.setWordWrap(True)
-        self._lbl_path.setMaximumWidth(200)
-        info_layout.addWidget(self._lbl_path)
+        self._lbl_path = QLabel(self._full_path)
+        self._lbl_path.setStyleSheet(row_path_stylesheet())
+        self._lbl_path.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
+        )
+        text_col.addWidget(self._lbl_path)
+
+        row.addLayout(text_col, stretch=1)
 
         self._lbl_date = QLabel(
-            self._project.last_modified.strftime("%d/%m/%Y  %H:%M")
+            format_relative_time(self._project.last_modified)
         )
-        self._lbl_date.setStyleSheet(card_date_stylesheet())
-        info_layout.addWidget(self._lbl_date)
+        self._lbl_date.setStyleSheet(row_date_stylesheet())
+        self._lbl_date.setFixedWidth(P.PROJECT_ROW_DATE_WIDTH)
+        self._lbl_date.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        row.addWidget(self._lbl_date)
 
-        layout.addWidget(info)
+        # Remove button inside a fixed-width holder: the slot is reserved even
+        # while the button is hidden, so revealing it on hover shifts nothing.
+        holder = QWidget()
+        holder.setFixedWidth(24)
+        holder.setStyleSheet("background: transparent;")
+        holder_layout = QVBoxLayout(holder)
+        holder_layout.setContentsMargins(0, 0, 0, 0)
+        holder_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Remove button — absolutely positioned, hidden by default
-        self._btn_remove = QToolButton(self)
+        self._btn_remove = QToolButton()
         self._btn_remove.setIcon(
             hover_tinted_icon(
                 AppIcon24.X, P.TEXT_SECONDARY, P.TEXT_ON_ACCENT, 12
@@ -141,28 +168,51 @@ class ProjectCard(QFrame):
         )
         self._btn_remove.setIconSize(QSize(12, 12))
         self._btn_remove.setCursor(Qt.CursorShape.ArrowCursor)
-        self._btn_remove.setStyleSheet(card_remove_button_stylesheet())
+        self._btn_remove.setStyleSheet(row_remove_button_stylesheet())
         self._btn_remove.setFixedSize(20, 20)
-        self._btn_remove.move(192, 8)
+        self._btn_remove.setToolTip("Remove from recent projects")
         self._btn_remove.setVisible(False)
         self._btn_remove.clicked.connect(
             lambda: self.remove_requested.emit(self._project)
         )
+        holder_layout.addWidget(self._btn_remove)
+        row.addWidget(holder)
 
-    def _update_card_style(self) -> None:
-        self.setStyleSheet(project_card_stylesheet(self._hovered))
+    def _update_row_style(self) -> None:
+        self.setStyleSheet(project_row_stylesheet(self._hovered))
+
+    def _apply_elide(self) -> None:
+        """Re-fit both text lines to the width the layout granted them."""
+        self._lbl_name.setText(
+            QFontMetrics(self._lbl_name.font()).elidedText(
+                self._full_name,
+                Qt.TextElideMode.ElideRight,
+                self._lbl_name.width(),
+            )
+        )
+        self._lbl_path.setText(
+            QFontMetrics(self._lbl_path.font()).elidedText(
+                self._full_path,
+                Qt.TextElideMode.ElideMiddle,
+                self._lbl_path.width(),
+            )
+        )
 
     # ── Qt overrides ─────────────────────────────────────────────────────────
 
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._apply_elide()
+
     def enterEvent(self, event) -> None:  # noqa: N802
         self._hovered = True
-        self._update_card_style()
+        self._update_row_style()
         self._btn_remove.setVisible(True)
         super().enterEvent(event)
 
     def leaveEvent(self, event) -> None:  # noqa: N802
         self._hovered = False
-        self._update_card_style()
+        self._update_row_style()
         self._btn_remove.setVisible(False)
         super().leaveEvent(event)
 
@@ -341,7 +391,7 @@ class QuickActionsPanel(QFrame):
 
 
 class RecentProjectsPanel(QFrame):
-    """Scrollable grid of ProjectCard widgets."""
+    """Scrollable vertical list of ProjectRow widgets."""
 
     project_selected = Signal(ProjectData)
     project_removed = Signal(str)  # emits path
@@ -349,14 +399,14 @@ class RecentProjectsPanel(QFrame):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._cards: list[ProjectCard] = []
+        self._rows: list[ProjectRow] = []
         self._setup_ui()
 
     # ── Public display API (called by presenter) ─────────────────────────────
 
     def display_projects(self, projects: List[ProjectData]) -> None:
-        """Re-render the grid from a fresh project list."""
-        self._clear_grid()
+        """Re-render the list from a fresh project list."""
+        self._clear_list()
 
         self._lbl_count.setText(f"({len(projects)})")
 
@@ -367,18 +417,19 @@ class RecentProjectsPanel(QFrame):
             )
             empty.setStyleSheet(empty_projects_label_stylesheet())
             empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._grid.addWidget(empty, 0, 0, 1, P.CARD_COLUMNS)
-            return
+            self._list.addWidget(empty)
+        else:
+            for project in projects:
+                row = ProjectRow(project)
+                row.clicked.connect(self.project_selected.emit)
+                row.remove_requested.connect(
+                    lambda p: self.project_removed.emit(p.path)
+                )
+                self._rows.append(row)
+                self._list.addWidget(row)
 
-        for i, project in enumerate(projects):
-            card = ProjectCard(project)
-            card.clicked.connect(self.project_selected.emit)
-            card.remove_requested.connect(
-                lambda p: self.project_removed.emit(p.path)
-            )
-            self._cards.append(card)
-            row, col = divmod(i, P.CARD_COLUMNS)
-            self._grid.addWidget(card, row, col)
+        # Trailing stretch keeps rows packed to the top of the scroll area.
+        self._list.addStretch()
 
     # ── Private ──────────────────────────────────────────────────────────────
 
@@ -418,21 +469,21 @@ class RecentProjectsPanel(QFrame):
         )
 
         self._container = QWidget()
-        self._grid = QGridLayout(self._container)
-        self._grid.setSpacing(16)
-        self._grid.setContentsMargins(4, 4, 4, 4)
-        self._grid.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-        )
+        self._container.setStyleSheet("background: transparent;")
+        self._list = QVBoxLayout(self._container)
+        self._list.setSpacing(8)
+        self._list.setContentsMargins(4, 4, 4, 4)
         scroll.setWidget(self._container)
         layout.addWidget(scroll)
 
-    def _clear_grid(self) -> None:
-        while self._grid.count():
-            item = self._grid.takeAt(0)
-            if item.widget():  # type: ignore
-                item.widget().deleteLater()  # type: ignore
-        self._cards.clear()
+    def _clear_list(self) -> None:
+        # takeAt also yields the trailing stretch, whose widget() is None.
+        while self._list.count():
+            item = self._list.takeAt(0)
+            widget = item.widget()  # type: ignore
+            if widget is not None:
+                widget.deleteLater()
+        self._rows.clear()
 
     def _on_clear_clicked(self) -> None:
         reply = QMessageBox.question(
@@ -459,8 +510,8 @@ class HomePageView(BasePage):
     ----------------------------
     new_project_requested   — user clicked "New Project"
     open_project_requested  — user clicked "Open Project"
-    project_opened          — user clicked a recent ProjectCard (emits path)
-    project_remove_requested— user clicked ✕ on a card (emits path)
+    project_opened          — user clicked a recent ProjectRow (emits path)
+    project_remove_requested— user clicked ✕ on a row (emits path)
     clear_history_requested — user confirmed "Clear History"
     """
 
@@ -495,8 +546,13 @@ class HomePageView(BasePage):
         splitter.addWidget(self._quick_actions)
 
         self._recent_panel = RecentProjectsPanel()
+        self._recent_panel.setMinimumWidth(P.RECENT_PANEL_MIN_WIDTH)
         splitter.addWidget(self._recent_panel)
 
+        # All spare width goes to the list; the sidebar keeps its 260 px.
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setCollapsible(1, False)
         splitter.setSizes([260, 1020])
         splitter.setHandleWidth(1)
         splitter.setStyleSheet(splitter_stylesheet())

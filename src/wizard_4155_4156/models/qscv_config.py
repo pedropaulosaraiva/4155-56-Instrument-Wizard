@@ -195,8 +195,11 @@ class QscvVar1Config:
 class QscvConfig:
     """Complete snapshot of the QSCV configuration page."""
 
-    cap_integration_time: float = 0.1  # CINT (qscv time), s
-    leak_integration_time: float = 0.1  # IINT (leak time), s
+    # A fresh page opens in Referenced Mode at 500 ms — a middle-of-the-grid
+    # reference time that is legal at both 50 and 60 Hz and published for every
+    # measurement range, so the capacitance ceiling is shown from the start.
+    cap_integration_time: float = 0.5  # CINT (qscv time), s
+    leak_integration_time: float = 0.5  # IINT (leak time), s
     delay: float = 0.0
     hold_time: float = 0.0
     measuring_unit: str = "DEFAULT"  # SMU1..SMU4 or DEFAULT
@@ -208,8 +211,10 @@ class QscvConfig:
     sweep_stop: SweepStop = SweepStop.OFF
     # Referenced Mode is a UI-only aid: it restricts the integration times to
     # the manufacturer's reference grid (and keeps cap/leak equal) so a maximum
-    # measurable capacitance can be derived.  Never persisted to JSON.
-    referenced_mode: bool = False
+    # measurable capacitance can be derived.  Never persisted to JSON — a fresh
+    # page defaults it ON, and a loaded setup turns it on only when the stored
+    # times happen to sit on the grid (see QscvConfigPresenter.__init__).
+    referenced_mode: bool = True
     var1: QscvVar1Config = field(default_factory=QscvVar1Config)
     channel_standby: Dict[str, bool] = field(default_factory=dict)
     display_vars: List[str] = field(default_factory=list)

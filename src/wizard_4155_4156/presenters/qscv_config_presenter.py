@@ -104,6 +104,12 @@ class QscvConfigPresenter(QObject):
             if initial_setup is not None
             else QscvConfig()
         )
+        if initial_setup is not None:
+            # Referenced Mode is not persisted, and a stored setup may hold any
+            # integration times at all.  Re-enter the mode only when the stored
+            # values already satisfy it, so reloading never silently rewrites a
+            # saved configuration (nor flags it as invalid).
+            self._config.referenced_mode = self._times_on_reference_grid()
 
         self._ctx: Dict[str, Any] = {
             "instrument_model": "4156C",
@@ -244,8 +250,9 @@ class QscvConfigPresenter(QObject):
         allowed_values = [v for _, v, _ in ranges_for_model(instrument_model)]
         if self._config.meas_range not in allowed_values and allowed_values:
             self._config.meas_range = allowed_values[0]
-            # The reference grid follows the range — re-snap after clamping.
-            self._snap_referenced_time()
+        # The reference grid follows the range, so re-snap after any clamp.
+        # A no-op outside Referenced Mode and when already on the grid.
+        self._snap_referenced_time()
 
         # Clamp the measuring unit if it no longer references an enabled SMU.
         if (
@@ -363,6 +370,13 @@ class QscvConfigPresenter(QObject):
         return supported_integration_times(
             self._config.meas_range, self._line_frequency_hz
         )
+
+    def _times_on_reference_grid(self) -> bool:
+        """True when the current times already satisfy Referenced Mode."""
+        cfg = self._config
+        if cfg.cap_integration_time != cfg.leak_integration_time:
+            return False
+        return cfg.cap_integration_time in self._referenced_times()
 
     def _snap_referenced_time(self) -> None:
         """Pull both integration times onto the reference grid.

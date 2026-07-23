@@ -176,7 +176,8 @@ def test_valid_config_no_errors():
     ],
 )
 def test_cap_integration_validation(freq, cap, ok):
-    cfg = make_valid_config(cap_integration_time=cap)
+    # Referenced Mode off: the raw PLC window applies only to free entry.
+    cfg = make_valid_config(cap_integration_time=cap, referenced_mode=False)
     errors = validate(cfg, line_frequency_hz=freq)
     cap_errs = [e for e in errors if e.startswith("QSCV Integration Time")]
     assert bool(cap_errs) != ok
@@ -193,7 +194,8 @@ def test_cap_integration_validation(freq, cap, ok):
     ],
 )
 def test_leak_integration_validation(freq, leak, ok):
-    cfg = make_valid_config(leak_integration_time=leak)
+    # Referenced Mode off: it would force the leak time equal to the cap time.
+    cfg = make_valid_config(leak_integration_time=leak, referenced_mode=False)
     errors = validate(cfg, line_frequency_hz=freq)
     leak_errs = [e for e in errors if e.startswith("Leak Integration Time")]
     assert bool(leak_errs) != ok
