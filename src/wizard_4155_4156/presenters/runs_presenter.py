@@ -36,6 +36,7 @@ from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
     SetupMetadataDialog,
 )
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
+from wizard_4155_4156.models.channels import normalize_instrument_model
 from wizard_4155_4156.models.config_loader import channels_config_from_setup
 from wizard_4155_4156.models.data_import import (
     CsvOptions,
@@ -698,13 +699,19 @@ class RunsPresenter(QObject):
         """Warn (once per session) before running a setup on a foreign model.
 
         Returns True to proceed. No prompt when suppressed, when disconnected,
-        or when the connected model matches the setup's instrument.
+        or when the connected model matches the setup's instrument (A-series
+        instruments match their B-series equivalent).
         """
         if self._suppress_instrument_mismatch:
             return True
         connected = self._connected_model
         setup_model = self._setup_model(setup_id)
-        if not connected or not setup_model or setup_model == connected:
+        if (
+            not connected
+            or not setup_model
+            or normalize_instrument_model(setup_model)
+            == normalize_instrument_model(connected)
+        ):
             return True
         proceed, dont_ask = self._view.confirm_instrument_mismatch(
             setup_model, connected

@@ -37,6 +37,19 @@ class InstrumentModel(StrEnum):
         return self in {InstrumentModel.HP4155C, InstrumentModel.HP4156C}
 
 
+#: A-series mainframes are functionally identical to their B-series
+#: counterparts and are never persisted — setups always store the B form.
+#: Only the connected instrument (discovery / execution metadata) can be an
+#: A-series model, so comparisons against a setup must normalize first.
+_A_SERIES_ALIASES: dict[str, str] = {"4155A": "4155B", "4156A": "4156B"}
+
+
+def normalize_instrument_model(model: str | None) -> str:
+    """Map an A-series model string onto its B-series equivalent."""
+    value = (model or "").strip().upper()
+    return _A_SERIES_ALIASES.get(value, value)
+
+
 class MeasurementMode(StrEnum):
     SWEEP = "SWEEP"
     SAMPLING = "SAMPLING"

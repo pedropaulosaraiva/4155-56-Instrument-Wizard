@@ -39,7 +39,16 @@ class GPIB41xxController:
     """
 
     GPIB_ADDRESS_ID: Final[str] = "GPIB"
-    VALID_MODELS: Final[list[str]] = ["4155C", "4156C", "4155B", "4156B"]
+    # A-series mainframes are functionally identical to their B-series
+    # counterparts for every feature this application implements.
+    VALID_MODELS: Final[list[str]] = [
+        "4155C",
+        "4156C",
+        "4155B",
+        "4156B",
+        "4155A",
+        "4156A",
+    ]
     TEMPORARY_CONN_TIMEOUT_MS: Final[int] = 2_000
     CONN_TIMEOUT_MS: Final[int] = 10_000
 

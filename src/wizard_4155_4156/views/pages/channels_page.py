@@ -737,8 +737,15 @@ class _ConfigPanel(QFrame):
             )
         )
         self._model_combo = QComboBox()
-        for model_value in ("4155B", "4156B", "4155C", "4156C"):
-            self._model_combo.addItem(model_value, model_value)
+        # A-series mainframes share the B-series implementation, so both are
+        # offered under one label whose userData stays the B-series value.
+        for model_label, model_value in (
+            ("4155A/B", "4155B"),
+            ("4156A/B", "4156B"),
+            ("4155C", "4155C"),
+            ("4156C", "4156C"),
+        ):
+            self._model_combo.addItem(model_label, model_value)
         # No hardcoded default here: the presenter pushes the authoritative
         # model on init via display_state (passive-view contract).
         model_col.addWidget(self._model_combo)

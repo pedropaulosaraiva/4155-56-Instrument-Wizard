@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from wizard_4155_4156.models.channels import normalize_instrument_model
 from wizard_4155_4156.SCPI.measurement_run_director import (
     MeasurementRunDirector,
 )
@@ -57,14 +58,16 @@ def confirm_quick_instrument_match(
     """Warn once per session before a quick apply/run on a foreign model.
 
     Returns True to proceed.  No prompt when suppressed, when disconnected, or
-    when the connected model matches the model the config was built for.
+    when the connected model matches the model the config was built for
+    (A-series instruments match their B-series equivalent).
     """
     if _QuickMismatchState.suppressed:
         return True
     if (
         not connected_model
         or not setup_model
-        or setup_model == connected_model
+        or normalize_instrument_model(setup_model)
+        == normalize_instrument_model(connected_model)
     ):
         return True
     proceed, dont_ask = view.confirm_instrument_mismatch(
