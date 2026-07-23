@@ -57,20 +57,21 @@ def setup_director():
 def test_reset_instrument(setup_director):
     cmd_rst, cmd_cls, cmd_cal = setup_director.reset_instrument()
 
-    assert cmd_rst.set_command == "*RST"
+    assert cmd_rst.set_command == ":PAGE:CHAN:DEF"
     assert cmd_cls.set_command == "*CLS"
-    # Auto-calibration must be disabled *after* *RST (which re-enables it).
+    # Auto-calibration is disabled after the reset, never before it.
     assert cmd_cal.set_command == ":CAL:AUTO OFF"
     assert cmd_cal.get_command == ":CAL:AUTO?"
     # The graph axes / display list are NOT cleared here — that is post_setup.
 
 
 def test_reset_instrument_skip_reset(setup_director):
-    # skip_reset drops *RST but keeps *CLS (status clear) and the cal-disable.
+    # skip_reset drops the soft reset but keeps *CLS (status clear) and the
+    # cal-disable.
     cmds = setup_director.reset_instrument(skip_reset=True)
     sets = [pair.set_command for pair in cmds]
 
-    assert "*RST" not in sets
+    assert ":PAGE:CHAN:DEF" not in sets
     assert sets == ["*CLS", ":CAL:AUTO OFF"]
 
 
@@ -79,7 +80,7 @@ def test_reset_instrument_keep_auto_calibration(setup_director):
     cmds = setup_director.reset_instrument(keep_auto_calibration=True)
     sets = [pair.set_command for pair in cmds]
 
-    assert sets == ["*RST", "*CLS"]
+    assert sets == [":PAGE:CHAN:DEF", "*CLS"]
     assert ":CAL:AUTO OFF" not in sets
 
 
@@ -98,7 +99,7 @@ def test_build_full_setup_forwards_flags(setup_director):
     )
     sets = [pair.set_command for pair in full]
 
-    assert "*RST" not in sets
+    assert ":PAGE:CHAN:DEF" not in sets
     assert ":CAL:AUTO OFF" not in sets
     # *CLS is still the first command of the setup phase.
     assert sets[0] == "*CLS"

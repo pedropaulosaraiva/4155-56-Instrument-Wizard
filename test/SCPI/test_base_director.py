@@ -4,7 +4,7 @@ from wizard_4155_4156.SCPI.command_builders.common_commands import (
 )
 
 TEST_RESULT_KEY = "ID"
-EXPECTED_RESET_CMD = "*RST"
+EXPECTED_RESET_CMD = ":PAGE:CHAN:DEF"
 EXPECTED_IDN_CMD = "*IDN?"
 
 

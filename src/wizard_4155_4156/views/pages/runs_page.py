@@ -20,7 +20,6 @@ from typing import Optional
 
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
-    QCheckBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -36,6 +35,9 @@ from PySide6.QtWidgets import (
 
 from wizard_4155_4156.db.repository import ExecRow, SetupRow
 from wizard_4155_4156.extra_widgets.description_dialog import DescriptionDialog
+from wizard_4155_4156.extra_widgets.instrument_mismatch_dialog import (
+    confirm_instrument_mismatch,
+)
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.styles.icons import (
     AppIcon24,
@@ -70,6 +72,9 @@ class RunsPageView(BasePage):
     edit_setup_metadata_requested = Signal(int)  # setup id
     delete_setup_requested = Signal(int)
     delete_execution_requested = Signal(int)
+    # Development-only: no UI entry emits this (the "Insert mock data" menu
+    # item was removed from the production UI); the presenter slot is kept and
+    # driven directly by the DB smoke tests.
     insert_sample_execution_requested = Signal(int)  # setup id
     view_execution_data_requested = Signal(int)  # execution id
     apply_setup_requested = Signal(int)  # setup id (hardware)
@@ -334,9 +339,7 @@ class RunsPageView(BasePage):
         menu.popup_under(self._setups_menu_btn)
 
     def _show_runs_menu(self) -> None:
-        has_setup = self._current_setup_id() is not None
         has_exec = self._current_execution_id() is not None
-        need_setup = tr_ui(_T.RUNS_NEED_SETUP)
         need_run = tr_ui(_T.RUNS_NEED_RUN)
         menu = ActionMenu(self)
         menu.add_item(
@@ -345,19 +348,6 @@ class RunsPageView(BasePage):
             callback=self._on_view_clicked,
             available=has_exec,
             unavailable_reason=need_run,
-        )
-        menu.add_item(
-            tr_ui(_T.RUNS_MENU_VIEW_GRAPH),
-            icon=app_icon(AppIcon24.BAR_CHART),
-            available=False,  # Graph page not built yet.
-            unavailable_reason=tr_ui(_T.RUNS_GRAPH_SOON_TOOLTIP),
-        )
-        menu.add_item(
-            tr_ui(_T.RUNS_MENU_INSERT_MOCK),
-            icon=app_icon(AppIcon24.BOOKMARK),
-            callback=self._on_sample_clicked,
-            available=has_setup,
-            unavailable_reason=need_setup,
         )
         menu.add_item(
             tr_ui(_T.RUNS_MENU_SEE_DESC),
@@ -489,11 +479,6 @@ class RunsPageView(BasePage):
         ):
             self.delete_setup_requested.emit(setup_id)
 
-    def _on_sample_clicked(self) -> None:
-        setup_id = self._current_setup_id()
-        if setup_id is not None:
-            self.insert_sample_execution_requested.emit(setup_id)
-
     def _on_view_clicked(self) -> None:
         exec_id = self._current_execution_id()
         if exec_id is not None:
@@ -566,19 +551,4 @@ class RunsPageView(BasePage):
         Returns ``(proceed, dont_ask_again)``; the presenter owns the
         session-scoped suppression decision.
         """
-        box = QMessageBox(self)
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle("Instrument mismatch")
-        box.setText(
-            f"This setup was created for {setup_model}, but "
-            f"{connected_model} is currently connected.\n\n"
-            "Execute this setup anyway?"
-        )
-        box.setStandardButtons(
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        box.setDefaultButton(QMessageBox.StandardButton.No)
-        dont_ask = QCheckBox("Don't ask again for this session")
-        box.setCheckBox(dont_ask)
-        proceed = box.exec() == QMessageBox.StandardButton.Yes
-        return proceed, dont_ask.isChecked()
+        return confirm_instrument_mismatch(self, setup_model, connected_model)

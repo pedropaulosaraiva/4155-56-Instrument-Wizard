@@ -53,7 +53,10 @@ from wizard_4155_4156.models.sweep_config import (
     DISPLAY_VARS_MAX,
     measured_variable,
 )
-from wizard_4155_4156.presenters.live_run_helper import LiveMeasurementRunner
+from wizard_4155_4156.presenters.live_run_helper import (
+    LiveMeasurementRunner,
+    confirm_quick_instrument_match,
+)
 from wizard_4155_4156.views.pages.qscv_config_page import QscvConfigPageView
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -622,6 +625,18 @@ class QscvConfigPresenter(QObject):
     def _push_hardware_state(self) -> None:
         self._view.display_hardware_state(self._connected, self._busy)
 
+    def _confirm_instrument_match(self) -> bool:
+        """Warn (once per session) before a quick apply/run on a foreign
+        instrument model."""
+        connected = (
+            self._connector.connected_instrument_model()
+            if self._connector is not None
+            else None
+        )
+        return confirm_quick_instrument_match(
+            self._view, self.get_instrument_model(), connected
+        )
+
     def _on_quick_apply_setup(self) -> None:
         if self._runner is None:
             return
@@ -629,6 +644,8 @@ class QscvConfigPresenter(QObject):
             config = self.get_json()
         except ValueError:
             return  # menu is gated on validity; ignore defensively
+        if not self._confirm_instrument_match():
+            return
         self._runner.apply_setup(config)
 
     def _on_quick_apply_run_fetch(self) -> None:
@@ -637,6 +654,8 @@ class QscvConfigPresenter(QObject):
         try:
             config = self.get_json()
         except ValueError:
+            return
+        if not self._confirm_instrument_match():
             return
         self._runner.apply_run_fetch(config)
 

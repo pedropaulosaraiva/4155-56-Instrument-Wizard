@@ -16,6 +16,8 @@ across every apply/run request on a page.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from wizard_4155_4156.SCPI.measurement_run_director import (
     MeasurementRunDirector,
 )
@@ -27,6 +29,50 @@ from wizard_4155_4156.SCPI.measurement_setup_director import (
 _FETCH_FORMAT = "REAL"
 _FETCH_LENGTH = 64
 _FETCH_BORDER = "NORM"
+
+class _QuickMismatchState:
+    """Session-scoped suppression of the quick-run mismatch warning.
+
+    Deliberately INDEPENDENT of the Runs page's own
+    ``_suppress_instrument_mismatch``: the Runs page and the quick apply/run
+    actions are two different execution paths, each with its own opt-out.
+    Module level (not per presenter) because
+    MeasureConfigFactory destroys and rebuilds the config presenters every time
+    a measurement-config page is generated.
+    """
+
+    suppressed = False
+
+
+def reset_quick_mismatch_suppression() -> None:
+    """Re-arm the quick-run mismatch warning (test hook)."""
+    _QuickMismatchState.suppressed = False
+
+
+def confirm_quick_instrument_match(
+    view,  # config page view — provides confirm_instrument_mismatch()
+    setup_model: str,
+    connected_model: Optional[str],
+) -> bool:
+    """Warn once per session before a quick apply/run on a foreign model.
+
+    Returns True to proceed.  No prompt when suppressed, when disconnected, or
+    when the connected model matches the model the config was built for.
+    """
+    if _QuickMismatchState.suppressed:
+        return True
+    if (
+        not connected_model
+        or not setup_model
+        or setup_model == connected_model
+    ):
+        return True
+    proceed, dont_ask = view.confirm_instrument_mismatch(
+        setup_model, connected_model
+    )
+    if proceed and dont_ask:
+        _QuickMismatchState.suppressed = True
+    return proceed
 
 
 class LiveMeasurementRunner:

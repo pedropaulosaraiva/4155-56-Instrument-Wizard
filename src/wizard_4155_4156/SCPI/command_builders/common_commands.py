@@ -12,7 +12,9 @@ class CommonCommandBuilder(SCPICommandBuilder):
         self._is_command_query = True
 
     def reset(self):
-        self._add_command_segment("*RST")
+        # Soft reset: restores the default page/channel configuration instead
+        # of performing a full instrument reset (*RST).
+        self._add_command_segment(":PAGE:CHAN:DEF")
         self._is_command_ready = True
 
     def clear(self):

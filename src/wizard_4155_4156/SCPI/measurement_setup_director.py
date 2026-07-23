@@ -45,9 +45,10 @@ class MeasurementSetupDirector(BaseDirector):
     ) -> list[CommandPair]:
         scpi_sequence: list[CommandPair] = []
 
-        # *RST is gated by the "skip instrument reset" advanced option so a
-        # user can pre-configure the instrument (e.g. Zero Offset Cancel) and
-        # keep those settings when the setup/run begins.  *CLS only clears the
+        # The soft reset (:PAGE:CHAN:DEF — default page/channel definition) is
+        # gated by the "skip instrument reset" advanced option so a user can
+        # pre-configure the instrument (e.g. Zero Offset Cancel) and keep those
+        # settings when the setup/run begins.  *CLS only clears the
         # status/error queue (not the instrument configuration), so it is
         # always sent.
         if not skip_reset:
@@ -62,9 +63,8 @@ class MeasurementSetupDirector(BaseDirector):
             )
         )
 
-        # Disable auto self-calibration. Ordering is load-bearing: this MUST
-        # follow *RST, which resets :CAL:AUTO to its power-on default (ON).
-        # Moving it before *RST would silently re-enable auto-calibration.
+        # Disable auto self-calibration, after the reset so it is never undone
+        # by an instrument-side default being restored.
         # Gated by the "keep automatic calibration" advanced option: when the
         # user relies on the instrument's ~30-min auto-cal cycle, leave it on.
         if not keep_auto_calibration:
@@ -93,7 +93,8 @@ class MeasurementSetupDirector(BaseDirector):
         """Reset, apply the measurement config, then finalize the display.
 
         This is the production entry point for configuring the instrument:
-        every setup starts from *RST defaults with auto-calibration disabled,
+        every setup starts from the default page/channel definition with
+        auto-calibration disabled,
         applies the measurement config, and ends with ``post_setup`` so the
         graph/list reflect the chosen display variables rather than whatever
         the instrument auto-assigned while the config commands were applied.

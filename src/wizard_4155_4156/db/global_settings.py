@@ -61,7 +61,7 @@ class GlobalSettings:
     theme: str = DEFAULT_THEME  # applied on next launch (styles/theme.py)
     # Advanced options (Preferences dialog).  Both default False so existing
     # users keep today's behavior after updating.
-    skip_reset: bool = False  # skip *RST at the start of each setup/run
+    skip_reset: bool = False  # skip the soft reset before each setup/run
     keep_auto_calibration: bool = False  # skip :CAL:AUTO OFF at setup start
 
     def to_dict(self) -> dict:

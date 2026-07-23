@@ -339,16 +339,6 @@ class MainWindow(QMainWindow):
 
         file_menu.addSeparator()
 
-        save_act = QAction("Save", self)
-        save_act.setShortcut("Ctrl+S")
-        file_menu.addAction(save_act)
-
-        save_as_act = QAction("Save As…", self)
-        save_as_act.setShortcut("Ctrl+Shift+S")
-        file_menu.addAction(save_as_act)
-
-        file_menu.addSeparator()
-
         exit_act = QAction("Exit", self)
         exit_act.setShortcut("Ctrl+Q")
         exit_act.triggered.connect(self.close)

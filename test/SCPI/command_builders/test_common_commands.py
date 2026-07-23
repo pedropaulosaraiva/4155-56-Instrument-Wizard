@@ -14,7 +14,7 @@ def builder():
     ("method", "expected", "is_query"),
     [
         ("identify", "*IDN?", True),
-        ("reset", "*RST", False),
+        ("reset", ":PAGE:CHAN:DEF", False),
         ("clear", "*CLS", False),
         ("get_auto_calibration", ":CAL:AUTO?", True),
         ("get_operation_complete", "*OPC?", True),

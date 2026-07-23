@@ -181,7 +181,7 @@ class CommandWizardText(StrEnum):
     RUNS_SETUPS_EMPTY = (
         "No setups yet.\nSave the current configuration to create one."
     )
-    RUNS_RUNS_EMPTY = "No runs yet.\nUse “Insert mock data” to add one."
+    RUNS_RUNS_EMPTY = "No runs yet.\nRun the selected setup to create one."
     # Setups ⋮ menu
     RUNS_MENU_EDIT_META = "Edit name/description"
     RUNS_MENU_EDIT_AS_NEW = "Edit as new setup"
@@ -189,13 +189,10 @@ class CommandWizardText(StrEnum):
     RUNS_MENU_DELETE_SETUP = "Delete setup"
     # Runs ⋮ menu
     RUNS_MENU_VIEW_TABLE = "View as table"
-    RUNS_MENU_VIEW_GRAPH = "View as graph"
-    RUNS_MENU_INSERT_MOCK = "Insert mock data"
     RUNS_MENU_DELETE_RUN = "Delete run"
     # Reasons shown when a ⋮ menu entry is unavailable.
     RUNS_NEED_SETUP = "Select a setup first."
     RUNS_NEED_RUN = "Select a run first."
-    RUNS_GRAPH_SOON_TOOLTIP = "Graph view is coming soon."
     RUNS_DESC_TITLE = "Description"
     RUNS_NO_DESC = "No description provided."
     RUNS_DELETE_SETUP_TITLE = "Delete setup"
@@ -204,6 +201,13 @@ class CommandWizardText(StrEnum):
     )
     RUNS_DELETE_RUN_TITLE = "Delete run"
     RUNS_DELETE_RUN_MSG = "Delete this run and its data?"
+    # Instrument-model mismatch warning (Runs page + quick apply/run)
+    MISMATCH_TITLE = "Instrument mismatch"
+    MISMATCH_MSG = (
+        "This setup was created for {setup_model}, but {connected_model} is "
+        "currently connected.\n\nExecute this setup anyway?"
+    )
+    MISMATCH_DONT_ASK = "Don't ask again for this session"
     # Import Measure (external data files → setup + runs)
     RUNS_BTN_IMPORT = "Import Measure"
     RUNS_IMPORT_TITLE = "Import measure"

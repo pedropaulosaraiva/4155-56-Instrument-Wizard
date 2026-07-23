@@ -44,7 +44,7 @@ GPIB41xxController.initialize_visa, invoked from ScanTask), so no auto-scan
 runs at startup.
 """
 
-from typing import List
+from typing import List, Optional
 
 from PySide6.QtCore import QObject, QThreadPool, Signal, Slot
 
@@ -102,6 +102,12 @@ class ConnectorPresenter(QObject):
         self._pool = QThreadPool()
         self._pool.setMaxThreadCount(1)
 
+        # Last connected instrument name ("4155C - GPIB0::17::INSTR"), kept so
+        # presenters created *after* the connection (e.g. the lazily generated
+        # config pages, which never see the connection_changed signal) can
+        # still ask which instrument is on the bus.
+        self._instrument_name: Optional[str] = None
+
         self._connect_view_signals()
 
     # ── Lifecycle ────────────────────────────────────────────────────────────
@@ -118,6 +124,13 @@ class ConnectorPresenter(QObject):
     def is_connected(self) -> bool:
         """Whether an instrument is currently connected (initial state)."""
         return self._controller.is_connected
+
+    def connected_instrument_model(self) -> Optional[str]:
+        """Model of the connected instrument ("4155C"), or None if offline."""
+        name = self._instrument_name
+        if not name:
+            return None
+        return name.split(" - ", maxsplit=1)[0].strip() or name
 
     # ── Public trigger API (called by future measurement presenters) ─────────
 
@@ -232,6 +245,7 @@ class ConnectorPresenter(QObject):
     @Slot(bool, str)
     def _on_connection_status(self, connected: bool, name: str) -> None:
         self._view.modal.update_connection_status(connected)
+        self._instrument_name = name if connected else None
         if connected:
             self._view.display_connected(name)
         else:

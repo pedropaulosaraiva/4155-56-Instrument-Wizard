@@ -38,6 +38,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.extra_widgets.instrument_mismatch_dialog import (
+    confirm_instrument_mismatch,
+)
 from wizard_4155_4156.gui_text.documentation import DocTopic
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.models.qscv_config import (
@@ -669,6 +672,16 @@ class QscvConfigPageView(BasePage):
             json_str, self, title="Generated JSON — QSCV Configuration"
         )
         dlg.exec()
+
+    def confirm_instrument_mismatch(
+        self, setup_model: str, connected_model: str
+    ) -> tuple[bool, bool]:
+        """Warn before a quick apply/run on a foreign instrument model.
+
+        Returns ``(proceed, dont_ask_again)``; the presenter owns the
+        session-scoped suppression decision.
+        """
+        return confirm_instrument_mismatch(self, setup_model, connected_model)
 
     def display_save_success(self, filename: str) -> None:
         self._top_bar.flash_saved(filename)
