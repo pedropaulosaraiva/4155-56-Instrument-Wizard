@@ -15,8 +15,11 @@ lifetime is managed by MainWindow.
 """
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QFileDialog
 
+from wizard_4155_4156.extra_widgets.file_dialogs import (
+    DialogPurpose,
+    get_open_path,
+)
 from wizard_4155_4156.models.project import RecentProjectsManager
 from wizard_4155_4156.views.pages.home_page import HomePageView
 
@@ -85,10 +88,10 @@ class HomePresenter(QObject):
 
     def _on_open_project(self) -> None:
         """Show OS file dialog; if a file is chosen treat it as opened."""
-        path, _ = QFileDialog.getOpenFileName(
+        path = get_open_path(
             self._view,
+            DialogPurpose.PROJECT,
             "Open Project",
-            "",
             "Project Database (*.wiz4155);;All Files (*.*)",
         )
         if path:

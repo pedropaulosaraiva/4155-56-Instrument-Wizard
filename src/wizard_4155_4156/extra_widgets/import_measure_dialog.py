@@ -27,7 +27,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
-    QFileDialog,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -44,6 +43,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from wizard_4155_4156.extra_widgets.file_dialogs import (
+    DialogPurpose,
+    get_open_paths,
+)
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.models.data_export import csv_dialect_is_valid
 from wizard_4155_4156.models.data_import import (
@@ -394,10 +397,10 @@ class ImportMeasureDialog(QDialog):
     # ── File collection ──────────────────────────────────────────────────────
 
     def _on_browse(self) -> None:
-        paths, _filter = QFileDialog.getOpenFileNames(
+        paths = get_open_paths(
             self,
+            DialogPurpose.IMPORT,
             tr_ui(_T.RUNS_IMPORT_BROWSE_TITLE),
-            "",
             tr_ui(_T.RUNS_IMPORT_FILE_FILTER),
         )
         if paths:

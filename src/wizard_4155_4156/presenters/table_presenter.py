@@ -24,13 +24,17 @@ from datetime import datetime
 from typing import Optional
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QApplication, QFileDialog
+from PySide6.QtWidgets import QApplication
 
 from wizard_4155_4156.db.assembler import execution_to_data_dict
 from wizard_4155_4156.db.repository import (
     ExecRow,
     ExecutionRepository,
     SetupRepository,
+)
+from wizard_4155_4156.extra_widgets.file_dialogs import (
+    DialogPurpose,
+    get_save_path,
 )
 from wizard_4155_4156.gui_text.general_text import CommandWizardText, tr_ui
 from wizard_4155_4156.models.data_export import (
@@ -427,11 +431,12 @@ class TablePresenter(QObject):
             if self._view.datetime_in_filename()
             else None
         )
-        path, _ = QFileDialog.getSaveFileName(
+        path = get_save_path(
             self._view,
+            DialogPurpose.TABLE_EXPORT,
             tr_ui(CommandWizardText.TABLE_SAVE_TITLE),
-            export_filename("data", fmt, timestamp),
             f"{label} (*.{ext})",
+            suggested_name=export_filename("data", fmt, timestamp),
         )
         if not path:
             return
@@ -478,11 +483,12 @@ class TablePresenter(QObject):
             (name for sid, name in self._last_setups if sid == setup_id),
             "data",
         )
-        path, _ = QFileDialog.getSaveFileName(
+        path = get_save_path(
             self._view,
+            DialogPurpose.TABLE_EXPORT,
             tr_ui(CommandWizardText.TABLE_SAVE_ALL_TITLE),
-            f"{sanitize_filename(setup_name)}.zip",
             tr_ui(CommandWizardText.TABLE_SAVE_ALL_FILTER),
+            suggested_name=f"{sanitize_filename(setup_name)}.zip",
         )
         if not path:
             return

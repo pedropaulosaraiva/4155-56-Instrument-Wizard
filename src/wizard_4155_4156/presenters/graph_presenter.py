@@ -29,13 +29,17 @@ import math
 from typing import Optional
 
 from PySide6.QtCore import QObject, QTimer
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QMessageBox
 
 from wizard_4155_4156.db.assembler import execution_to_data_dict
 from wizard_4155_4156.db.repository import (
     ExecutionRepository,
     GraphSceneRepository,
     SetupRepository,
+)
+from wizard_4155_4156.extra_widgets.file_dialogs import (
+    DialogPurpose,
+    get_save_path,
 )
 from wizard_4155_4156.gui_text.general_text import (
     CommandWizardText as TXT,
@@ -855,31 +859,34 @@ class GraphPresenter(QObject):
             self._export_csv(traces)
 
     def _export_png(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
+        path = get_save_path(
             self._view,
+            DialogPurpose.GRAPH_EXPORT,
             tr_ui(TXT.GRAPH_EXPORT_PNG_TITLE),
-            "plot.png",
             "PNG (*.png)",
+            suggested_name="plot.png",
         )
         if path:
             self._view.export_plot_png(self._scene.active_index, path)
 
     def _export_scene_png(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
+        path = get_save_path(
             self._view,
+            DialogPurpose.GRAPH_EXPORT,
             tr_ui(TXT.GRAPH_EXPORT_SCENE_TITLE),
-            "scene.png",
             "PNG (*.png)",
+            suggested_name="scene.png",
         )
         if path:
             self._view.export_scene_png(path)
 
     def _export_csv(self, traces: list[Trace]) -> None:
-        path, _ = QFileDialog.getSaveFileName(
+        path = get_save_path(
             self._view,
+            DialogPurpose.GRAPH_EXPORT,
             tr_ui(TXT.GRAPH_EXPORT_CSV_TITLE),
-            "plot.csv",
             "CSV (*.csv)",
+            suggested_name="plot.csv",
         )
         if not path:
             return
@@ -892,11 +899,12 @@ class GraphPresenter(QObject):
             )
 
     def _export_xlsx(self, traces: list[Trace]) -> None:
-        path, _ = QFileDialog.getSaveFileName(
+        path = get_save_path(
             self._view,
+            DialogPurpose.GRAPH_EXPORT,
             tr_ui(TXT.GRAPH_EXPORT_CSV_TITLE),
-            "plot.xlsx",
             "XLSX (*.xlsx)",
+            suggested_name="plot.xlsx",
         )
         if not path:
             return

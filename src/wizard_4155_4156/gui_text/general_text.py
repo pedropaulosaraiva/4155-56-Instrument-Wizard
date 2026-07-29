@@ -357,7 +357,7 @@ class CommandWizardText(StrEnum):
     GRAPH_BTN_FIT_ROI = "Fit over ROI"
     GRAPH_BTN_FIT_FULL = "Fit full range"
     GRAPH_LBL_CATEGORY = "Category:"
-    GRAPH_CAT_DERIVATIVE = "Derivative"
+    GRAPH_CAT_DERIVATIVE = "Derivative *"
     GRAPH_CAT_UNARY = "Unary"
     GRAPH_CAT_BINARY = "Binary"
     GRAPH_LBL_OPERATION = "Operation:"
@@ -379,7 +379,7 @@ class CommandWizardText(StrEnum):
         "and cannot be used for trace math or curve fitting."
     )
     GRAPH_TRACE_MATH_FOOTNOTE = (
-        "Derivative calculations may be inaccurate for datasets using "
+        "*Derivative calculations may be inaccurate for datasets using "
         "double acquisition mode due to duplicated data points along "
         "one coordinate."
     )

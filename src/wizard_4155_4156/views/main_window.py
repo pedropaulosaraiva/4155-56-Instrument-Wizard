@@ -28,7 +28,6 @@ Responsibilities
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWidgets import (
-    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -43,6 +42,10 @@ from PySide6.QtWidgets import (
 
 from wizard_4155_4156.db.engine import PROJECT_EXTENSION, ProjectManager
 from wizard_4155_4156.db.global_settings import GlobalSettingsManager
+from wizard_4155_4156.extra_widgets.file_dialogs import (
+    DialogPurpose,
+    get_save_path,
+)
 from wizard_4155_4156.extra_widgets.settings_dialog import SettingsDialog
 from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
     SetupMetadataDialog,
@@ -406,10 +409,10 @@ class MainWindow(QMainWindow):
     def _on_new_project(self) -> None:
         """Create a new standalone .wiz4155 project database."""
         self._graph_presenter.flush_pending_save()
-        path, _ = QFileDialog.getSaveFileName(
+        path = get_save_path(
             self,
+            DialogPurpose.PROJECT,
             "New Project",
-            "",
             f"Project Database (*{PROJECT_EXTENSION})",
         )
         if not path:
