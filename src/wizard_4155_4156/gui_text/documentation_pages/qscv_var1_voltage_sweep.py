@@ -17,7 +17,7 @@ channel that is, and the value fields adapt to it.
 | **Start** | The first voltage of the sweep. |
 | **Stop** | The last voltage of the sweep. |
 | **Step** | The voltage increment between steps. It cannot be zero, and its sign sets the direction (a negative step sweeps downward). |
-| **QSCV Meas Voltage** | The width of the small voltage window used to measure capacitance at each step. It must be greater than **0**, at most **10 V**, and no larger than **\\|Step\\|** — the window has to fit within one step. |
+| **Capacitance Meas Voltage** | The width of the small voltage window used to measure capacitance at each step. It must be greater than **0**, at most **10 V**, and no larger than **\\|Step\\|** — the window has to fit within one step. |
 | **Compliance** | The current limit the voltage source will not exceed. |
 
 ## Behaviour to know
@@ -33,10 +33,10 @@ channel that is, and the value fields adapt to it.
 - **Nothing may be finer than the output resolution.** The instrument picks the
   lowest output range that covers the larger of \\|Start\\| and \\|Stop\\|, and that
   range has a finite setting resolution. **Start** and **Stop** must be at least
-  that resolution (exactly **0** is always fine), while **Step** and **QSCV Meas
-  Voltage** must be at least **twice** it — each point outputs a measurement
+  that resolution (exactly **0** is always fine), while **Step** and
+  **Capacitance Meas Voltage** must be at least **twice** it — each point outputs a measurement
   window around the DC bias. Example: a 0 → 1 V sweep sits in the **2 V** range,
-  which resolves **100 µV**, so Step and QSCV Meas Voltage must be ⩾ **200 µV**.
+  which resolves **100 µV**, so Step and Capacitance Meas Voltage must be ⩾ **200 µV**.
 - **Fields follow the assigned channel.** Each value editor enforces the valid
   range for the channel and whether the interlock is open, and flags entries that
   fall outside it.

@@ -179,7 +179,9 @@ def test_cap_integration_validation(freq, cap, ok):
     # Referenced Mode off: the raw PLC window applies only to free entry.
     cfg = make_valid_config(cap_integration_time=cap, referenced_mode=False)
     errors = validate(cfg, line_frequency_hz=freq)
-    cap_errs = [e for e in errors if e.startswith("QSCV Integration Time")]
+    cap_errs = [
+        e for e in errors if e.startswith("Capacitance Integration Time")
+    ]
     assert bool(cap_errs) != ok
 
 
@@ -310,13 +312,13 @@ def test_var1_compliance_out_of_range():
 def test_cstep_must_be_positive():
     cfg = make_valid_config()
     cfg.var1.cstep = 0.0
-    assert any("QSCV Meas Voltage" in e for e in validate(cfg))
+    assert any("Capacitance Meas Voltage" in e for e in validate(cfg))
 
 
 def test_cstep_max():
     cfg = make_valid_config()
     cfg.var1.cstep = 11.0
-    assert any("QSCV Meas Voltage" in e for e in validate(cfg))
+    assert any("Capacitance Meas Voltage" in e for e in validate(cfg))
 
 
 def test_cstep_must_be_le_step():
@@ -382,7 +384,7 @@ def test_cstep_flagged_independently_of_step():
     cfg.var1.cstep = 1e-4  # < 2 × 100 µV, step (0.1) is fine
     errors = res_errors(cfg)
     assert len(errors) == 1
-    assert errors[0].startswith("QSCV Meas Voltage")
+    assert errors[0].startswith("Capacitance Meas Voltage")
 
 
 def test_start_below_resolution_of_the_selected_range():

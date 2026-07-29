@@ -265,7 +265,9 @@ def validate(cfg):
 def test_referenced_mode_accepts_a_grid_time():
     errors = validate(make_referenced_config())
     assert not any("Referenced Mode" in e for e in errors)
-    assert not any(e.startswith("QSCV Integration Time") for e in errors)
+    assert not any(
+        e.startswith("Capacitance Integration Time") for e in errors
+    )
 
 
 def test_referenced_mode_rejects_an_off_grid_time():

@@ -252,13 +252,14 @@ class QscvConstraints:
         """
         Mirror of ``SweepConstraints._validate_output_resolution`` for the
         QSCV voltage staircase.  Every output value must be representable in
-        the output range covering max(|start|, |stop|); Step and QSCV Meas
-        Voltage additionally need *twice* that resolution, since each
-        capacitance point outputs a window around the DC bias.  Zero is always
-        representable, so a zero Start/Stop is exempt.  Each check runs only
-        when its field has no prior error: a bad Start/Stop makes the selected
-        output range meaningless (so nothing is checked), and a bad Step or
-        QSCV Meas Voltage is reported once rather than twice.
+        the output range covering max(|start|, |stop|); Step and Capacitance
+        Meas Voltage additionally need *twice* that resolution, since
+        each capacitance point outputs a window around the DC bias.  Zero is
+        always representable, so a zero Start/Stop is exempt.  Each check runs
+        only when its field has no prior error: a bad Start/Stop makes the
+        selected output range meaningless (so nothing is checked), and a bad
+        Step or Capacitance Meas Voltage is reported once rather than
+        twice.
         """
         if any(
             e.startswith(("VAR1 Start", "VAR1 Stop")) for e in prior_errors
@@ -290,9 +291,10 @@ class QscvConstraints:
         if not any(e.startswith("VAR1 Step") for e in prior_errors):
             if abs(v1.step) < 2 * res:
                 errors.append(below("VAR1 Step", abs(v1.step), True))
-        if not any(e.startswith("QSCV Meas Voltage") for e in prior_errors):
+        cm_label = "Capacitance Meas Voltage"
+        if not any(e.startswith(cm_label) for e in prior_errors):
             if abs(v1.cstep) < 2 * res:
-                errors.append(below("QSCV Meas Voltage", abs(v1.cstep), True))
+                errors.append(below(cm_label, abs(v1.cstep), True))
         return errors
 
     @staticmethod
@@ -313,7 +315,7 @@ class QscvConstraints:
         cmin, cmax = cap_integration_bounds(line_frequency_hz)
         if not (cmin <= cfg.cap_integration_time <= cmax):
             errors.append(
-                f"QSCV Integration Time: invalid value "
+                f"Capacitance Integration Time: invalid value "
                 f"(range: {cmin:.4g} – {cmax:.4g} s "
                 f"at {line_frequency_hz} Hz)"
             )
@@ -348,8 +350,8 @@ class QscvConstraints:
                     or "none for this range"
                 )
                 errors.append(
-                    f"QSCV Integration Time: Referenced Mode allows only the "
-                    f"manufacturer reference times ({shown})"
+                    f"Capacitance Integration Time: Referenced Mode allows "
+                    f"only the manufacturer reference times ({shown})"
                 )
             elif not math.isclose(
                 cfg.cap_integration_time,
@@ -462,13 +464,14 @@ class QscvConstraints:
         # each DC bias step; it must fit within the step spacing.
         if not (0 < v1.cstep <= CSTEP_MAX):
             errors.append(
-                f"QSCV Meas Voltage: invalid "
+                f"Capacitance Meas Voltage: invalid "
                 f"value (range: 0 < v ≤ "
                 f"{CSTEP_MAX:g} V)"
             )
         elif v1.step != 0 and v1.cstep > abs(v1.step):
             errors.append(
-                f"QSCV Meas Voltage: must be ≤ |Step| ({abs(v1.step):.3g} V)"
+                f"Capacitance Meas Voltage: must be ≤ |Step| "
+                f"({abs(v1.step):.3g} V)"
             )
 
         # 8. NO. OF STEP (only when the basic VAR1 sweep params are sound)

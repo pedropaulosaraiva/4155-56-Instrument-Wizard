@@ -179,14 +179,14 @@ class _QscvMeasSetupSection(_SectionFrame):
         cap_lo, cap_hi = cap_integration_bounds(50)
         self._cap_int_edit = _SciDoubleEdit(0.1, cap_lo, cap_hi, "s")
         self._cap_int_row = _form_row(
-            "QSCV Integration Time", self._cap_int_edit
+            "Capacitance Integration Time", self._cap_int_edit
         )
         self.body().addWidget(self._cap_int_row)
 
         self._ref_int_combo = QComboBox()
         self._ref_int_combo.setStyleSheet(unit_card_combo_stylesheet())
         self._ref_int_row = _form_row(
-            "QSCV Integration Time", self._ref_int_combo
+            "Capacitance Integration Time", self._ref_int_combo
         )
         self._ref_int_row.setVisible(False)
         self.body().addWidget(self._ref_int_row)
@@ -325,7 +325,7 @@ class _QscvMeasSetupSection(_SectionFrame):
         if not self._referenced:
             if self._cap_int_edit.get_value() is None:
                 errors["cap_int"] = (
-                    "QSCV Integration Time: value is empty or invalid"
+                    "Capacitance Integration Time: value is empty or invalid"
                 )
             if self._leak_int_edit.get_value() is None:
                 errors["leak_int"] = (
@@ -446,10 +446,24 @@ class _QscvVar1Section(_SectionFrame):
             _form_row("Start", self._start_edit),
             _form_row("Stop", self._stop_edit),
             _form_row("Step", self._step_edit),
-            _form_row("QSCV Meas Voltage", self._cstep_edit),
+            _form_row("Capacitance Meas Voltage *", self._cstep_edit),
             _form_row("Compliance", self._comp_edit),
         ]:
             self.body().addWidget(row)
+
+        self._footnote_lbl = QLabel(
+            "*The Capacitance Meas Voltage (cstep) and Capacitance "
+            "Integration Time (cinteg) have a trade-off: higher cstep values "
+            "require longer cinteg times. The optimal cinteg also depends on "
+            "measurement noise. In general, a cstep value of 50 mV is a "
+            "recommended starting point.\n\n"
+            "Adapted from: Agilent Application Note 4156-10, \"Evaluation of "
+            "Gate Oxides Using a Voltage Step Quasi-Static CV Method\" "
+            "(2001)."
+        )
+        self._footnote_lbl.setStyleSheet(qscv_reference_note_stylesheet())
+        self._footnote_lbl.setWordWrap(True)
+        self.body().addWidget(self._footnote_lbl)
 
         self._mode_seg.selection_changed.connect(self.mode_changed)
         self._start_edit.value_committed.connect(self.start_committed)
@@ -502,7 +516,7 @@ class _QscvVar1Section(_SectionFrame):
             errors["var1_step"] = "VAR1 Step: value is empty or invalid"
         if self._cstep_edit.get_value() is None:
             errors["var1_cstep"] = (
-                "QSCV Meas Voltage: value is empty or invalid"
+                "Capacitance Meas Voltage: value is empty or invalid"
             )
         if self._comp_edit.get_value() is None:
             errors["var1_comp"] = "VAR1 Compliance: value is empty or invalid"

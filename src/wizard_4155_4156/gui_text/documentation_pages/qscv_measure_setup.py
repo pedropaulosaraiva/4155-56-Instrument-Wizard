@@ -17,8 +17,8 @@ integration choice has no effect on a QSCV measurement.
 | **Measurement Unit** | Which SMU takes the capacitance measurement. **DEFAULT** uses the one selected as VAR1, otherwise pick a specific enabled SMU. |
 | **Measurement Range** | The current range used for the capacitance measurement. The choices depend on the instrument model — the HRSMU (4156C) offers the lower **10 pA / 100 pA** ranges, while the MPSMU/HPSMU (4155C) offers **1 nA / 10 nA**. The resolution of the selected range is shown on the line just below the card. |
 | **Referenced Mode** | **ON** (the default) restricts the integration times to the manufacturer's reference values and shows the maximum measurable capacitance — see below. |
-| **QSCV Integration Time** | How long each capacitance measurement integrates — longer means less noise but a slower sweep. In Referenced Mode this becomes a dropdown of the supported values. |
-| **Leak Integration Time** | How long each leakage-current measurement integrates; it works together with **Leak Compensation**. In Referenced Mode it is locked equal to the QSCV Integration Time. |
+| **Capacitance Integration Time** | How long each capacitance measurement integrates — longer means less noise but a slower sweep. In Referenced Mode this becomes a dropdown of the supported values. |
+| **Leak Integration Time** | How long each leakage-current measurement integrates; it works together with **Leak Compensation**. In Referenced Mode it is locked equal to the Capacitance Integration Time. |
 | **Leak Compensation** | **ON** subtracts the device's leakage current from the capacitance result. |
 | **Zero Cancel** | **ON** removes a fixed capacitance offset from the result. |
 
@@ -47,7 +47,7 @@ follows a simple inverse law:
 C_max(V) = A / V
 ```
 
-where **V** is the **QSCV Meas Voltage** from the VAR1 card and **A** is the coefficient
+where **V** is the **Capacitance Meas Voltage** from the VAR1 card and **A** is the coefficient
 for the selected range and integration time.
 
 A new QSCV page opens **in Referenced Mode at 500 ms** — a middle-of-the-grid reference
@@ -56,14 +56,14 @@ capacitance ceiling is on screen from the start.
 
 Referenced Mode does three things while it is **ON**:
 
-- The **QSCV Integration Time** becomes a dropdown limited to the values the reference
+- The **Capacitance Integration Time** becomes a dropdown limited to the values the reference
   curves were measured at — 2 s, 1 s, 500 ms, 300 ms, and additionally 100 ms, 50 ms and
   30 ms on the 1 nA / 10 nA ranges. Values outside the instrument's own line-cycle limits
   are not offered, so the list also depends on the 50 / 60 Hz line-frequency setting.
 - The **Leak Integration Time** is locked equal to it, because that is how the reference
   data was taken.
 - The estimated **maximum measurable capacitance** appears under the card and updates
-  immediately whenever the range, the integration time or the QSCV Meas Voltage changes.
+  immediately whenever the range, the integration time or the Capacitance Meas Voltage changes.
 
 ### Read the number with care
 
@@ -72,7 +72,7 @@ Referenced Mode does three things while it is **ON**:
 - **Leave a safety margin.** Keep the device under test roughly **10× to 100× below** the
   displayed value; the card shows that band explicitly. Measuring close to the ceiling
   invites oscillation.
-- **Raising the QSCV Meas Voltage lowers the ceiling.** The maximum measurable
+- **Raising the Capacitance Meas Voltage lowers the ceiling.** The maximum measurable
   capacitance and the measurement voltage pull in opposite directions.
 
 Turning Referenced Mode **OFF** restores free entry of both integration times and removes

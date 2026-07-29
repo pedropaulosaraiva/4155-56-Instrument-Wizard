@@ -133,9 +133,9 @@ exactly as in Sweep.
 | **Measurement Range** | valid for the connected instrument model |
 | **Measurement Unit** | DEFAULT, or one of the enabled SMUs |
 | **VAR1** | Start / Stop within the source range; Step non-zero and within range, with a direction matching Start→Stop; Compliance within bounds |
-| **QSCV Meas Voltage** | 0 < value ≤ 10 V, and ≤ \\|Step\\| |
+| **Capacitance Meas Voltage** | 0 < value ≤ 10 V, and ≤ \\|Step\\| |
 | **No. of Step** | within range (checked once VAR1 is sound) |
-| **Output resolution** (checked once VAR1 is otherwise sound) | The output range is the lowest standard range covering max(\\|Start\\|, \\|Stop\\|), and each range has a finite setting resolution (e.g. the 2 V range resolves 100 µV, the 40 V range 2 mV). **Start** and **Stop** must be ⩾ that resolution (or exactly zero); **Step** and **QSCV Meas Voltage** must be ⩾ **twice** it, because each point outputs a measurement window around the DC bias |
+| **Output resolution** (checked once VAR1 is otherwise sound) | The output range is the lowest standard range covering max(\\|Start\\|, \\|Stop\\|), and each range has a finite setting resolution (e.g. the 2 V range resolves 100 µV, the 40 V range 2 mV). **Start** and **Stop** must be ⩾ that resolution (or exactly zero); **Step** and **Capacitance Meas Voltage** must be ⩾ **twice** it, because each point outputs a measurement window around the DC bias |
 | **Display Variables** | at least two selected, at least one a measured variable (capacitance or leakage) |
 | **Constant Sources** | each value and compliance within the channel's limits |
 

@@ -17,9 +17,9 @@ measurement, divided by the size of that voltage nudge**.
 
 That picture explains most of the settings on the page:
 
-- The **width of the window** is the **QSCV Meas Voltage**, set on the **VAR1 —
+- The **width of the window** is the **Capacitance Meas Voltage**, set on the **VAR1 —
   Voltage Sweep** card. It has to fit inside one sweep step.
-- How long each measurement integrates — and so how quiet it is — is the **QSCV
+- How long each measurement integrates — and so how quiet it is — is the **Capacitance
   Integration Time**, set on the **QSCV Measure Setup** card.
 - The sweep's **Start** and **Stop** voltages are **not** measured; only the steps
   in between are.
