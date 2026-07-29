@@ -50,7 +50,6 @@ __all__ = [
     "REFERENCE_SLOPE",
     "REFERENCE_INTEGRATION_TIMES",
     "REFERENCE_INTERCEPTS",
-    "MIN_ACCURATE_CSTEP",
     "supported_integration_times",
     "nearest_supported_time",
     "max_capacitance",
@@ -60,10 +59,6 @@ __all__ = [
 
 # Slope shared by every published curve: C_max is inversely proportional to V.
 REFERENCE_SLOPE: float = -1.0
-
-# Capacitance measurement voltage below which the manufacturer's capacitance
-# accuracy specification no longer applies.
-MIN_ACCURATE_CSTEP: float = 0.1  # V
 
 # Integration times covered by the reference curves, longest first (seconds).
 REFERENCE_INTEGRATION_TIMES: Tuple[float, ...] = (

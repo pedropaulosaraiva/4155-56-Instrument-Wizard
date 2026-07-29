@@ -14,7 +14,7 @@ integration choice has no effect on a QSCV measurement.
 
 | Control | What it does |
 |---------|--------------|
-| **Measurement Unit** | Which SMU takes the capacitance measurement. **DEFAULT** lets the instrument choose; otherwise pick a specific enabled SMU. |
+| **Measurement Unit** | Which SMU takes the capacitance measurement. **DEFAULT** uses the one selected as VAR1, otherwise pick a specific enabled SMU. |
 | **Measurement Range** | The current range used for the capacitance measurement. The choices depend on the instrument model — the HRSMU (4156C) offers the lower **10 pA / 100 pA** ranges, while the MPSMU/HPSMU (4155C) offers **1 nA / 10 nA**. The resolution of the selected range is shown on the line just below the card. |
 | **Referenced Mode** | **ON** (the default) restricts the integration times to the manufacturer's reference values and shows the maximum measurable capacitance — see below. |
 | **QSCV Integration Time** | How long each capacitance measurement integrates — longer means less noise but a slower sweep. In Referenced Mode this becomes a dropdown of the supported values. |
@@ -72,11 +72,8 @@ Referenced Mode does three things while it is **ON**:
 - **Leave a safety margin.** Keep the device under test roughly **10× to 100× below** the
   displayed value; the card shows that band explicitly. Measuring close to the ceiling
   invites oscillation.
-- **Keep the QSCV Meas Voltage at 0.1 V or above.** Below that the manufacturer's
-  capacitance accuracy specification no longer applies, and the page raises a
-  non-blocking warning. Note that raising the measurement voltage *lowers* the ceiling —
-  the two pull in opposite directions, so pick the smallest voltage that still meets the
-  0.1 V floor when you need to measure a large capacitance.
+- **Raising the QSCV Meas Voltage lowers the ceiling.** The maximum measurable
+  capacitance and the measurement voltage pull in opposite directions.
 
 Turning Referenced Mode **OFF** restores free entry of both integration times and removes
 the capacitance readout. The setting is a configuration aid only: it is not saved with the

@@ -40,7 +40,6 @@ from wizard_4155_4156.models.qscv_config import (
     ranges_for_model,
 )
 from wizard_4155_4156.models.qscv_reference import (
-    MIN_ACCURATE_CSTEP,
     format_capacitance,
     format_integration_time,
     max_capacitance,
@@ -428,11 +427,6 @@ class QscvConfigPresenter(QObject):
         note = (
             "*Manufacturer reference value, not a guaranteed limit."
         )
-        if cfg.var1.cstep < MIN_ACCURATE_CSTEP:
-            note += (
-                f"  Best accuracy needs a QSCV Meas Voltage of at least "
-                f"{MIN_ACCURATE_CSTEP:g} V."
-            )
         self._view.display_max_capacitance(headline, note)
 
     def _cap_bounds(self):
@@ -673,15 +667,7 @@ class QscvConfigPresenter(QObject):
 
     def _warnings(self) -> List[str]:
         """Non-blocking advisories shown in amber on the top bar."""
-        cfg = self._config
-        warnings: List[str] = []
-        if cfg.referenced_mode and 0 < cfg.var1.cstep < MIN_ACCURATE_CSTEP:
-            warnings.append(
-                f"QSCV Meas Voltage: {cfg.var1.cstep:.3g} V is below "
-                f"{MIN_ACCURATE_CSTEP:g} V — the manufacturer's capacitance "
-                f"accuracy specification no longer applies."
-            )
-        return warnings
+        return []
 
     def _update_validation(self) -> None:
         criticals = list(self._run_validation().values())
