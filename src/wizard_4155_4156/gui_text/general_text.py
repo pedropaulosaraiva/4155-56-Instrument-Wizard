@@ -378,6 +378,11 @@ class CommandWizardText(StrEnum):
         "come from repeated acquisitions, so it is not a function of X "
         "and cannot be used for trace math or curve fitting."
     )
+    GRAPH_TRACE_MATH_FOOTNOTE = (
+        "Derivative calculations may be inaccurate for datasets using "
+        "double acquisition mode due to duplicated data points along "
+        "one coordinate."
+    )
     # Export
     GRAPH_LBL_EXPORT_BG = "Background:"
     GRAPH_EXPORT_BG_THEME = "Theme"

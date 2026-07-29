@@ -949,8 +949,7 @@ class GraphPresenter(QObject):
         plot.traces = data_traces + derived
 
     def _default_trace_name(self, plot: PlotConfig, exec_id: int) -> str:
-        label = self._exec_labels.get(exec_id, f"#{exec_id}")
-        return f"{plot.y_var} · {label}"
+        return self._exec_labels.get(exec_id, f"#{exec_id}")
 
     def _next_color(self, plot: PlotConfig, extra: int = 0) -> str:
         colors = P.GRAPH_TRACE_COLORS

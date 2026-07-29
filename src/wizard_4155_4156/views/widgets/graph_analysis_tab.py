@@ -32,6 +32,7 @@ from wizard_4155_4156.styles.icons import AppIcon24, app_icon
 from wizard_4155_4156.styles.stylesheets import (
     graph_analysis_message_stylesheet,
     graph_results_list_stylesheet,
+    qscv_reference_note_stylesheet,
     runs_primary_button_stylesheet,
     runs_secondary_button_stylesheet,
     table_selector_label_stylesheet,
@@ -280,6 +281,11 @@ class GraphAnalysisTab(QWidget):
             self.computed_trace_removed
         )
         body.addWidget(self._computed_list)
+
+        self._math_footnote = QLabel(tr_ui(TXT.GRAPH_TRACE_MATH_FOOTNOTE))
+        self._math_footnote.setStyleSheet(qscv_reference_note_stylesheet())
+        self._math_footnote.setWordWrap(True)
+        body.addWidget(self._math_footnote)
         return section
 
     # ── Public display API ──────────────────────────────────────────────────

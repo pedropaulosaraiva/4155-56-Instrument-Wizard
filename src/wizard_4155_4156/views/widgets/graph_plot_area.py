@@ -438,6 +438,10 @@ class GraphPlotArea(QWidget):
                 brush=pg.mkBrush(P.BG_PANEL),
                 pen=pg.mkPen(P.BORDER),
             )
+            # pyqtgraph's built-in right-click menu (ViewBox + PlotItem)
+            # collides with the app's own analysis tooling; "View All" is
+            # already exposed via the Tools-tab reset button, so drop it.
+            plot.setMenuEnabled(False, False)
             state = _SlotState(plot=plot, spec=spec, legend=legend)
             self._slots[slot] = state
             self._plots[slot] = plot
