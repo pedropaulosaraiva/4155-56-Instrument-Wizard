@@ -41,8 +41,6 @@ from wizard_4155_4156.models.qscv_config import (
 )
 from wizard_4155_4156.models.qscv_reference import (
     MIN_ACCURATE_CSTEP,
-    SAFETY_MARGIN_MAX,
-    SAFETY_MARGIN_MIN,
     format_capacitance,
     format_integration_time,
     max_capacitance,
@@ -418,19 +416,17 @@ class QscvConfigPresenter(QObject):
         )
         if c_max is None:
             self._view.display_max_capacitance(
-                "Max measurable C — not available",
+                "Maximum Measurable Capacitance is not available",
                 "No manufacturer reference curve for this range, integration "
                 "time and measurement voltage.",
             )
             return
 
-        headline = f"Max measurable C ≈ {format_capacitance(c_max)}"
+        headline = (
+            f"Maximum Measurable Capacitance ≈ {format_capacitance(c_max)} *"
+        )
         note = (
-            "Manufacturer reference value, not a guaranteed limit — keep the "
-            f"device under test {SAFETY_MARGIN_MIN:g}×–{SAFETY_MARGIN_MAX:g}× "
-            f"below it ({format_capacitance(c_max / SAFETY_MARGIN_MIN)} – "
-            f"{format_capacitance(c_max / SAFETY_MARGIN_MAX)}) for reliable, "
-            "oscillation-free measurements."
+            "*Manufacturer reference value, not a guaranteed limit."
         )
         if cfg.var1.cstep < MIN_ACCURATE_CSTEP:
             note += (

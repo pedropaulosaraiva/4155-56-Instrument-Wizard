@@ -74,7 +74,7 @@ class RunsPageView(BasePage):
     delete_execution_requested = Signal(int)
     # Development-only: no UI entry emits this (the "Insert mock data" menu
     # item was removed from the production UI); the presenter slot is kept and
-    # driven directly by the DB smoke tests.
+    # driven directly by eventual DB smoke tests.
     insert_sample_execution_requested = Signal(int)  # setup id
     view_execution_data_requested = Signal(int)  # execution id
     apply_setup_requested = Signal(int)  # setup id (hardware)
@@ -385,7 +385,7 @@ class RunsPageView(BasePage):
 
     @staticmethod
     def _make_exec_item(row: ExecRow) -> QListWidgetItem:
-        tag = "  · mock sample" if row.is_synthetic else ""
+        tag = "  · imported sample" if row.is_synthetic else ""
         stamp = row.execution_date.strftime("%d/%m/%Y %H:%M")
         label = (
             f"{row.name}{tag}\n"

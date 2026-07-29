@@ -95,7 +95,7 @@ class CommandWizardText(StrEnum):
     CFG_MENU_SAVE_JSON = "Save JSON…"
     CFG_MENU_GENERATE_JSON = "Generate JSON"
     CFG_MENU_QUICK_APPLY_SETUP = "Quick Apply Setup"
-    CFG_MENU_QUICK_APPLY_RUN = "Quick Apply Setup & Run"
+    CFG_MENU_QUICK_APPLY_RUN = "Quick Apply Setup and Run"
     CFG_QUICK_NEED_CONNECTION = "Connect an instrument first."
     CFG_QUICK_BUSY = "Instrument is busy."
     CFG_STATUS_READY = "Ready to Save"
@@ -210,7 +210,7 @@ class CommandWizardText(StrEnum):
     MISMATCH_DONT_ASK = "Don't ask again for this session"
     # Import Measure (external data files → setup + runs)
     RUNS_BTN_IMPORT = "Import Measure"
-    RUNS_IMPORT_TITLE = "Import measure"
+    RUNS_IMPORT_TITLE = "Import external measure"
     RUNS_IMPORT_NAME_LABEL = "Name"
     RUNS_IMPORT_NAME_PLACEHOLDER = "Unique setup name for the imported data"
     RUNS_IMPORT_DESC_LABEL = "Description (optional)"
@@ -250,7 +250,7 @@ class CommandWizardText(StrEnum):
     )
     # Import Execution (external data files → runs of an existing setup)
     RUNS_BTN_IMPORT_EXEC = "Import Execution"
-    RUNS_IMPORT_EXEC_TITLE = 'Import runs into "{setup}"'
+    RUNS_IMPORT_EXEC_TITLE = 'Import external runs into "{setup}"'
     RUNS_IMPORT_EXEC_NAME_LABEL = "Run name (applies to a single file)"
     RUNS_IMPORT_EXEC_NAME_PLACEHOLDER = "Name for the imported run"
     RUNS_IMPORT_EXEC_HINT = (

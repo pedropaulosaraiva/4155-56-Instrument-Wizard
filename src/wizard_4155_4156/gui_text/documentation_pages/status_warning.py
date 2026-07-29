@@ -47,8 +47,8 @@ cadence you requested and will silently space the samples further apart.
 
 | Warning | Raised when |
 |---------|-------------|
-| **Est. time/sample is close to the Initial Interval** | the estimated worst-case measurement time reaches about **75 %** of the Initial Interval — the schedule is tight and small changes may push it over |
-| **Est. time/sample exceeds the Initial Interval** | the estimated worst-case measurement time is **at least twice** the Initial Interval — the requested sampling rate cannot be met, and actual samples will be slower than configured |
+| **Est. time/measurement index  is close to the Initial Interval** | the estimated worst-case measurement time reaches about **75 %** of the Initial Interval — the schedule is tight and small changes may push it over |
+| **Est. time/measurement index  exceeds the Initial Interval** | the estimated worst-case measurement time is **at least twice** the Initial Interval — the requested sampling rate cannot be met, and actual samples will be slower than configured |
 
 Because current measurements under AUTO / limited-auto ranging span a range of
 possible integration times, the check uses the **worst case** (the slowest

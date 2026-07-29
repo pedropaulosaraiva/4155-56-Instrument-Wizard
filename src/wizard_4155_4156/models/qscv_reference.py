@@ -22,8 +22,6 @@ single-coefficient inverse law and only the intercept is stored here::
 
     C_max(V) = A / V        with        A = 10**intercept
 
-These are REFERENCE values, not guaranteed operating limits: callers must
-present them as such and advise a safety margin (see ``SAFETY_MARGIN_*``).
 
 Restrictions
 ------------
@@ -52,8 +50,6 @@ __all__ = [
     "REFERENCE_SLOPE",
     "REFERENCE_INTEGRATION_TIMES",
     "REFERENCE_INTERCEPTS",
-    "SAFETY_MARGIN_MIN",
-    "SAFETY_MARGIN_MAX",
     "MIN_ACCURATE_CSTEP",
     "supported_integration_times",
     "nearest_supported_time",
@@ -64,10 +60,6 @@ __all__ = [
 
 # Slope shared by every published curve: C_max is inversely proportional to V.
 REFERENCE_SLOPE: float = -1.0
-
-# Recommended safety margin below the reference ceiling.
-SAFETY_MARGIN_MIN: float = 10.0
-SAFETY_MARGIN_MAX: float = 100.0
 
 # Capacitance measurement voltage below which the manufacturer's capacitance
 # accuracy specification no longer applies.

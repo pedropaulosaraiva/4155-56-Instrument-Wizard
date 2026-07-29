@@ -440,13 +440,13 @@ class SamplingConstraints:
         interval = _format_time_interval(t_min, t_max)
         if t_max >= SAMPLE_TIME_EXCEED_RATIO * iint:
             return [
-                f"Est. time/sample ({interval}) exceeds the "
-                f"Initial Interval ({iint:.3g} s)"
+                f"Estimation time per measurement index ({interval}) exceeds "
+                f"the Initial Interval ({iint:.3g} s)"
             ]
         if t_max >= SAMPLE_TIME_CLOSE_RATIO * iint:
             return [
-                f"Est. time/sample ({interval}) is close to the "
-                f"Initial Interval ({iint:.3g} s)"
+                f"Estimation time per measurement index ({interval}) is close "
+                f"to the Initial Interval ({iint:.3g} s)"
             ]
         return []
 
