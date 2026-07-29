@@ -11,6 +11,8 @@ from wizard_4155_4156.models.config_loader import sweep_config_from_setup
 from wizard_4155_4156.models.sweep_config import (
     COMP_V_ILOCK_MAX,
     RANGE_VALUES_SMU_VOLTAGE,
+    RATIO_MAX,
+    RATIO_MIN,
     IntegrationMode,
     SweepConfig,
     SweepConstraints,
@@ -655,6 +657,35 @@ def test_vard_effective_step_resolution():
     cfg.vard.ratio = 0.0
     errors = validate(cfg, flags=flags, channels=channels)
     assert not any(e.startswith("VARD Effective Step") for e in errors)
+
+
+@pytest.mark.parametrize(
+    ("ratio", "rejected"),
+    [
+        (1e6, False),  # well past the old ±1000 bound — must be accepted
+        (RATIO_MAX, False),
+        (RATIO_MIN, False),
+        (RATIO_MAX * 10, True),
+        (RATIO_MIN * 10, True),
+    ],
+)
+def test_vard_ratio_software_bound(ratio, rejected):
+    # The instrument sets no ratio limit; ±1e18 is only a software sanity
+    # guard.  VAR1 is pinned to 0 so the VARD *output* span check stays
+    # satisfied and the assertion isolates the ratio rule.
+    cfg = make_config()
+    cfg.var1.start = cfg.var1.stop = 0.0
+    cfg.vard.offset = 0.0
+    cfg.vard.ratio = ratio
+    flags = SweepUnitFlags(
+        has_var1=True, has_vard=True, var1_is_voltage=True
+    )
+    channels = [
+        smu(1, mode="V", function="VAR1"),
+        smu(2, mode="V", function="VAR1'"),
+    ]
+    errors = validate(cfg, flags=flags, channels=channels)
+    assert any(e.startswith("VARD Ratio") for e in errors) is rejected
 
 
 @pytest.mark.parametrize(

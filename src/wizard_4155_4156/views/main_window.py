@@ -313,9 +313,6 @@ class MainWindow(QMainWindow):
         )
         bar.addWidget(self._status_indicator)
 
-        bar.showMessage(
-            "Semiconductor Parameter Analyzer — GPIB Controller Ready"
-        )
         self._status_bar = bar
 
     def _build_menu(self) -> None:

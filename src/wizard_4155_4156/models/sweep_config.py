@@ -31,7 +31,7 @@ Power compliance       : 1 mW – 20 W
 VAR2 number of steps   : 1 – 128
 VAR1 points            : 1 – 1001  (cross-rule)
 Total points           : measurable vars × indexes ≤ 15 200  (cross-rule)
-VARD ratio             : ±1000
+VARD ratio             : ±1e18  (software guard — no instrument limit)
 """
 
 from __future__ import annotations
@@ -136,9 +136,12 @@ ICOMP_THRESHOLD_40V: float = 0.05  # |I| ≤ 50 mA → V-comp ≤ 40 V
 PCOMP_MIN: float = 1e-3  # 1 mW
 PCOMP_MAX: float = 2.0  # W (all power compliances limited to 2W by equipment)
 
-# VARD ratio
-RATIO_MIN: float = -1000.0
-RATIO_MAX: float = 1000.0
+# VARD ratio.  The 4155C/4156C defines no ratio limit: the physical ceiling is
+# the VARD *output* (VAR1 x ratio + offset) having to fit the source range, and
+# that is checked separately in _validate_vard.  These bounds are only a
+# software sanity guard against overflow / garbage input.
+RATIO_MIN: float = -1e18
+RATIO_MAX: float = 1e18
 
 # SMU pulse source (mode VPULSE/IPULSE) — MEASURE: SWEEP SETUP pulse block.
 # Bounds mirror MeasureSweepCommandBuilder (SCPI pulse builders).

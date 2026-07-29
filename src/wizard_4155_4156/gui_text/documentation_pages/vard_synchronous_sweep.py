@@ -26,7 +26,7 @@ when the source is a VSU (which has no compliance).
 | Control | What it does |
 |---------|--------------|
 | **Offset** | The constant added to the scaled VAR1 value. Its units follow the assigned channel. |
-| **Ratio** | The factor VAR1 is multiplied by — a dimensionless multiplier (shown with a **×** unit). |
+| **Ratio** | The factor VAR1 is multiplied by — a dimensionless multiplier (shown with a **×** unit). The instrument sets no limit on it; what constrains it is the resulting output having to fit the assigned channel's range. |
 | **Compliance** | The limit the source will not exceed (a current limit for a voltage source, a voltage limit for a current source). Hidden for VSU sources. |
 | **Power Compliance** | Optional power limit. The value field is greyed out until you switch on the toggle beside it; while it is off, the setting is left out of the generated configuration. Hidden for VSU sources. |
 
