@@ -20,6 +20,7 @@ Exposes:
     - ``AppIcon``      — semantic resource paths (decoupled from filenames).
     - ``AppIcon24``    — semantic paths into the theme-matched 24 px set.
     - ``app_icon``     — plain ``QIcon`` from a resource path (untinted).
+    - ``logo_pixmap``  — a brand asset rendered untinted into a w×h box.
     - ``tinted_pixmap``— a single recolored ``QPixmap``.
     - ``accent_button_icon`` — icon tinted for ACCENT-filled buttons.
     - ``hover_tinted_icon``  — two-state icon for hover-repainted buttons.
@@ -28,7 +29,7 @@ Exposes:
 """
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPixmap
 
 from wizard_4155_4156 import resources_rc  # noqa: F401  (registers :/icons)
 from wizard_4155_4156.styles.theme import ICON_VARIANT
@@ -47,6 +48,10 @@ class AppIcon:
     NEW_PROJECT = ":/icons/new_project"
     OPEN_PROJECT = ":/icons/open_project"
     MAIN_LOGO = ":/branding/main_logo"  # full-color 128 px PNG, theme-free
+    # GREYC institutional logo — 320×80 SVG shipped in two variants: the
+    # full-color violet original for light backgrounds, a monochrome white cut
+    # for dark ones.  Picked once at import time, like the 24 px icon sets.
+    GREYC_LOGO = f":/branding/greyc/{ICON_VARIANT}"
 
 
 def themed_icon_path(name: str) -> str:
@@ -89,6 +94,20 @@ class AppIcon24:
 def app_icon(path: str) -> QIcon:
     """Load an untinted ``QIcon`` from a ``:/icons/...`` resource path."""
     return QIcon(path)
+
+
+def logo_pixmap(path: str, width: int, height: int) -> QPixmap:
+    """Render a brand asset into a ``width`` × ``height`` box, untinted.
+
+    Unlike :func:`tinted_pixmap` this keeps the source's own colors and takes
+    a non-square box, so a wide logo is not letterboxed inside a square one.
+    The pixmap is rendered at the screen's device-pixel ratio and tagged with
+    it, so an SVG stays crisp under Windows display scaling instead of being
+    upscaled from its logical size.
+    """
+    screen = QGuiApplication.primaryScreen()
+    dpr = screen.devicePixelRatio() if screen is not None else 1.0
+    return QIcon(path).pixmap(QSize(width, height), dpr)
 
 
 def _tint(source: QPixmap, color: str) -> QPixmap:

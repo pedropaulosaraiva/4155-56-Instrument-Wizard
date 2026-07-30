@@ -34,6 +34,7 @@ from wizard_4155_4156.styles.icons import (
     AppIcon24,
     app_icon,
     hover_tinted_icon,
+    logo_pixmap,
     tinted_pixmap,
 )
 from wizard_4155_4156.styles.stylesheets import (
@@ -240,7 +241,7 @@ class QuickActionsPanel(QFrame):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFixedWidth(260)
+        self.setFixedWidth(P.HOME_SIDEBAR_WIDTH)
         self._setup_ui()
         self._apply_styles()
 
@@ -261,8 +262,8 @@ class QuickActionsPanel(QFrame):
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(20, 24, 20, 24)
-        layout.setSpacing(24)
+        layout.setContentsMargins(20, 20, 20, 18)
+        layout.setSpacing(P.HOME_SIDEBAR_SPACING)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         start_title = QLabel("Start")
@@ -287,12 +288,7 @@ class QuickActionsPanel(QFrame):
         self.btn_open.clicked.connect(self.open_project_requested.emit)
         layout.addWidget(self.btn_open)
 
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet(
-            f"color: {P.BORDER}; max-height: 1px; background: {P.BORDER};"
-        )
-        layout.addWidget(separator)
+        layout.addWidget(self._make_separator())
 
         res_title = QLabel("Resources")
         res_title.setStyleSheet(subsection_title_stylesheet())
@@ -315,13 +311,40 @@ class QuickActionsPanel(QFrame):
 
         layout.addStretch()
 
-        version = QLabel("v0.3.0 — Wizard 4155/4156")
+        # Brand footer — the institutional logo and the version line sit below
+        # the stretch, so they pin to the bottom of the column.  The pixmap is
+        # untinted (the light-theme variant is multi-color) and the label needs
+        # an explicit transparent background: the panel stylesheet paints a
+        # universal `*` background rule that would otherwise fill behind it.
+        layout.addWidget(self._make_separator())
+
+        logo = QLabel()
+        logo.setPixmap(
+            logo_pixmap(
+                AppIcon.GREYC_LOGO, P.HOME_LOGO_WIDTH, P.HOME_LOGO_HEIGHT
+            )
+        )
+        logo.setStyleSheet("background: transparent;")
+        logo.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        layout.addWidget(logo)
+
+        version = QLabel("v0.4.0 — Wizard 4155/4156")
         version.setStyleSheet(version_label_stylesheet())
         version.setAlignment(Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(version)
 
         scroll.setWidget(container)
         outer.addWidget(scroll)
+
+    @staticmethod
+    def _make_separator() -> QFrame:
+        """Hairline rule dividing the column into sections."""
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setStyleSheet(
+            f"color: {P.BORDER}; max-height: 1px; background: {P.BORDER};"
+        )
+        return separator
 
     @staticmethod
     def _make_primary_btn(
@@ -553,7 +576,7 @@ class HomePageView(BasePage):
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setCollapsible(1, False)
-        splitter.setSizes([260, 1020])
+        splitter.setSizes([P.HOME_SIDEBAR_WIDTH, 1020])
         splitter.setHandleWidth(1)
         splitter.setStyleSheet(splitter_stylesheet())
 

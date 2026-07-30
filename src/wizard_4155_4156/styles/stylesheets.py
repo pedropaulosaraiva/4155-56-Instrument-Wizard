@@ -425,7 +425,7 @@ def resource_button_stylesheet() -> str:
 def version_label_stylesheet() -> str:
     return (
         f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_XS}; "
-        "margin-top: 20px;"
+        "margin-top: 6px;"
     )
 
 

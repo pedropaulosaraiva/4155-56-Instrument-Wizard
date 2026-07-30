@@ -13,6 +13,10 @@
   <qresource prefix="/branding">
     <file alias="main_logo">../branding/main_logo_detailed_background.png</file>
   </qresource>
+  <qresource prefix="/branding/greyc">
+    <file alias="light">../branding/Greyc_violet.svg</file>
+    <file alias="dark">../branding/GREYC_white.svg</file>
+  </qresource>
   <qresource prefix="/icons/24/dark">
     <file alias="alert-triangle">icons_24_dark_theme/alert-triangle_24_d.svg</file>
     <file alias="bar-chart">icons_24_dark_theme/bar-chart-2_24_d.svg</file>

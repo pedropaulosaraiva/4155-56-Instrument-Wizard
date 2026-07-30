@@ -164,6 +164,13 @@ class _Palette:
     PROJECT_ROW_ICON: int = 38  # px — leading icon chip square
     PROJECT_ROW_DATE_WIDTH: int = 120  # px — right-aligned date column
     RECENT_PANEL_MIN_WIDTH: int = 420  # px — splitter lower bound for list
+    # Quick-actions column (home page).  The gap is deliberately tight: the
+    # column must fit its buttons, the brand footer and the version label
+    # without a scrollbar at WINDOW_MIN_HEIGHT.
+    HOME_SIDEBAR_WIDTH: int = 260  # px — quick-actions column fixed width
+    HOME_SIDEBAR_SPACING: int = 14  # px — gap between sidebar elements
+    HOME_LOGO_WIDTH: int = 180  # px — GREYC logo box (source is 4:1)
+    HOME_LOGO_HEIGHT: int = 45  # px — 180 / 4, preserves the aspect ratio
 
 
 # ── Theme override dicts ─────────────────────────────────────────────────────
