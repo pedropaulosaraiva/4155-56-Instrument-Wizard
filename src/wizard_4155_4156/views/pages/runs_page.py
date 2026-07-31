@@ -56,6 +56,7 @@ from wizard_4155_4156.styles.stylesheets import (
 )
 from wizard_4155_4156.views.pages import BasePage
 from wizard_4155_4156.views.widgets.action_menu import ActionMenu
+from wizard_4155_4156.views.widgets.queue_button import QueueButton
 from wizard_4155_4156.views.widgets.setup_detail_panel import SetupDetailPanel
 
 _ID_ROLE = Qt.ItemDataRole.UserRole
@@ -79,6 +80,8 @@ class RunsPageView(BasePage):
     view_execution_data_requested = Signal(int)  # execution id
     apply_setup_requested = Signal(int)  # setup id (hardware)
     apply_run_fetch_requested = Signal(int)  # setup id (hardware)
+    enqueue_setup_requested = Signal(int)  # setup id (queue a run)
+    open_queue_requested = Signal()  # presenter opens the queue panel
     copy_to_config_requested = Signal(int)  # setup id (copy)
     import_measure_requested = Signal()  # presenter opens the import modal
     import_execution_requested = Signal(int)  # setup id (import runs into)
@@ -88,7 +91,11 @@ class RunsPageView(BasePage):
         self.setStyleSheet(runs_page_stylesheet())
         self._setup_rows: dict[int, SetupRow] = {}
         self._exec_rows: dict[int, ExecRow] = {}
-        self._hardware_ready = False
+        self._connected = False
+        self._busy = False
+        # True while the run button is in its "Add to Queue" mode, so the
+        # click handler knows which request to emit.
+        self._run_queues = False
         self._setup_ui()
         self._update_button_state()
 
@@ -139,13 +146,20 @@ class RunsPageView(BasePage):
     ) -> None:
         self._detail.display(config, summary)
 
-    def set_hardware_ready(self, ready: bool) -> None:
-        """Connected + idle: run buttons may be used.
+    def set_hardware_state(self, connected: bool, busy: bool) -> None:
+        """Push the instrument's connection and in-flight state.
 
-        Only meaningful when a setup is also selected.
+        Both flags are needed, not just their conjunction: a *busy* instrument
+        turns the run button into "Add to Queue" rather than greying it out,
+        while a *disconnected* one disables it outright.
         """
-        self._hardware_ready = ready
+        self._connected = connected
+        self._busy = busy
         self._update_button_state()
+
+    def display_queue_badge(self, count: int, state: str) -> None:
+        """Push the queue size + state onto the toolbar's Queue button."""
+        self._btn_queue.set_queue_state(count, state)
 
     def display_error(self, text: str) -> None:
         self._error.setText(text)
@@ -178,7 +192,11 @@ class RunsPageView(BasePage):
         root.addWidget(splitter, stretch=1)
 
     def _build_toolbar(self) -> QHBoxLayout:
-        """Save-as-setup (left) · Apply Setup / Apply Setup and Run (right)."""
+        """Save-as-setup (left) · Queue (centre) · Apply Setup · Run (right).
+
+        The queue button sits centred between the two clusters, ahead of the
+        run actions so its count reads next to what fills it.
+        """
         row = QHBoxLayout()
         row.setSpacing(8)
 
@@ -188,6 +206,13 @@ class RunsPageView(BasePage):
         self._btn_create.setStyleSheet(runs_primary_button_stylesheet())
         self._btn_create.clicked.connect(self._on_create_clicked)
         row.addWidget(self._btn_create)
+        row.addStretch()
+
+        self._btn_queue = QueueButton()
+        self._btn_queue.clicked.connect(self.open_queue_requested)
+        row.addWidget(self._btn_queue)
+        # Stretches on both sides centre the queue button between the
+        # save action on the left and the run actions on the right.
         row.addStretch()
 
         self._btn_apply = QPushButton(tr_ui(_T.MEAS_BTN_APPLY_SETUP))
@@ -427,17 +452,34 @@ class RunsPageView(BasePage):
         # Imported setups hold external data only — nothing to send to
         # hardware, so the apply/run actions stay off for them.
         has_setup = self._current_setup_id() is not None
-        can_run = (
-            has_setup
-            and self._hardware_ready
-            and not self._current_setup_is_import()
-        )
-        self._btn_apply.setEnabled(can_run)
-        self._btn_run.setEnabled(can_run)
+        runnable = has_setup and not self._current_setup_is_import()
+        idle = self._connected and not self._busy
+        self._btn_apply.setEnabled(runnable and idle)
+        self._update_run_button(runnable)
         self._btn_import_exec.setEnabled(has_setup)
         self._btn_import_exec.setToolTip(
             "" if has_setup else tr_ui(_T.RUNS_NEED_SETUP)
         )
+
+    def _update_run_button(self, runnable: bool) -> None:
+        """Resolve the run button's three states.
+
+        Disconnected → disabled "Apply Setup and Run".  Connected and idle →
+        the same action, live.  Connected but *busy* → "Add to Queue": rather
+        than greying out exactly when a run is worth scheduling, the button
+        changes what it does.  Queuing needs a setup but not an idle bus.
+        """
+        self._run_queues = self._connected and self._busy
+        if self._run_queues:
+            self._btn_run.setText(tr_ui(_T.QUEUE_BTN_ADD))
+            self._btn_run.setIcon(app_icon(AppIcon24.LAYERS))
+            self._btn_run.setToolTip(tr_ui(_T.QUEUE_TT_ADD))
+            self._btn_run.setEnabled(runnable)
+        else:
+            self._btn_run.setText(tr_ui(_T.RUNS_BTN_APPLY_RUN))
+            self._btn_run.setIcon(accent_button_icon(AppIcon24.PLAY))
+            self._btn_run.setToolTip("")
+            self._btn_run.setEnabled(runnable and self._connected)
 
     def _current_setup_is_import(self) -> bool:
         setup_id = self._current_setup_id()
@@ -491,7 +533,11 @@ class RunsPageView(BasePage):
 
     def _on_run_clicked(self) -> None:
         setup_id = self._current_setup_id()
-        if setup_id is not None:
+        if setup_id is None:
+            return
+        if self._run_queues:
+            self.enqueue_setup_requested.emit(setup_id)
+        else:
             self.apply_run_fetch_requested.emit(setup_id)
 
     def _on_copy_clicked(self) -> None:

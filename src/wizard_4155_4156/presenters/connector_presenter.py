@@ -83,6 +83,11 @@ class ConnectorPresenter(QObject):
     data_ready = Signal(dict)  # forwarded from DataFetchTask.data_fetched
     hardware_busy = Signal(bool)  # True when any trigger_* sequence is active
     connection_changed = Signal(bool, str)  # (connected, instrument name)
+    #: A triggered Setup/Run/Fetch chain aborted — the terminal counterpart of
+    #: data_ready.  Without it a caller that armed itself before calling a
+    #: trigger_* method (RunsPresenter/SetupRunService staging a run to
+    #: persist) would stay armed forever and adopt the *next* unrelated fetch.
+    sequence_failed = Signal(str)  # error message
 
     def __init__(
         self,
@@ -271,3 +276,5 @@ class ConnectorPresenter(QObject):
         self.hardware_busy.emit(False)
         self._view.display_error(tr_ui(CommandWizardText.HARDWARE_ERROR_ALERT))
         self._view.modal.append_log(LogMsg.WORKER_ERROR.format(error=err_msg))
+        # Emitted last so listeners observe the same idle state the view does.
+        self.sequence_failed.emit(err_msg)

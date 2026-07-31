@@ -69,6 +69,8 @@ class AppIcon24:
     """
 
     ALERT_TRIANGLE = themed_icon_path("alert-triangle")
+    ARROW_DOWN = themed_icon_path("arrow-down")
+    ARROW_UP = themed_icon_path("arrow-up")
     BAR_CHART = themed_icon_path("bar-chart")
     BOOK = themed_icon_path("book")
     BOOKMARK = themed_icon_path("bookmark")
@@ -80,6 +82,7 @@ class AppIcon24:
     FOLDER = themed_icon_path("folder")
     HELP_CIRCLE = themed_icon_path("help-circle")
     INFO = themed_icon_path("info")
+    LAYERS = themed_icon_path("layers")  # white — accent backgrounds only
     PLAY = themed_icon_path("play")
     PLUS = themed_icon_path("plus")  # white — accent backgrounds only
     SAVE = themed_icon_path("save")

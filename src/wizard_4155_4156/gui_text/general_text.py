@@ -263,6 +263,91 @@ class CommandWizardText(StrEnum):
         "be validated against it."
     )
 
+    # ── Setup run service (shared by the Runs page and the queue) ────────────
+    RUN_ERR_NO_PROJECT = "Open or create a project first."
+    RUN_ERR_SETUP_GONE = "This setup no longer exists in the project."
+    RUN_ERR_IMPORT = (
+        "Imported setups hold external data only — there is nothing to send "
+        "to the instrument."
+    )
+    RUN_ERR_BUSY = "The instrument is already running a measurement."
+    RUN_ERR_BUILD_FAILED = "Could not build the instrument commands: {error}"
+    RUN_ERR_NO_DATA = "The instrument returned no data."
+    RUN_ERR_SAVE_FAILED = "The run finished but could not be saved: {error}"
+    RUN_ERR_PROJECT_CHANGED = (
+        "The project changed while this run was executing — its data was "
+        "discarded."
+    )
+
+    # ── Measurement queue ────────────────────────────────────────────────────
+    QUEUE_TITLE = "Measurement queue"
+    #: Window/taskbar caption — names the app, like the documentation window.
+    QUEUE_WINDOW_TITLE = "Measurement Queue — Wizard 4155/4156"
+    QUEUE_BTN_OPEN = "Open Queue"  # layers icon supplied by the view
+    QUEUE_BTN_ADD = "Add to Queue"
+    QUEUE_TT_OPEN = "Open the measurement queue"
+    QUEUE_TT_ADD = "Schedule the selected setup, even while one is running"
+    QUEUE_EMPTY = (
+        "Nothing queued.\nUse “Add to Queue” on the Runs page to schedule a "
+        "setup."
+    )
+    QUEUE_BTN_PAUSE = "Pause wait list"
+    QUEUE_BTN_RESUME = "Resume wait list"
+    QUEUE_BTN_CLEAR = "Clear queue"
+    QUEUE_BTN_CLEAR_FINISHED = "Clear finished"
+    QUEUE_BTN_CLOSE = "Close"
+    QUEUE_TT_REMOVE = "Remove from the queue"
+    QUEUE_TT_UP = "Move earlier"
+    QUEUE_TT_DOWN = "Move later"
+    QUEUE_CLEAR_TITLE = "Clear queue"
+    QUEUE_CLEAR_MSG = (
+        "Remove the {count} waiting run(s)? A measurement already running "
+        "can only be cancelled by using the stop key on the instrument "
+        "(the data points already collected will still be saved)."
+    )
+    # Queue state chip
+    QUEUE_STATE_IDLE = "Idle"
+    QUEUE_STATE_PENDING = "{waiting} waiting"
+    QUEUE_STATE_RUNNING = "Running — {done}/{total}"
+    QUEUE_STATE_PAUSED = "Paused — {reason}"
+    # Per-item status line
+    QUEUE_STATUS_WAITING = "Waiting"
+    QUEUE_STATUS_RUNNING = "Running · started {time}"
+    QUEUE_STATUS_DONE = "Done · saved as “{name}”"
+    QUEUE_STATUS_FAILED = "Failed · {error}"
+    QUEUE_ROW_ARROW = "{setup}  →  {run}"
+    QUEUE_SETUP_DELETED = "{name} (deleted)"
+    # Pause reasons / notices
+    QUEUE_PAUSE_DISCONNECTED = "instrument disconnected"
+    QUEUE_PAUSE_ERROR = "a run failed"
+    QUEUE_PAUSE_USER = "paused by you"
+    QUEUE_NOTICE_RECONNECTED = (
+        "Instrument reconnected. The queue stays paused — press Resume when "
+        "the setup is ready."
+    )
+    QUEUE_NOTICE_PAUSED_ERROR = (
+        "The queue was paused after a failure: {error}"
+    )
+    QUEUE_NOTICE_SKIPPED = "Skipped “{name}”: {error}"
+    # Status-bar messages
+    QUEUE_MSG_ENQUEUED = "“{name}” added to the queue ({count} pending)."
+    QUEUE_MSG_DROPPED = (
+        "{count} queued run(s) discarded — the project changed."
+    )
+    QUEUE_MSG_FINISHED = "Queue finished — {done} run(s) completed."
+    QUEUE_MSG_DATA_READY = (
+        "Run saved. The Table page is not opened while the queue is running."
+    )
+    # Quit confirmation
+    QUEUE_QUIT_TITLE = "Measurement in progress"
+    QUEUE_QUIT_MSG = (
+        "{detail}\n\nQuit anyway? Queued runs are discarded, and data from a "
+        "measurement still on the instrument will be lost."
+    )
+    QUEUE_QUIT_RUNNING = "A measurement is running."
+    QUEUE_QUIT_WAITING = "{count} run(s) are queued."
+    QUEUE_QUIT_BOTH = "A measurement is running and {count} run(s) are queued."
+
     # ── Graphs page ──────────────────────────────────────────────────────────
     GRAPH_SCENE_DEFAULT = "Scene {n}"
     GRAPH_TT_ADD_SCENE = "Add scene"

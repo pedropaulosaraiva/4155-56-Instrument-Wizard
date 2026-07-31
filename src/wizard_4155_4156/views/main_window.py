@@ -46,6 +46,7 @@ from wizard_4155_4156.extra_widgets.file_dialogs import (
     DialogPurpose,
     get_save_path,
 )
+from wizard_4155_4156.extra_widgets.queue_panel_dialog import QueuePanelDialog
 from wizard_4155_4156.extra_widgets.settings_dialog import SettingsDialog
 from wizard_4155_4156.extra_widgets.setup_metadata_dialog import (
     SetupMetadataDialog,
@@ -62,7 +63,9 @@ from wizard_4155_4156.presenters.home_presenter import HomePresenter
 from wizard_4155_4156.presenters.measure_config_factory import (
     MeasureConfigFactory,
 )
+from wizard_4155_4156.presenters.queue_presenter import QueuePresenter
 from wizard_4155_4156.presenters.runs_presenter import RunsPresenter
+from wizard_4155_4156.presenters.setup_run_service import SetupRunService
 from wizard_4155_4156.presenters.table_presenter import TablePresenter
 from wizard_4155_4156.styles.stylesheets import (
     application_stylesheet,
@@ -177,6 +180,36 @@ class MainWindow(QMainWindow):
         # Everything except Home is locked until a project is opened/created.
         self._set_project_pages_enabled(False)
 
+        # ── SetupRunService ──────────────────────────────────────────────────
+        # The single arbiter for "run a saved setup and persist the result".
+        # Both the Runs page and the queue drive this one instance, which is
+        # what guarantees only one measurement is ever on the bus (the
+        # connector's trigger_full_sequence is not re-entrant).
+        self._run_service = SetupRunService(
+            project_manager=self._project_manager,
+            settings_manager=self._global_settings,
+            connector_presenter=self._connector_presenter,
+            parent=self,
+        )
+
+        # ── QueuePresenter ───────────────────────────────────────────────────
+        # Batch scheduling on top of the same service.  The panel is created
+        # PARENTLESS on purpose (like DocumentationWindow) so it is a real
+        # independent window: its own taskbar entry, freely minimisable, not
+        # pinned above the main window.  MainWindow keeps the only strong
+        # reference besides the presenter's, and closeEvent closes it.
+        self._queue_panel = QueuePanelDialog()
+        self._queue_presenter = QueuePresenter(
+            view=self._queue_panel,
+            run_service=self._run_service,
+            project_manager=self._project_manager,
+            connector_presenter=self._connector_presenter,
+            parent=self,
+        )
+        self._queue_presenter.status_message.connect(
+            lambda msg: self._status_bar.showMessage(msg, 5000)
+        )
+
         # ── RunsPresenter ────────────────────────────────────────────────────
         # CRUD browser over the open project database.  Reads the live config
         # through the same factory and stamps author/org from global settings.
@@ -186,6 +219,8 @@ class MainWindow(QMainWindow):
             config_provider=self._measure_factory,
             settings_manager=self._global_settings,
             connector_presenter=self._connector_presenter,
+            run_service=self._run_service,
+            queue_presenter=self._queue_presenter,
             parent=self,
         )
         self._runs_presenter.copy_to_config_requested.connect(
@@ -202,7 +237,7 @@ class MainWindow(QMainWindow):
             parent=self,
         )
         self._table_presenter.navigation_requested.connect(
-            lambda: self._navigate_to(Page.TABLE)
+            self._on_table_navigation_requested
         )
         self._table_presenter.status_message.connect(
             lambda msg: self._status_bar.showMessage(msg, 5000)
@@ -211,10 +246,9 @@ class MainWindow(QMainWindow):
         self._runs_presenter.view_execution_requested.connect(
             self._table_presenter.show_execution
         )
-        # A live fetch is cached and shown as the "Live" dataset.
-        self._connector_presenter.data_ready.connect(
-            self._table_presenter.show_live_data
-        )
+        # A live fetch is cached and shown as the "Live" dataset — wired by
+        # TablePresenter itself (connecting it here too would run
+        # show_live_data twice per fetch).
 
         # ── GraphPresenter ───────────────────────────────────────────────────
         # Visualizes/compares saved executions and persists graph scenes
@@ -440,6 +474,11 @@ class MainWindow(QMainWindow):
         )
         self._top_bar.set_project_status(name)
         self._set_project_pages_enabled(True)
+        # Queued entries reference setups of the project being replaced, so
+        # they are discarded before anything reads the new database.  A run
+        # already on the bus keeps going; SetupRunService compares the project
+        # by identity on return and drops its data instead of misfiling it.
+        self._queue_presenter.on_project_changed()
         self._runs_presenter.set_database(self._project_manager.current_db)
         self._table_presenter.set_database(self._project_manager.current_db)
         self._graph_presenter.set_database(self._project_manager.current_db)
@@ -640,12 +679,51 @@ class MainWindow(QMainWindow):
             else status_indicator_ready_stylesheet()
         )
 
+    def _on_table_navigation_requested(self) -> None:
+        """Show the Table page — unless a batch is draining the queue.
+
+        Every fetch surfaces as the "Live" dataset, so an unattended batch
+        would drag the user to the Table page once per completed run.  The data
+        is still cached there (and each queued run is persisted as an
+        execution); only the page switch is suppressed.
+        """
+        if self._queue_presenter.has_active_work():
+            self._status_bar.showMessage(
+                tr_ui(CommandWizardText.QUEUE_MSG_DATA_READY), 4000
+            )
+            return
+        self._navigate_to(Page.TABLE)
+
+    def _confirm_quit(self) -> bool:
+        """Ask before abandoning a running measurement / a pending queue."""
+        reply = QMessageBox.question(
+            self,
+            tr_ui(CommandWizardText.QUEUE_QUIT_TITLE),
+            tr_ui(CommandWizardText.QUEUE_QUIT_MSG).format(
+                detail=self._queue_presenter.quit_detail()
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return reply == QMessageBox.StandardButton.Yes
+
     def closeEvent(self, event) -> None:  # noqa: N802
         """
         Drain the GPIB thread pool before the window is destroyed.
         Without this, background tasks may attempt to access Qt objects
         that are already being torn down, causing a segfault.
+
+        A measurement in flight cannot be recalled — the pool thread is parked
+        inside a blocking ``*OPC?`` read — so quitting mid-batch loses that
+        run's data.  Confirm before doing it.
         """
+        busy = self._queue_presenter.has_active_work()
+        if busy and not self._confirm_quit():
+            event.ignore()
+            return
+        # Detach the queue first so no deferred dispatch can start a new
+        # sequence while the pool is being drained.
+        self._queue_presenter.shutdown()
         for window in list(self._doc_windows):
             window.close()
         self._connector_presenter.cleanup()

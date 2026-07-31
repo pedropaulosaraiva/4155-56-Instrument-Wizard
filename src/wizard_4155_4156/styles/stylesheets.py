@@ -1684,6 +1684,168 @@ def import_file_list_stylesheet() -> str:
     """
 
 
+# ── Measurement queue ────────────────────────────────────────────────────
+
+
+def queue_badge_stylesheet(kind: str = "idle") -> str:
+    """Numeric count pill riding *inside* the Runs-page Queue button.
+
+    The button is ACCENT-filled, so the badge reads light-on-accent: a
+    translucent white wash of the button's own blue rather than a second solid
+    color.  ``paused`` is the exception — a stalled queue keeps the amber
+    warning hue on an opaque fill so it stays legible against the accent.
+
+    The radius is half the fixed height rather than ``RADIUS_PILL``: Qt ignores
+    a radius larger than half the widget and squares the corners off, and this
+    badge is far shorter than the header chip.  Same reason
+    ``row_remove_button_stylesheet`` pairs ``10px`` with its 20 px box.
+    """
+    fills = {
+        "paused": (P.BG_ELEVATED, P.STATUS_WARN),
+    }
+    bg, fg = fills.get(
+        kind, (_rgba(P.TEXT_ON_ACCENT, 0.22), P.TEXT_ON_ACCENT)
+    )
+    return f"""
+        QLabel {{
+            background-color: {bg};
+            color: {fg};
+            border: none;
+            border-radius: 9px;
+            min-height: 18px;
+            min-width: 4px;
+            padding: 0px 6px;
+            font-size: {P.FONT_SIZE_XS};
+            font-weight: bold;
+        }}
+    """
+
+
+def queue_list_stylesheet() -> str:
+    """Queue panel list.
+
+    Rows are widget-based (status, labels, reorder + remove buttons), so the
+    items themselves carry no padding — it would clip the embedded widget.
+    Mirrors ``import_file_list_stylesheet`` with its own row object name.
+
+    Selection is painted by the *item* (the row widget covers the item, so the
+    item's own ``:hover`` never fires and hover must live on the widget).  The
+    hover wash is therefore translucent: an opaque fill would paint over the
+    item's selection tint and hide it whenever the cursor rests on the row.
+    """
+    return f"""
+        QListWidget {{
+            background-color: {P.BG_INPUT};
+            border: 1px solid {P.BORDER};
+            border-radius: {P.RADIUS_MD};
+            outline: 0;
+            padding: 2px;
+        }}
+        QListWidget::item {{
+            padding: 0px;
+            margin: 2px 0px;
+            border: 1px solid transparent;
+            border-radius: {P.RADIUS_SM};
+            background: transparent;
+        }}
+        QListWidget::item:selected {{
+            background-color: {P.ACCENT_MUTED};
+            border: 1px solid {P.ACCENT};
+        }}
+        QWidget#queue_row {{
+            background: transparent;
+            border-radius: {P.RADIUS_SM};
+        }}
+        QWidget#queue_row:hover {{
+            background-color: {_rgba(P.ACCENT, 0.10)};
+        }}
+        QWidget#queue_row_running {{
+            background-color: {P.ACCENT_MUTED};
+            border-radius: {P.RADIUS_SM};
+        }}
+    """
+
+
+def queue_row_position_stylesheet(running: bool = False) -> str:
+    """The leading 1-based position number of a queue row."""
+    color = P.TEXT_WHITE if running else P.TEXT_MUTED
+    return (
+        f"QLabel {{ color: {color}; font-size: {P.FONT_SIZE_SM}; "
+        f"font-weight: bold; background: transparent; min-width: 18px; }}"
+    )
+
+
+def queue_row_title_stylesheet(running: bool = False) -> str:
+    """First line of a queue row: setup name → run name."""
+    color = P.TEXT_WHITE if running else P.TEXT_PRIMARY
+    weight = "bold" if running else "normal"
+    return (
+        f"QLabel {{ color: {color}; font-size: {P.FONT_SIZE_SM}; "
+        f"font-weight: {weight}; background: transparent; }}"
+    )
+
+
+def queue_row_status_stylesheet(kind: str = "muted") -> str:
+    """Second line of a queue row (waiting / running / done / failed)."""
+    color = _STATUS_COLORS.get(kind, P.TEXT_MUTED)
+    return (
+        f"QLabel {{ color: {color}; font-size: {P.FONT_SIZE_XS}; "
+        f"background: transparent; }}"
+    )
+
+
+def queue_row_runtime_stylesheet() -> str:
+    """Right-aligned estimated-runtime label of a queue row."""
+    return (
+        f"QLabel {{ color: {P.TEXT_MUTED}; font-size: {P.FONT_SIZE_XS}; "
+        f"background: transparent; }}"
+    )
+
+
+def queue_state_chip_stylesheet(kind: str = "muted") -> str:
+    """Tinted state pill in the queue-panel header.
+
+    The chip must stay at least ``2 × RADIUS_PILL`` tall, which its layout
+    margins guarantee: Qt drops a ``border-radius`` larger than half the
+    widget's height and paints square corners rather than clamping it, and a
+    frame sized to its 11 px text alone comes out ~21 px — well under the
+    28 px that ``RADIUS_PILL`` (14 px) needs.  QSS ``min-height`` will not fix
+    it here; a plain ``QFrame`` never asks the stylesheet for its size hint.
+
+    Scoped to ``QFrame#queue_state_chip`` rather than a bare ``QFrame`` so the
+    rule cannot leak onto nested frames, matching ``sys_status_pill``.
+    """
+    color = _STATUS_COLORS.get(kind, P.TEXT_MUTED)
+    return f"""
+        QFrame#queue_state_chip {{
+            background-color: {_rgba(color, 0.12)};
+            border: 1px solid {color};
+            border-radius: {P.RADIUS_PILL};
+        }}
+        QFrame#queue_state_chip QLabel {{
+            color: {color};
+            font-size: {P.FONT_SIZE_XS};
+            font-weight: bold;
+            background: transparent;
+            border: none;
+        }}
+    """
+
+
+def queue_notice_stylesheet() -> str:
+    """Non-blocking notice bar in the queue panel (amber, not an error)."""
+    return f"""
+        QLabel {{
+            background-color: {_rgba(P.STATUS_WARN, 0.15)};
+            color: {P.STATUS_WARN};
+            border: 1px solid {P.STATUS_WARN};
+            border-radius: {P.RADIUS_SM};
+            padding: 6px 14px;
+            font-size: {P.FONT_SIZE_SM};
+        }}
+    """
+
+
 def runs_empty_label_stylesheet() -> str:
     return (
         f"color: {P.TEXT_DISABLED}; font-size: {P.FONT_SIZE_MD}; "

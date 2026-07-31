@@ -19,6 +19,8 @@
   </qresource>
   <qresource prefix="/icons/24/dark">
     <file alias="alert-triangle">icons_24_dark_theme/alert-triangle_24_d.svg</file>
+    <file alias="arrow-down">icons_24_dark_theme/arrow-down_24_d.svg</file>
+    <file alias="arrow-up">icons_24_dark_theme/arrow-up_24_d.svg</file>
     <file alias="bar-chart">icons_24_dark_theme/bar-chart-2_24_d.svg</file>
     <file alias="book">icons_24_dark_theme/book_24_d.svg</file>
     <file alias="bookmark">icons_24_dark_theme/bookmark_24_d.svg</file>
@@ -30,6 +32,7 @@
     <file alias="folder">icons_24_dark_theme/folder_24_d.svg</file>
     <file alias="help-circle">icons_24_dark_theme/help-circle_24_d.svg</file>
     <file alias="info">icons_24_dark_theme/info_24_d.svg</file>
+    <file alias="layers">icons_24_dark_theme/layers_24_d_bluecontrast.svg</file>
     <file alias="play">icons_24_dark_theme/play_24_d.svg</file>
     <file alias="plus">icons_24_dark_theme/plus_24_d.svg</file>
     <file alias="save">icons_24_dark_theme/save_24_d.svg</file>
@@ -42,6 +45,8 @@
   </qresource>
   <qresource prefix="/icons/24/light">
     <file alias="alert-triangle">icons_24_light_theme/alert-triangle_24_l.svg</file>
+    <file alias="arrow-down">icons_24_light_theme/arrow-down_24_l.svg</file>
+    <file alias="arrow-up">icons_24_light_theme/arrow-up_24_l.svg</file>
     <file alias="bar-chart">icons_24_light_theme/bar-chart-2_24_l.svg</file>
     <file alias="book">icons_24_light_theme/book_24_l.svg</file>
     <file alias="bookmark">icons_24_light_theme/bookmark_24_l.svg</file>
@@ -53,6 +58,7 @@
     <file alias="folder">icons_24_light_theme/folder_24_l.svg</file>
     <file alias="help-circle">icons_24_light_theme/help-circle_24_l.svg</file>
     <file alias="info">icons_24_light_theme/info_24_l.svg</file>
+    <file alias="layers">icons_24_light_theme/layers_24_l_bluecontrast.svg</file>
     <file alias="play">icons_24_light_theme/play_24_l.svg</file>
     <file alias="plus">icons_24_light_theme/plus_24_l_bluecontrast.svg</file>
     <file alias="save">icons_24_light_theme/save_24_l.svg</file>
