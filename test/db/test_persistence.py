@@ -373,6 +373,53 @@ def test_deleting_a_setup_cascades_to_executions_and_data(sweep_db):
         assert _count(s, LogMessage) == 1, "execution log not cascaded"
 
 
+def test_setup_ids_are_never_reused_after_a_delete(db):
+    """Deleting the highest-id setup must not free that id for reuse.
+
+    Without ``sqlite_autoincrement`` the id column is a bare rowid alias and
+    SQLite hands out ``max(rowid) + 1``, so the next setup would silently
+    inherit the deleted one's id — and with it every queued reference to it.
+    """
+    names = ["setup_a", "setup_b", "setup_c"]
+    for name in names:
+        _add_setup(db, SWEEP_CFG, name)
+
+    with db.session() as s:
+        used = {name: _get_setup(s, name).id for name in names}
+    assert used["setup_c"] == max(used.values()), "expected c to be highest"
+
+    with db.session() as s:
+        s.delete(_get_setup(s, "setup_c"))
+
+    _add_setup(db, SWEEP_CFG, "setup_d")
+
+    with db.session() as s:
+        new_id = _get_setup(s, "setup_d").id
+    assert new_id not in used.values(), "a deleted setup id was reassigned"
+    assert new_id > max(used.values()), "setup ids must increase monotonically"
+
+
+def test_execution_ids_are_never_reused_after_a_delete(sweep_db):
+    """Same guarantee for executions: saved graph scenes embed these ids."""
+    names = ["run_a", "run_b", "run_c"]
+    for name in names:
+        _add_execution(sweep_db, _RESULTS, name=name)
+
+    with sweep_db.session() as s:
+        used = {name: _get_execution(s, name).id for name in names}
+    assert used["run_c"] == max(used.values()), "expected c to be highest"
+
+    with sweep_db.session() as s:
+        s.delete(_get_execution(s, "run_c"))
+
+    _add_execution(sweep_db, _RESULTS, name="run_d")
+
+    with sweep_db.session() as s:
+        new_id = _get_execution(s, "run_d").id
+    assert new_id not in used.values(), "a deleted execution id was reassigned"
+    assert new_id > max(used.values()), "execution ids must increase"
+
+
 def test_duplicate_setup_name_is_rejected(db):
     _add_setup(db, SAMP_CFG, "samp_numeric")
 

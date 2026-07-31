@@ -45,6 +45,13 @@ class MeasurementSetup(Base):
     + the config dict as JSON."""
 
     __tablename__ = "measurement_setup"
+    # AUTOINCREMENT, not a bare rowid alias: setup ids are held across delete
+    # boundaries by the run queue (``models/measurement_queue.py`` stores only
+    # ``setup_id``) and re-read at dispatch time, so a recycled id would let a
+    # queued item execute a *different* setup's configuration.  AUTOINCREMENT
+    # keeps a high-water mark in ``sqlite_sequence``; without it SQLite hands
+    # out ``max(rowid) + 1`` and reuses the id of a deleted last row.
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True, index=True)
@@ -96,6 +103,11 @@ class MeasurementExecution(Base):
     """A dataset captured by running a ``MeasurementSetup``."""
 
     __tablename__ = "measurement_execution"
+    # Same reasoning as ``MeasurementSetup``: execution ids are embedded in
+    # saved Graphs-page scenes (``"exec:<id>"`` trace ids and
+    # ``selected_exec_ids`` in ``models/graph/config.py``), so a recycled id
+    # would silently re-point a stored graph at an unrelated dataset.
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(unique=True, index=True)

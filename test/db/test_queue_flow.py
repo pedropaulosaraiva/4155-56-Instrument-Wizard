@@ -517,6 +517,32 @@ def test_deleted_setup_is_skipped_and_the_batch_continues(rig, qt_app, db):
     assert _exec_names(db) == ["run_survivor"]
 
 
+def test_a_new_setup_never_inherits_a_deleted_setup_id(rig, qt_app, db):
+    """A replacement setup must not be executed in a deleted one's place.
+
+    The queue holds only ``setup_id`` and re-reads the configuration at
+    dispatch time.  When SQLite recycled the rowid of the last deleted setup,
+    a setup saved after the queued one was deleted took over its id — and the
+    queued item silently ran the *replacement's* configuration on hardware.
+    """
+    doomed = _add_setup(db, "doomed")
+    presenter, _service, connector, panel, _projects = rig
+    presenter.enqueue(doomed, "doomed", "run_doomed")
+
+    with db.session() as s:
+        s.delete(s.get(MeasurementSetup, doomed))
+    replacement = _add_setup(db, "replacement")
+    _pump(qt_app)
+
+    assert replacement != doomed, "a deleted setup id was reassigned"
+    # The queued item is gone for good: nothing reached the instrument and no
+    # execution was written against the replacement.
+    assert connector.sequences == []
+    assert _statuses(panel)[0] is QueueItemStatus.FAILED
+    assert panel.rows[0].setup_label.endswith("(deleted)")
+    assert _exec_names(db) == []
+
+
 def test_renamed_setup_shows_its_current_name_and_still_runs(rig, qt_app, db):
     presenter, _service, connector, panel, _projects = rig
     setup_id = _add_setup(db, "old_name")
