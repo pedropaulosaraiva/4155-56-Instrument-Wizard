@@ -1,7 +1,7 @@
 [project]
 name = "wizard_4155_4156"
-version = "0.4.0"
-description = "Add your description here"
+version = "0.5.0"
+description = "Desktop workbench for Agilent/Keysight 4155 and 4156 semiconductor parameter analyzers: configure channels, build validated sweep, sampling and QSCV measurements, run them over GPIB, then plot, fit and export."
 readme = "README.md"
 authors = [
     { name = "Pedro Saraiva", email = "pp.guedessaraiva@gmail.com" }
